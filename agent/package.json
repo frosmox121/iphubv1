@@ -1,9 +1,0 @@
-{
-  "name": "iphub-monitor",
-  "version": "2.0.0",
-  "description": "IPHub monitor de red",
-  "main": "main.js",
-  "author": "IPHub",
-  "scripts": { "start": "electron ." },
-  "devDependencies": { "electron": "^31.0.0" }
-}
