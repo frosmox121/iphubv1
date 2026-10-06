@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data: blob: file:;">
+<title>IPHub</title>
+<style>
+:root{--p:#0a1628;--s:#1a0b2e;--t:#e2e8f0;--m:#94a3b8;--ok:#10b981;--warn:#f59e0b;--bad:#ef4444;--c:#06b6d4;--line:rgba(255,255,255,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(160deg,var(--p),var(--s)) fixed;color:var(--t);min-height:100vh;padding:1.2rem 1.5rem 2rem}
+header{display:flex;align-items:center;gap:.9rem;margin-bottom:1rem;flex-wrap:wrap}
+.logo{width:42px;height:42px;border-radius:12px;overflow:hidden;background:#16324a}.logo img{width:100%;height:100%;object-fit:cover;display:block}
+h1{font-size:1.3rem}h1 small{display:block;font-size:.78rem;color:var(--m);font-weight:400;margin-top:.1rem}
+.sp{flex:1}
+input,select{background:rgba(15,23,42,.8);border:1px solid var(--line);color:var(--t);border-radius:999px;padding:.5rem .9rem;font:inherit;font-size:.85rem;outline:none}
+input:focus,select:focus{border-color:#3b82f6}
+#q{width:300px}
+.btn{border:0;border-radius:999px;padding:.5rem 1rem;font-weight:600;font-size:.84rem;cursor:pointer;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;font-family:inherit}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.g{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:var(--t)}
+.btn.ok{background:rgba(16,185,129,.22);color:#6ee7b7}
+.btn.bad{background:rgba(239,68,68,.22);color:#fca5a5}
+.btn.sm{padding:.3rem .65rem;font-size:.76rem}
+#prog{height:3px;background:rgba(255,255,255,.06);border-radius:9px;margin-bottom:1rem;overflow:hidden;opacity:0;transition:opacity .2s}
+#prog.on{opacity:1}#prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3b82f6,#8b5cf6);transition:width .3s}
+.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:.8rem;margin-bottom:.9rem}
+.card{background:rgba(15,23,42,.75);border:1px solid var(--line);border-radius:14px;padding:.9rem 1rem}
+.card h4{color:var(--m);font-size:.74rem;font-weight:500;margin-bottom:.3rem}
+.card .v{font-size:1.5rem;font-weight:700}.card .v small{font-size:.78rem;color:var(--m);font-weight:500}
+.bar{height:6px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-top:.45rem}.bar>i{display:block;height:100%;border-radius:99px}
+.net{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.55rem 1.2rem;margin-bottom:.9rem}
+.net div{font-size:.82rem}.net b{display:block;color:var(--m);font-weight:500;font-size:.7rem;margin-bottom:.1rem}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:.78rem}
+.tools{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;margin-bottom:.7rem}
+.chip{border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--m);border-radius:999px;padding:.3rem .8rem;font-size:.78rem;cursor:pointer;font-family:inherit}
+.chip.on{background:rgba(59,130,246,.25);color:#bfdbfe;border-color:#3b82f6}
+label.ck{font-size:.78rem;color:var(--m);display:flex;gap:.35rem;align-items:center;cursor:pointer}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{text-align:left;color:var(--m);font-weight:500;padding:.5rem .5rem;border-bottom:1px solid var(--line);white-space:nowrap;font-size:.74rem}
+td{padding:.55rem .5rem;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
+tr.r{cursor:pointer}tr.r:hover td{background:rgba(255,255,255,.035)}tr.off td{opacity:.5}tr.sel td{background:rgba(59,130,246,.12)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:.45rem}.off .dot{background:#64748b}
+.tag{display:inline-block;padding:.08rem .5rem;border-radius:999px;font-size:.68rem;font-weight:700;margin-left:.3rem;white-space:nowrap}
+.tag.ok{background:rgba(16,185,129,.2);color:#6ee7b7}.tag.warn{background:rgba(245,158,11,.2);color:#fcd34d}.tag.bad{background:rgba(239,68,68,.2);color:#fca5a5}.tag.me{background:rgba(59,130,246,.25);color:#93c5fd}.tag.new{background:rgba(139,92,246,.28);color:#c4b5fd}.tag.mut{background:rgba(148,163,184,.18);color:var(--m)}
+.pt{display:inline-block;font-size:.68rem;padding:.05rem .4rem;border-radius:6px;background:rgba(255,255,255,.07);margin:0 .2rem .15rem 0;color:var(--m)}.pt.h{background:rgba(239,68,68,.2);color:#fca5a5}.pt.m{background:rgba(245,158,11,.2);color:#fcd34d}
+.muted{color:var(--m)}
+#dr{position:fixed;top:0;right:0;height:100vh;width:430px;max-width:96vw;background:#0d1b33;border-left:1px solid var(--line);padding:1.1rem 1.2rem 2rem;overflow-y:auto;transform:translateX(105%);transition:transform .2s;z-index:5;box-shadow:-10px 0 30px rgba(0,0,0,.35)}
+#dr.on{transform:none}
+#dr h2{font-size:1.1rem;margin-bottom:.15rem}#dr h3{font-size:.72rem;color:var(--c);text-transform:uppercase;letter-spacing:.06em;margin:1rem 0 .4rem}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:.3rem .7rem;font-size:.82rem}.kv span:nth-child(odd){color:var(--m)}.kv span{word-break:break-word}
+.pr{padding:.4rem 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:.8rem}.pr small{display:block;color:var(--m);font-size:.72rem;margin-top:.1rem;word-break:break-word}
+.acts{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.8rem}
+#dr textarea{width:100%;background:rgba(15,23,42,.8);border:1px solid var(--line);color:var(--t);border-radius:10px;padding:.5rem .7rem;font:inherit;font-size:.82rem;resize:vertical;min-height:56px;outline:none}
+#toast{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);background:#1e293b;border:1px solid var(--line);padding:.5rem 1rem;border-radius:999px;font-size:.82rem;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}#toast.on{opacity:1}
+.foot{margin-top:1rem;color:var(--m);font-size:.76rem}
+@media(max-width:1200px){.cards{grid-template-columns:repeat(3,1fr)}}
+
+.vsw{display:inline-flex;gap:2px;background:rgba(15,23,42,.8);border:1px solid var(--line);border-radius:999px;padding:3px;margin-bottom:.7rem}
+.vsw button{background:none;border:0;color:var(--m);padding:.4rem 1.1rem;border-radius:999px;font:inherit;font-size:.82rem;cursor:pointer;transition:.15s}
+.vsw button.on{background:linear-gradient(135deg,#06b6d4,#8b5cf6);color:#fff;font-weight:600;box-shadow:0 2px 12px rgba(6,182,212,.35)}
+#mapbox{position:relative;display:none;height:min(68vh,640px);min-height:420px;border-radius:12px;overflow:hidden;margin-top:.7rem;border:1px solid var(--line);background:radial-gradient(ellipse at center,rgba(6,182,212,.10),transparent 62%),radial-gradient(circle,rgba(148,163,184,.10) 1px,transparent 1px) 0 0/26px 26px,rgba(8,13,26,.92)}
+#mapc{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#mtip{position:absolute;pointer-events:none;display:none;background:rgba(15,23,42,.96);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:.5rem .7rem;font-size:.78rem;line-height:1.5;max-width:250px;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:3}
+.mctl{position:absolute;right:.7rem;top:.7rem;display:flex;flex-direction:column;gap:.35rem;z-index:2}
+.mctl button{width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:rgba(15,23,42,.85);color:var(--t);cursor:pointer;font-size:1rem}
+.mctl button:hover{border-color:var(--c)}
+.mleg{position:absolute;left:.8rem;bottom:.7rem;display:flex;gap:.9rem;flex-wrap:wrap;font-size:.72rem;color:var(--m);background:rgba(15,23,42,.72);padding:.35rem .8rem;border-radius:999px;border:1px solid var(--line);z-index:2}
+.mleg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.35rem}
+.mhint{position:absolute;left:.9rem;top:.7rem;font-size:.72rem;color:var(--m);z-index:2}
+</style></head><body>
+<header>
+  <div class="logo"><img src="logo-icon.png" alt="IPHub"></div>
+  <div><h1>IPHub<small id="sub"></small></h1></div>
+  <div class="sp"></div>
+  <input id="q" type="search" data-ph="search" autocomplete="off">
+  <select id="lang" title="Idioma"></select>
+  <button class="btn" id="scan" data-i="rescan"></button>
+</header>
+<div class="card" id="cloud" style="margin-bottom:.9rem">
+  <h4>Cuenta de la página</h4>
+  <p class="muted" id="cloud-msg" style="margin:.3rem 0 .6rem">Iniciá sesión con la misma cuenta para que Topología muestre esta red.</p>
+  <div class="tools" style="display:flex;gap:.4rem;flex-wrap:wrap">
+    <input id="cloud-email" type="email" placeholder="correo" style="min-width:180px">
+    <input id="cloud-pass" type="password" placeholder="contraseña" style="min-width:140px">
+    <button class="btn sm" id="cloud-login" type="button">Entrar</button>
+    <button class="btn sm g" id="cloud-google" type="button">Continuar con Google</button>
+    <button class="btn sm g" id="cloud-discord" type="button">Continuar con Discord</button>
+    <button class="btn sm g" id="cloud-out" type="button">Salir</button>
+    <button class="btn sm ok" id="cloud-file" type="button">Exportar para la web</button>
+  </div>
+</div>
+<div id="prog"><i></i></div>
+<div id="noNet" class="card muted" style="display:none;margin-bottom:1rem" data-i="neterr"></div>
+<div class="cards" id="cards"></div>
+<div class="card" style="margin-bottom:.9rem"><h4 data-i="net_title" style="margin-bottom:.6rem"></h4><div class="net" id="net"></div></div>
+<div class="vsw" id="vsw"><button data-v="list" class="on" data-i="v_list"></button><button data-v="map" data-i="v_map"></button></div>
+<div class="card">
+  <div class="tools" id="tools"></div>
+  <div id="mapbox"><canvas id="mapc"></canvas><div class="mhint" data-i="map_hint"></div><div class="mctl"><button data-mz="in" title="Zoom +">+</button><button data-mz="out" title="Zoom −">−</button><button data-mz="fit" title="Centrar">⤢</button></div><div class="mleg" id="mleg"></div><div id="mtip"></div></div>
+  <div class="wrap" id="listwrap"><table><thead><tr id="thead"></tr></thead><tbody id="rows"></tbody></table></div>
+  <p class="foot" data-i="foot"></p>
+</div>
+<aside id="dr"></aside>
+<div id="toast"></div>
+<script>
+/* ---------- Traducciones incluidas en la app: cambian de idioma al instante, sin internet ---------- */
+const LANGS = [['es','Español'],['en','English'],['pt','Português'],['fr','Français'],['de','Deutsch'],['it','Italiano']];
+const K = {
+ search:['Buscar IP, MAC, nombre, fabricante…','Search IP, MAC, name, vendor…','Buscar IP, MAC, nome, fabricante…','Rechercher IP, MAC, nom, fabricant…','IP, MAC, Name, Hersteller suchen…','Cerca IP, MAC, nome, produttore…'],
+ rescan:['Reescanear','Rescan','Reescanear','Réanalyser','Neu scannen','Riscansiona'],
+ ph_discover:['Buscando dispositivos…','Discovering devices…','Procurando dispositivos…','Recherche des appareils…','Geräte werden gesucht…','Ricerca dei dispositivi…'],
+ ph_arp:['Leyendo la red…','Reading the network…','Lendo a rede…','Lecture du réseau…','Netzwerk wird gelesen…','Lettura della rete…'],
+ ph_ports:['Identificando equipos…','Identifying devices…','Identificando equipamentos…','Identification des appareils…','Geräte werden identifiziert…','Identificazione dei dispositivi…'],
+ ph_details:['Obteniendo detalles…','Collecting details…','Obtendo detalhes…','Collecte des détails…','Details werden ermittelt…','Raccolta dei dettagli…'],
+ last:['Último escaneo','Last scan','Último escaneamento','Dernière analyse','Letzter Scan','Ultima scansione'],
+ neterr:['No se detectó ninguna red. Conectate por Wi-Fi o cable y volvé a escanear.','No network detected. Connect via Wi-Fi or cable and rescan.','Nenhuma rede detectada. Conecte-se por Wi-Fi ou cabo e escaneie de novo.','Aucun réseau détecté. Connectez-vous en Wi-Fi ou par câble puis relancez.','Kein Netzwerk erkannt. Per WLAN oder Kabel verbinden und erneut scannen.','Nessuna rete rilevata. Collegati via Wi-Fi o cavo e riscansiona.'],
+ c_online:['En línea','Online','Online','En ligne','Online','Online'],
+ c_unknown:['Desconocidos','Unknown','Desconhecidos','Inconnus','Unbekannt','Sconosciuti'],
+ c_risk:['Puertos de riesgo','Risky ports','Portas de risco','Ports à risque','Riskante Ports','Porte a rischio'],
+ c_score:['Seguridad','Security','Segurança','Sécurité','Sicherheit','Sicurezza'],
+ c_avg:['Latencia media','Avg. latency','Latência média','Latence moyenne','Ø Latenz','Latenza media'],
+ c_off:['Desconectados','Offline','Desconectados','Hors ligne','Offline','Offline'],
+ lvl_good:['Bueno','Good','Bom','Bon','Gut','Buono'],lvl_mid:['Medio','Fair','Médio','Moyen','Mittel','Medio'],lvl_bad:['Crítico','Critical','Crítico','Critique','Kritisch','Critico'],
+ net_title:['Tu red','Your network','Sua rede','Votre réseau','Dein Netzwerk','La tua rete'],
+ n_me:['Este equipo','This device','Este equipamento','Cet appareil','Dieses Gerät','Questo dispositivo'],
+ n_mac:['MAC propia','Own MAC','MAC própria','MAC locale','Eigene MAC','MAC propria'],
+ n_iface:['Interfaz','Interface','Interface','Interface','Schnittstelle','Interfaccia'],
+ n_range:['Rango escaneado','Scanned range','Faixa escaneada','Plage analysée','Gescannter Bereich','Intervallo scansionato'],
+ n_mask:['Máscara','Netmask','Máscara','Masque','Netzmaske','Netmask'],
+ n_gw:['Puerta de enlace','Gateway','Gateway','Passerelle','Gateway','Gateway'],
+ n_dns:['Servidores DNS','DNS servers','Servidores DNS','Serveurs DNS','DNS-Server','Server DNS'],
+ n_wifi:['Wi-Fi','Wi-Fi','Wi-Fi','Wi-Fi','WLAN','Wi-Fi'],
+ n_pub:['IP pública','Public IP','IP público','IP publique','Öffentliche IP','IP pubblico'],
+ n_isp:['Proveedor (ISP)','Provider (ISP)','Provedor (ISP)','Fournisseur (FAI)','Anbieter (ISP)','Provider (ISP)'],
+ n_loc:['Ubicación','Location','Localização','Localisation','Standort','Posizione'],
+ f_all:['Todos','All','Todos','Tous','Alle','Tutti'],f_online:['En línea','Online','Online','En ligne','Online','Online'],f_new:['Nuevos','New','Novos','Nouveaux','Neu','Nuovi'],f_risk:['Con riesgo','At risk','Com risco','À risque','Riskant','A rischio'],f_trusted:['Confiables','Trusted','Confiáveis','De confiance','Vertrauenswürdig','Fidati'],f_off:['Desconectados','Offline','Desconectados','Hors ligne','Offline','Offline'],f_hidden:['Ocultos','Hidden','Ocultos','Masqués','Ausgeblendet','Nascosti'],f_deleted:['Eliminados','Deleted','Excluídos','Supprimés','Gelöscht','Eliminati'],a_restore:['Restaurar','Restore','Restaurar','Restaurer','Wiederherstellen','Ripristina'],v_list:['Lista','List','Lista','Liste','Liste','Elenco'],v_map:['Mapa de red','Network map','Mapa de rede','Carte réseau','Netzwerkkarte','Mappa di rete'],map_hint:['Arrastrá los nodos · rueda para zoom · clic para ver el detalle','Drag nodes · scroll to zoom · click for details','Arraste os nós · role para zoom · clique para detalhes','Faites glisser les nœuds · molette pour zoomer · clic pour les détails','Knoten ziehen · Mausrad zum Zoomen · Klick für Details','Trascina i nodi · rotella per lo zoom · clic per i dettagli'],
+ a_trustall:['Confiar en todos','Trust all online','Confiar em todos','Tout approuver','Allen vertrauen','Fidati di tutti'],a_csv:['Exportar CSV','Export CSV','Exportar CSV','Exporter CSV','CSV exportieren','Esporta CSV'],a_json:['Exportar JSON','Export JSON','Exportar JSON','Exporter JSON','JSON exportieren','Esporta JSON'],
+ a_notify:['Avisar si aparece un dispositivo nuevo','Notify on new devices','Avisar se surgir um novo dispositivo','Notifier les nouveaux appareils','Bei neuen Geräten benachrichtigen','Avvisa se compare un nuovo dispositivo'],
+ th_name:['Nombre','Name','Nome','Nom','Name','Nome'],th_ip:['IP','IP','IP','IP','IP','IP'],th_mac:['MAC','MAC','MAC','MAC','MAC','MAC'],th_vendor:['Fabricante','Vendor','Fabricante','Fabricant','Hersteller','Produttore'],th_type:['Tipo','Type','Tipo','Type','Typ','Tipo'],th_os:['SO probable','Likely OS','SO provável','OS probable','Wahrsch. OS','SO probabile'],th_ports:['Puertos abiertos','Open ports','Portas abertas','Ports ouverts','Offene Ports','Porte aperte'],th_rtt:['Latencia','Latency','Latência','Latence','Latenz','Latenza'],th_seen:['Visto','Seen','Visto','Vu','Gesehen','Visto'],th_state:['Estado','Status','Estado','État','Status','Stato'],
+ s_trusted:['Confiable','Trusted','Confiável','Fiable','Vertraut','Fidato'],s_local:['Este equipo','This device','Este','Cet appareil','Dieses Gerät','Questo'],s_new:['Nuevo','New','Novo','Nouveau','Neu','Nuovo'],s_gw:['Router','Router','Roteador','Routeur','Router','Router'],
+ r_hi:['Riesgo alto','High risk','Risco alto','Risque élevé','Hohes Risiko','Rischio alto'],r_mid:['Riesgo medio','Medium risk','Risco médio','Risque moyen','Mittleres Risiko','Rischio medio'],r_lo:['Bajo riesgo','Low risk','Baixo risco','Risque faible','Geringes Risiko','Rischio basso'],
+ a_trust:['Confiar','Trust','Confiar','Approuver','Vertrauen','Fidati'],a_untrust:['Quitar confianza','Untrust','Remover confiança','Retirer','Vertrauen entziehen','Rimuovi fiducia'],a_hide:['Ocultar','Hide','Ocultar','Masquer','Ausblenden','Nascondi'],a_show:['Mostrar','Show','Mostrar','Afficher','Einblenden','Mostra'],a_remove:['Eliminar','Delete','Excluir','Supprimer','Löschen','Elimina'],a_wol:['Despertar (WoL)','Wake (WoL)','Despertar (WoL)','Réveiller (WoL)','Aufwecken (WoL)','Riattiva (WoL)'],a_web:['Abrir web','Open web UI','Abrir web','Ouvrir le web','Web öffnen','Apri web'],a_cip:['Copiar IP','Copy IP','Copiar IP','Copier IP','IP kopieren','Copia IP'],a_cmac:['Copiar MAC','Copy MAC','Copiar MAC','Copier MAC','MAC kopieren','Copia MAC'],
+ d_id:['Identidad','Identity','Identidade','Identité','Identität','Identità'],d_names:['Nombres detectados','Detected names','Nomes detectados','Noms détectés','Erkannte Namen','Nomi rilevati'],d_net:['Red','Network','Rede','Réseau','Netzwerk','Rete'],d_ports:['Puertos y servicios','Ports & services','Portas e serviços','Ports et services','Ports & Dienste','Porte e servizi'],d_svc:['Servicios anunciados (mDNS)','Advertised services (mDNS)','Serviços anunciados (mDNS)','Services annoncés (mDNS)','Angebotene Dienste (mDNS)','Servizi annunciati (mDNS)'],d_upnp:['UPnP','UPnP','UPnP','UPnP','UPnP','UPnP'],d_note:['Nota','Note','Nota','Note','Notiz','Nota'],d_note_ph:['Escribí una nota…','Write a note…','Escreva uma nota…','Écrivez une note…','Notiz schreiben…','Scrivi una nota…'],
+ d_first:['Primera vez visto','First seen','Visto pela 1ª vez','Première vue','Erstmals gesehen','Visto la prima volta'],d_last:['Última vez visto','Last seen','Visto por último','Dernière vue','Zuletzt gesehen','Visto l\'ultima volta'],d_model:['Modelo','Model','Modelo','Modèle','Modell','Modello'],d_wg:['Grupo de trabajo','Workgroup','Grupo de trabalho','Groupe de travail','Arbeitsgruppe','Gruppo di lavoro'],d_cert:['Certificado','Certificate','Certificado','Certificat','Zertifikat','Certificato'],d_none:['ninguno','none','nenhum','aucun','keine','nessuno'],d_close:['Cerrar','Close','Fechar','Fermer','Schließen','Chiudi'],
+ d_priv:['MAC privada (aleatoria): el equipo la cambia en cada red, por eso no se puede saber el fabricante.','Private (random) MAC: the device changes it per network, so the vendor can\'t be identified.','MAC privada (aleatória): o dispositivo a troca em cada rede, por isso não há fabricante.','MAC privée (aléatoire) : l\'appareil la change par réseau, le fabricant est donc inconnu.','Private (zufällige) MAC: Das Gerät ändert sie je Netzwerk, daher ist der Hersteller unbekannt.','MAC privato (casuale): il dispositivo la cambia per rete, quindi il produttore è ignoto.'],
+ type_router:['Router / Gateway','Router / Gateway','Roteador / Gateway','Routeur / Passerelle','Router / Gateway','Router / Gateway'],type_pc:['Computadora','Computer','Computador','Ordinateur','Computer','Computer'],type_phone_ios:['iPhone / iPad','iPhone / iPad','iPhone / iPad','iPhone / iPad','iPhone / iPad','iPhone / iPad'],type_phone:['Teléfono / Tablet','Phone / Tablet','Telefone / Tablet','Téléphone / Tablette','Handy / Tablet','Telefono / Tablet'],type_tv:['TV / Streaming','TV / Streaming','TV / Streaming','TV / Streaming','TV / Streaming','TV / Streaming'],type_printer:['Impresora','Printer','Impressora','Imprimante','Drucker','Stampante'],type_nas:['NAS','NAS','NAS','NAS','NAS','NAS'],type_camera:['Cámara','Camera','Câmera','Caméra','Kamera','Telecamera'],type_iot:['IoT / Domótica','IoT / Smart home','IoT / Casa inteligente','IoT / Domotique','IoT / Smart Home','IoT / Domotica'],type_console:['Consola','Console','Console','Console','Konsole','Console'],type_speaker:['Parlante','Speaker','Alto-falante','Enceinte','Lautsprecher','Altoparlante'],type_server:['Servidor','Server','Servidor','Serveur','Server','Server'],type_vm:['Máquina virtual','Virtual machine','Máquina virtual','Machine virtuelle','Virtuelle Maschine','Macchina virtuale'],type_unknown:['Desconocido','Unknown','Desconhecido','Inconnu','Unbekannt','Sconosciuto'],
+ os_net:['Equipo de red','Network device','Equipamento de rede','Équipement réseau','Netzwerkgerät','Dispositivo di rete'],
+ empty:['Sin dispositivos en esta vista todavía. El primer escaneo tarda unos segundos.','No devices in this view yet. The first scan takes a few seconds.','Nenhum dispositivo nesta visão ainda. O primeiro escaneamento leva alguns segundos.','Aucun appareil pour l\'instant. La première analyse prend quelques secondes.','Noch keine Geräte. Der erste Scan dauert einige Sekunden.','Ancora nessun dispositivo. La prima scansione richiede qualche secondo.'],
+ foot:['Sin inicio de sesión. Todo se guarda solo en este equipo. Escaneo automático cada 45 s.','No sign-in. Everything stays on this computer. Auto-scan every 45 s.','Sem login. Tudo fica só neste computador. Escaneamento automático a cada 45 s.','Sans connexion. Tout reste sur cet ordinateur. Analyse auto toutes les 45 s.','Ohne Anmeldung. Alles bleibt auf diesem Computer. Auto-Scan alle 45 s.','Senza accesso. Tutto resta su questo computer. Scansione automatica ogni 45 s.'],
+ copied:['Copiado','Copied','Copiado','Copié','Kopiert','Copiato'],wol:['Paquete de encendido enviado','Wake packet sent','Pacote de despertar enviado','Paquet de réveil envoyé','Aufweck-Paket gesendet','Pacchetto di riattivazione inviato'],
+ ago_now:['ahora','now','agora','maintenant','jetzt','ora'],ago_m:['hace {n} min','{n} min ago','há {n} min','il y a {n} min','vor {n} Min.','{n} min fa'],ago_h:['hace {n} h','{n} h ago','há {n} h','il y a {n} h','vor {n} Std.','{n} h fa'],ago_d:['hace {n} d','{n} d ago','há {n} d','il y a {n} j','vor {n} T.','{n} g fa'],
+};
+let LI = 0;
+const t = (k, v) => { let s = (K[k] && (K[k][LI] || K[k][0])) || k; if (v) for (const x in v) s = s.replace('{' + x + '}', v[x]); return s; };
+const $ = id => document.getElementById(id), esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const F = (a, x, y) => window.iphub.call(a, x, y);
+let S = null, sel = null, filter = 'all', q = '';
+
+function setLang(code) {
+  LI = Math.max(0, LANGS.findIndex(l => l[0] === code)); try { localStorage.setItem('iphub_lang', LANGS[LI][0]); } catch (_) {}
+  document.documentElement.lang = LANGS[LI][0];
+  document.querySelectorAll('[data-i]').forEach(e => { e.textContent = t(e.dataset.i); });
+  document.querySelectorAll('[data-ph]').forEach(e => { e.placeholder = t(e.dataset.ph); });
+  $('thead').innerHTML = ['th_name', 'th_ip', 'th_mac', 'th_vendor', 'th_type', 'th_os', 'th_ports', 'th_rtt', 'th_seen', 'th_state'].map(k => `<th>${esc(t(k))}</th>`).join('');
+  $('tools').dataset.k = '';
+  if (S) render();
+}
+(function initLang() {
+  $('lang').innerHTML = LANGS.map(l => `<option value="${l[0]}">${l[1]}</option>`).join('');
+  let c = ''; try { c = localStorage.getItem('iphub_lang') || ''; } catch (_) {}
+  if (!c) c = (navigator.language || 'es').slice(0, 2).toLowerCase();
+  if (!LANGS.some(l => l[0] === c)) c = 'es';
+  $('lang').value = c; $('lang').onchange = e => setLang(e.target.value); setLang(c);
+})();
+
+const ago = iso => { if (!iso) return '—'; const s = (Date.now() - Date.parse(iso)) / 1000; if (s < 60) return t('ago_now'); if (s < 3600) return t('ago_m', { n: Math.round(s / 60) }); if (s < 86400) return t('ago_h', { n: Math.round(s / 3600) }); return t('ago_d', { n: Math.round(s / 86400) }); };
+const osTxt = o => o === '@net' ? t('os_net') : (o || '—');
+const riskTag = r => r >= 60 ? `<span class="tag bad">${esc(t('r_hi'))}</span>` : r >= 30 ? `<span class="tag warn">${esc(t('r_mid'))}</span>` : `<span class="tag ok">${esc(t('r_lo'))}</span>`;
+const pchip = p => `<span class="pt ${p.risk === 2 ? 'h' : p.risk === 1 ? 'm' : ''}">${p.port} ${esc(p.service)}</span>`;
+const typeTxt = d => t('type_' + d.type);
+const nameOf = d => d.name || d.vendor || d.model || '';
+
+function match(d) {
+  if (filter === 'deleted') { if (!d.deleted) return false; } else if (d.deleted) return false;
+  if (filter === 'hidden') { if (!d.ignored) return false; } else if (d.ignored) return false;
+  if (filter === 'online' && !d.online) return false; if (filter === 'new' && !d.isNew) return false;
+  if (filter === 'risk' && !(d.online && d.risk >= 30)) return false; if (filter === 'trusted' && !d.trusted) return false; if (filter === 'off' && d.online) return false;
+  if (!q) return true;
+  const hay = [d.ip, d.mac, d.name, d.vendor, d.model, typeTxt(d), osTxt(d.os), d.note, ...(d.ports || []).map(p => p.port + ' ' + p.service), ...Object.values(d.names || {})].join(' ').toLowerCase();
+  return q.split(/\s+/).every(w => hay.includes(w));
+}
+
+function render() {
+  if (!S) return;
+  const phase = S.scanning ? t('ph_' + (S.progress.phase || 'discover')) : '';
+  $('sub').textContent = [phase, S.net && (S.net.ssid || S.net.cidr), S.net && S.net.cidr, S.scannedAt ? t('last') + ': ' + new Date(S.scannedAt).toLocaleTimeString() + (S.scanMs ? ' (' + (S.scanMs / 1000).toFixed(1) + ' s)' : '') : ''].filter(Boolean).join(' · ');
+  $('prog').classList.toggle('on', S.scanning); $('prog').firstChild.style.width = (S.progress.pct || 0) + '%';
+  $('scan').disabled = S.scanning; $('noNet').style.display = (S.neterr || (S.devices && S.devices.length < 2 && S.net && S.net.ssid)) ? 'block' : 'none'; if (!$('noNet').dataset.k) $('noNet').textContent = 'Si solo ves tu equipo, la WiFi del colegio aísla a los demás. Igual se muestra el router y cualquiera que responda (impresoras, servidores, otros que no estén aislados).';
+  const col = S.level === 'good' ? 'var(--ok)' : S.level === 'mid' ? 'var(--warn)' : 'var(--bad)';
+  $('cards').innerHTML = `
+    <div class="card"><h4>${esc(t('c_online'))}</h4><div class="v">${S.online}</div></div>
+    <div class="card"><h4>${esc(t('c_unknown'))}</h4><div class="v" style="color:${S.unknown ? 'var(--warn)' : 'inherit'}">${S.unknown}</div></div>
+    <div class="card"><h4>${esc(t('c_risk'))}</h4><div class="v" style="color:${S.riskPorts ? 'var(--bad)' : 'inherit'}">${S.riskPorts}</div></div>
+    <div class="card"><h4>${esc(t('c_score'))}</h4><div class="v">${S.score}<small> /100 · ${esc(t('lvl_' + S.level))}</small></div><div class="bar"><i style="width:${S.score}%;background:${col}"></i></div></div>
+    <div class="card"><h4>${esc(t('c_avg'))}</h4><div class="v">${S.avg != null ? S.avg + '<small> ms</small>' : '—'}</div></div>
+    <div class="card"><h4>${esc(t('c_off'))}</h4><div class="v">${S.offline}</div></div>`;
+  const n = S.net || {}, x = n.extras || {}, w = x.wifi, p = x.pub, kv = (k, v) => `<div><b>${esc(t(k))}</b>${v ? esc(v) : '<span class="muted">—</span>'}</div>`;
+  $('net').innerHTML = kv('n_me', n.me) + kv('n_mac', n.mac) + kv('n_iface', n.iface) + kv('n_range', n.cidr) + kv('n_mask', n.mask) + kv('n_gw', n.gw) + kv('n_dns', (x.dns || []).join(', '))
+    + kv('n_wifi', w ? [w.ssid, w.signal && w.signal + '%', w.channel && 'ch ' + w.channel, w.radio].filter(Boolean).join(' · ') : '') + kv('n_pub', p && p.ip) + kv('n_isp', p && p.isp) + kv('n_loc', p && [p.city, p.region, p.country].filter(Boolean).join(', '));
+  const chips = [['all'], ['online'], ['new'], ['risk'], ['trusted'], ['off'], ['hidden'], ['deleted']];
+  if (!$('tools').dataset.k || $('tools').dataset.k !== LI + '|' + filter) {
+    $('tools').dataset.k = LI + '|' + filter;
+    $('tools').innerHTML = chips.map(c => `<button class="chip ${filter === c[0] ? 'on' : ''}" data-f="${c[0]}">${esc(t('f_' + c[0]))}</button>`).join('') + '<span class="sp"></span>'
+      + `<label class="ck"><input type="checkbox" id="nt" ${S.settings && S.settings.notify ? 'checked' : ''}> ${esc(t('a_notify'))}</label>`
+      + `<button class="btn sm g" data-a="trustAll">${esc(t('a_trustall'))}</button><button class="btn sm g" data-ex="csv">${esc(t('a_csv'))}</button><button class="btn sm g" data-ex="json">${esc(t('a_json'))}</button>`;
+  }
+  const list = S.devices.filter(match);
+  $('rows').innerHTML = list.map(d => {
+    const ports = d.ports || [];
+    return `<tr class="r ${d.online ? '' : 'off'} ${sel === d.key ? 'sel' : ''}" data-k="${esc(d.key)}">
+      <td><span class="dot"></span><b>${esc(nameOf(d) || d.ip)}</b>${d.me ? `<span class="tag me">${esc(t('s_local'))}</span>` : ''}${d.isGateway ? `<span class="tag mut">${esc(t('s_gw'))}</span>` : ''}${d.isNew ? `<span class="tag new">${esc(t('s_new'))}</span>` : ''}</td>
+      <td class="mono">${esc(d.ip)}</td><td class="mono">${esc(d.mac || '—')}</td>
+      <td>${d.vendor ? esc(d.vendor) : '<span class="muted">' + (d.macPrivate ? 'MAC privada' : '—') + '</span>'}</td>
+      <td>${esc(typeTxt(d))}</td><td>${esc(osTxt(d.os))}</td>
+      <td>${ports.slice(0, 5).map(pchip).join('') || '<span class="muted">—</span>'}${ports.length > 5 ? `<span class="pt">+${ports.length - 5}</span>` : ''}</td>
+      <td>${d.rtt != null ? d.rtt + ' ms' : '—'}</td><td class="muted">${d.online ? esc(t('ago_now')) : esc(ago(d.lastSeen))}</td>
+      <td>${d.trusted ? `<span class="tag ok">${esc(t('s_trusted'))}</span>` : d.me ? `<span class="tag me">${esc(t('s_local'))}</span>` : riskTag(d.risk || 0)}</td></tr>`;
+  }).join('') || `<tr><td colspan="10" class="muted" style="padding:1.2rem">${esc(t('empty'))}</td></tr>`;
+  mapSync(list);
+  if (sel && $('dr').classList.contains('on') && !(document.activeElement && $('dr').contains(document.activeElement))) drawer();
+}
+
+function drawer() {
+  const d = S.devices.find(x => x.key === sel); const el = $('dr');
+  if (!d) { el.classList.remove('on'); return; }
+  const kv = (k, v) => v ? `<span>${esc(k)}</span><span>${esc(v)}</span>` : '', nm = d.names || {}, u = d.upnp;
+  const web = (d.ports || []).find(p => [80, 8080, 443, 8443, 8000, 5000].includes(p.port));
+  el.innerHTML = `<div style="display:flex;justify-content:space-between;gap:.5rem"><div><h2>${esc(nameOf(d) || d.ip)}</h2><div class="muted" style="font-size:.8rem">${esc(typeTxt(d))} · ${esc(t(d.online ? 'f_online' : 'f_off'))}</div></div><button class="btn sm g" data-close="1">${esc(t('d_close'))}</button></div>
+    <h3>${esc(t('d_id'))}</h3><div class="kv">${kv('IP', d.ip)}${kv('MAC', d.mac)}${kv(t('th_vendor'), d.vendor)}${kv(t('d_model'), d.model)}${kv(t('th_os'), d.os && osTxt(d.os))}${kv(t('d_wg'), d.workgroup)}</div>
+    ${d.macPrivate ? `<p class="muted" style="font-size:.76rem;margin-top:.4rem">${esc(t('d_priv'))}</p>` : ''}
+    <h3>${esc(t('d_names'))}</h3><div class="kv">${kv('NetBIOS', nm.nb)}${kv('mDNS', nm.mdns)}${kv('DNS', nm.dns)}${kv('UPnP', nm.upnp)}${kv('Cast / AirPlay', nm.cast)}${Object.values(nm).some(Boolean) ? '' : `<span></span><span class="muted">—</span>`}</div>
+    <h3>${esc(t('d_net'))}</h3><div class="kv">${kv(t('th_rtt'), d.rtt != null ? d.rtt + ' ms' : '')}${kv('TTL', d.ttl)}${kv(t('d_first'), d.firstSeen && new Date(d.firstSeen).toLocaleString())}${kv(t('d_last'), d.lastSeen && new Date(d.lastSeen).toLocaleString())}</div>
+    <h3>${esc(t('d_ports'))}</h3>${(d.ports || []).map(p => `<div class="pr">${pchip(p)}${p.cert ? `<small>${esc(t('d_cert'))}: ${esc([p.cert.cn, p.cert.issuer, p.cert.expires].filter(Boolean).join(' · '))}</small>` : ''}${p.info ? `<small>${esc(p.info)}</small>` : ''}</div>`).join('') || `<span class="muted">${esc(t('d_none'))}</span>`}
+    ${(d.services || []).length ? `<h3>${esc(t('d_svc'))}</h3>${d.services.map(s => `<span class="pt">${esc(s)}</span>`).join('')}` : ''}
+    ${u ? `<h3>${esc(t('d_upnp'))}</h3><div class="kv">${kv(t('th_name'), u.friendlyName)}${kv(t('th_vendor'), u.manufacturer)}${kv(t('d_model'), [u.modelName, u.modelNumber].filter(Boolean).join(' '))}${kv('Server', u.server)}</div>` : ''}
+    <h3>${esc(t('d_note'))}</h3><textarea id="nt2" maxlength="300" placeholder="${esc(t('d_note_ph'))}">${esc(d.note || '')}</textarea>
+    <div class="acts">
+      ${d.me ? '' : d.trusted ? `<button class="btn sm g" data-a="untrust" data-k="${esc(d.key)}">${esc(t('a_untrust'))}</button>` : `<button class="btn sm ok" data-a="trust" data-k="${esc(d.key)}">${esc(t('a_trust'))}</button>`}
+      ${d.me ? '' : d.deleted ? `<button class="btn sm ok" data-a="restore" data-k="${esc(d.key)}">${esc(t('a_restore'))}</button>` : `<button class="btn sm g" data-a="${d.ignored ? 'unignore' : 'ignore'}" data-k="${esc(d.key)}">${esc(t(d.ignored ? 'a_show' : 'a_hide'))}</button><button class="btn sm bad" data-a="remove" data-k="${esc(d.key)}" data-close="1">${esc(t('a_remove'))}</button>`}
+      ${d.mac && !d.online ? `<button class="btn sm g" data-a="wake" data-k="${esc(d.key)}">${esc(t('a_wol'))}</button>` : ''}
+      ${web ? `<button class="btn sm g" data-open="${web.port === 443 || web.port === 8443 ? 'https' : 'http'}://${esc(d.ip)}:${web.port}/">${esc(t('a_web'))}</button>` : ''}
+      <button class="btn sm g" data-copy="${esc(d.ip)}">${esc(t('a_cip'))}</button>${d.mac ? `<button class="btn sm g" data-copy="${esc(d.mac)}">${esc(t('a_cmac'))}</button>` : ''}
+    </div>`;
+  el.classList.add('on');
+  const ta = $('nt2'); ta.onchange = () => F('note', d.key, ta.value);
+}
+
+function toast(m) { const e = $('toast'); e.textContent = m; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 1800); }
+function setState(s) { if (s && s.devices) { S = s; render(); } }
+function exportData(fmt) {
+  const rows = S.devices.filter(d => !d.ignored && !d.deleted);
+  if (fmt === 'json') return F('export', { name: 'iphub-dispositivos.json', content: JSON.stringify(rows.map(d => ({ ip: d.ip, mac: d.mac, name: d.name, vendor: d.vendor, type: d.type, os: osTxt(d.os), model: d.model, online: d.online, trusted: d.trusted, rtt_ms: d.rtt, ports: (d.ports || []).map(p => ({ port: p.port, service: p.service, info: p.info })), names: d.names, firstSeen: d.firstSeen, lastSeen: d.lastSeen, note: d.note })), null, 2) });
+  const c = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const head = ['IP', 'MAC', t('th_name'), t('th_vendor'), t('th_type'), t('th_os'), t('d_model'), t('th_ports'), t('th_rtt') + ' (ms)', 'Online', t('s_trusted'), t('d_first'), t('d_last'), t('d_note')];
+  return F('export', { name: 'iphub-dispositivos.csv', content: [head.map(c).join(',')].concat(rows.map(d => [d.ip, d.mac, d.name, d.vendor, typeTxt(d), osTxt(d.os), d.model, (d.ports || []).map(p => p.port + '/' + p.service).join(' '), d.rtt, d.online ? 1 : 0, d.trusted ? 1 : 0, d.firstSeen, d.lastSeen, d.note].map(c).join(','))).join('\r\n') });
+}
+
+
+/* ---------- Mapa de red: grafo interactivo ---------- */
+var view = 'list';
+var MAP = { nodes: new Map(), hubKey: null, cam: { x: 0, y: 0, k: 1 }, w: 0, h: 0, dpr: 1, drag: null, pan: null, hover: null, raf: 0, fitted: false, moved: 0 };
+const ICON = { router: '🌐', pc: '💻', phone: '📱', tv: '📺', printer: '🖨️', nas: '🗄️', camera: '📷', iot: '💡', console: '🎮', speaker: '🔊', server: '🖥️', vm: '🧩', unknown: '❔' };
+const mcol = d => !d.online ? '#64748b' : d.trusted ? '#10b981' : (d.risk || 0) >= 60 ? '#ef4444' : (d.risk || 0) >= 30 ? '#f59e0b' : '#06b6d4';
+
+function mapSync(list) {
+  if (view !== 'map') return;
+  const all = S.devices.filter(d => !d.deleted && !d.ignored);
+  const keep = new Set(list.map(d => d.key));
+  const gw = all.find(d => d.isGateway) || null, me = all.find(d => d.me) || null, hubD = gw || me;
+  const show = all.filter(d => keep.has(d.key) || d === gw || d === me);
+  const prev = MAP.nodes, nodes = new Map(), cnt = {}, idx = {};
+  show.forEach(d => { if (d !== hubD) { const ty = d.type || 'unknown'; cnt[ty] = (cnt[ty] || 0) + 1; } });
+  const types = Object.keys(cnt).sort(), sec = Math.PI * 2 / Math.max(1, types.length);
+  show.forEach(d => {
+    const isHub = d === hubD, r = isHub ? 28 : d.me ? 21 : 17, old = prev.get(d.key);
+    if (old) { old.d = d; old.r = r; old.hub = isHub; nodes.set(d.key, old); return; }
+    let x = 0, y = 0;
+    if (!isHub) {
+      const ty = d.type || 'unknown', i = idx[ty] || 0; idx[ty] = i + 1;
+      const ang = types.indexOf(ty) * sec + (i + .5) / cnt[ty] * sec * .9 + sec * .05 - Math.PI / 2, rad = d.me ? 115 : 175 + (i % 3) * 62;
+      x = Math.cos(ang) * rad; y = Math.sin(ang) * rad;
+    }
+    nodes.set(d.key, { d, x, y, tx: x, ty: y, vx: 0, vy: 0, r, hub: isHub });
+  });
+  MAP.nodes = nodes; MAP.hubKey = hubD ? hubD.key : null;
+  $('mleg').innerHTML = [['#10b981', 's_trusted'], ['#06b6d4', 'r_lo'], ['#f59e0b', 'r_mid'], ['#ef4444', 'r_hi'], ['#64748b', 'f_off']].map(c => `<span><i style="background:${c[0]};box-shadow:0 0 6px ${c[0]}"></i>${esc(t(c[1]))}</span>`).join('');
+  if (!MAP.fitted && MAP.w && nodes.size) mapFit();
+}
+function mapFit() {
+  const ns = [...MAP.nodes.values()]; if (!ns.length || !MAP.w) return;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  ns.forEach(n => { x0 = Math.min(x0, n.x - n.r); y0 = Math.min(y0, n.y - n.r); x1 = Math.max(x1, n.x + n.r); y1 = Math.max(y1, n.y + n.r + 24); });
+  const pad = 60, k = Math.min(1.25, (MAP.w - pad * 2) / Math.max(1, x1 - x0), (MAP.h - pad * 2) / Math.max(1, y1 - y0));
+  MAP.cam = { k, x: MAP.w / 2 - k * (x0 + x1) / 2, y: MAP.h / 2 - k * (y0 + y1) / 2 }; MAP.fitted = true;
+}
+function mapResize() {
+  const box = $('mapbox'), cv = $('mapc'); if (!box || !box.clientWidth) return;
+  MAP.dpr = window.devicePixelRatio || 1; MAP.w = box.clientWidth; MAP.h = box.clientHeight;
+  cv.width = Math.round(MAP.w * MAP.dpr); cv.height = Math.round(MAP.h * MAP.dpr);
+  if (!MAP.fitted) mapFit();
+}
+function mapStep() {
+  const ns = [...MAP.nodes.values()], dn = MAP.drag && MAP.drag.n;
+  for (let i = 0; i < ns.length; i++) for (let j = i + 1; j < ns.length; j++) {
+    const a = ns[i], b = ns[j]; let dx = b.x - a.x, dy = b.y - a.y; const min = a.r + b.r + 34, d2 = dx * dx + dy * dy;
+    if (d2 < min * min) { const d = Math.sqrt(d2) || .01, f = (min - d) * .04; dx /= d; dy /= d; if (!a.hub && a !== dn) { a.vx -= dx * f; a.vy -= dy * f; } if (!b.hub && b !== dn) { b.vx += dx * f; b.vy += dy * f; } }
+  }
+  for (const n of ns) {
+    if (n.hub || n === dn) { n.vx = n.vy = 0; continue; }
+    n.vx += (n.tx - n.x) * .012; n.vy += (n.ty - n.y) * .012; n.vx *= .82; n.vy *= .82; n.x += n.vx; n.y += n.vy;
+  }
+}
+function mapDraw(now) {
+  const cv = $('mapc'); if (!cv || !MAP.w) return;
+  const g = cv.getContext('2d'), cam = MAP.cam, dpr = MAP.dpr;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, MAP.w, MAP.h);
+  g.setTransform(dpr * cam.k, 0, 0, dpr * cam.k, dpr * cam.x, dpr * cam.y);
+  const hub = MAP.nodes.get(MAP.hubKey), active = MAP.hover || (sel && MAP.nodes.get(sel)) || null;
+  if (hub) { g.lineWidth = 1; [175, 237, 299].forEach(r => { g.beginPath(); g.arc(hub.x, hub.y, r, 0, 7); g.strokeStyle = 'rgba(148,163,184,.08)'; g.stroke(); }); }
+  if (hub) for (const n of MAP.nodes.values()) {
+    if (n === hub) continue;
+    const col = mcol(n.d), on = n.d.online, hl = active === n;
+    g.beginPath(); g.moveTo(hub.x, hub.y); g.lineTo(n.x, n.y); g.lineWidth = hl ? 2.4 : 1.3;
+    g.setLineDash(on ? [5, 9] : [2, 8]); g.lineDashOffset = on ? -(now / 45) % 14 : 0;
+    g.strokeStyle = hl ? col : on ? col + '77' : 'rgba(100,116,139,.28)'; g.stroke();
+  }
+  g.setLineDash([]);
+  for (const n of MAP.nodes.values()) {
+    const d = n.d, col = n.hub ? '#06b6d4' : mcol(d), ph = (now / 1300 + n.x * .01) % 1, x = n.x, y = n.y + Math.sin(now / 1500 + n.x) * 1.6, r = n.r;
+    if (d.online) { g.beginPath(); g.arc(x, y, r + 3 + ph * 13, 0, 7); g.strokeStyle = col + Math.round((1 - ph) * 80).toString(16).padStart(2, '0'); g.lineWidth = 1.6; g.stroke(); }
+    g.save(); g.shadowColor = col; g.shadowBlur = active === n ? 30 : d.online ? 16 : 0;
+    const gr = g.createRadialGradient(x - r * .3, y - r * .4, r * .2, x, y, r); gr.addColorStop(0, '#1e293b'); gr.addColorStop(1, '#0b1220');
+    g.beginPath(); g.arc(x, y, r, 0, 7); g.fillStyle = gr; g.fill(); g.lineWidth = n.hub || d.me ? 3.2 : 2.4; g.strokeStyle = d.me ? '#a78bfa' : col; g.stroke(); g.restore();
+    if (d.isNew && !d.me) { g.beginPath(); g.arc(x + r * .75, y - r * .75, 4.5, 0, 7); g.fillStyle = '#f472b6'; g.fill(); }
+    if (sel === d.key) { g.beginPath(); g.arc(x, y, r + 6, 0, 7); g.strokeStyle = '#fff'; g.lineWidth = 1.6; g.setLineDash([4, 4]); g.stroke(); g.setLineDash([]); }
+    g.globalAlpha = d.online ? 1 : .55; g.font = Math.round(r * 1.02) + 'px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(d.isGateway ? '🌐' : (ICON[d.type] || '❔'), x, y + 1);
+    if (cam.k > .55 || active === n) {
+      g.textBaseline = 'alphabetic'; g.font = '600 11px "Segoe UI",system-ui,sans-serif'; g.fillStyle = '#e2e8f0'; g.fillText(nameOf(d) || d.ip, x, y + r + 15);
+      if (cam.k > .85) { g.font = '10px ui-monospace,Consolas,monospace'; g.fillStyle = '#94a3b8'; g.fillText(d.ip, x, y + r + 28); }
+    }
+    g.globalAlpha = 1;
+  }
+}
+function mapTick(now) { if (view !== 'map') { MAP.raf = 0; return; } mapStep(); mapDraw(now); MAP.raf = requestAnimationFrame(mapTick); }
+function applyView() {
+  document.querySelectorAll('#vsw [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+  $('mapbox').style.display = view === 'map' ? 'block' : 'none';
+  $('listwrap').style.display = view === 'map' ? 'none' : '';
+  if (view === 'map') { MAP.fitted = false; render(); requestAnimationFrame(() => { mapResize(); mapFit(); if (!MAP.raf) MAP.raf = requestAnimationFrame(mapTick); }); }
+}
+(function mapInit() {
+  const cv = $('mapc'), box = $('mapbox'), tip = $('mtip');
+  const pos = e => { const b = cv.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; };
+  const world = p => ({ x: (p.x - MAP.cam.x) / MAP.cam.k, y: (p.y - MAP.cam.y) / MAP.cam.k });
+  const hit = p => { const w = world(p); let f = null; for (const n of MAP.nodes.values()) if (Math.hypot(n.x - w.x, n.y - w.y) <= n.r + 5) f = n; return f; };
+  cv.addEventListener('pointerdown', e => {
+    const p = pos(e), n = hit(p); cv.setPointerCapture(e.pointerId); MAP.moved = 0; tip.style.display = 'none';
+    if (n) MAP.drag = { n, lx: p.x, ly: p.y }; else MAP.pan = { lx: p.x, ly: p.y }; cv.style.cursor = 'grabbing';
+  });
+  cv.addEventListener('pointermove', e => {
+    const p = pos(e);
+    if (MAP.drag) { const n = MAP.drag.n; MAP.moved += Math.abs(p.x - MAP.drag.lx) + Math.abs(p.y - MAP.drag.ly); MAP.drag.lx = p.x; MAP.drag.ly = p.y; if (!n.hub && MAP.moved > 4) { const w = world(p); n.x = n.tx = w.x; n.y = n.ty = w.y; } return; }
+    if (MAP.pan) { MAP.cam.x += p.x - MAP.pan.lx; MAP.cam.y += p.y - MAP.pan.ly; MAP.moved += Math.abs(p.x - MAP.pan.lx) + Math.abs(p.y - MAP.pan.ly); MAP.pan.lx = p.x; MAP.pan.ly = p.y; return; }
+    const n = hit(p); MAP.hover = n; cv.style.cursor = n ? 'pointer' : 'grab';
+    if (!n) { tip.style.display = 'none'; return; }
+    const d = n.d;
+    tip.innerHTML = `<b>${esc(nameOf(d) || d.ip)}</b><br><span class="mono">${esc(d.ip)}</span>${d.mac ? ' · <span class="mono">' + esc(d.mac) + '</span>' : ''}<br>${esc(typeTxt(d))}${d.vendor ? ' · ' + esc(d.vendor) : ''}<br><span style="color:${mcol(d)}">●</span> ${esc(t(d.online ? 'f_online' : 'f_off'))}${(d.ports || []).length ? ' · ' + d.ports.length + ' ' + esc(t('th_ports')) : ''}`;
+    tip.style.display = 'block'; tip.style.left = Math.min(p.x + 16, MAP.w - tip.offsetWidth - 8) + 'px'; tip.style.top = Math.min(p.y + 16, MAP.h - tip.offsetHeight - 8) + 'px';
+  });
+  const up = () => { const n = MAP.drag && MAP.drag.n; if (n && MAP.moved < 5) { sel = n.d.key; render(); drawer(); } MAP.drag = null; MAP.pan = null; cv.style.cursor = 'grab'; };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  cv.addEventListener('pointerleave', () => { MAP.hover = null; tip.style.display = 'none'; });
+  cv.addEventListener('wheel', e => { e.preventDefault(); const p = pos(e), k0 = MAP.cam.k, k1 = Math.max(.25, Math.min(3, k0 * (e.deltaY < 0 ? 1.12 : 1 / 1.12))); MAP.cam.x = p.x - (p.x - MAP.cam.x) * k1 / k0; MAP.cam.y = p.y - (p.y - MAP.cam.y) * k1 / k0; MAP.cam.k = k1; }, { passive: false });
+  cv.addEventListener('dblclick', e => { if (!hit(pos(e))) mapFit(); });
+  box.addEventListener('click', e => {
+    const z = e.target.closest('[data-mz]'); if (!z) return;
+    if (z.dataset.mz === 'fit') return mapFit();
+    const k0 = MAP.cam.k, k1 = Math.max(.25, Math.min(3, k0 * (z.dataset.mz === 'in' ? 1.25 : .8))), cx = MAP.w / 2, cy = MAP.h / 2;
+    MAP.cam.x = cx - (cx - MAP.cam.x) * k1 / k0; MAP.cam.y = cy - (cy - MAP.cam.y) * k1 / k0; MAP.cam.k = k1;
+  });
+  document.addEventListener('click', e => { const b = e.target.closest('#vsw [data-v]'); if (b) { view = b.dataset.v; applyView(); } });
+  if (window.ResizeObserver) new ResizeObserver(() => { if (view === 'map') mapResize(); }).observe(box);
+})();
+
+/* Todo botón con cooldown de 0,22 s */
+document.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const n = Date.now(); if (b._t && n - b._t < 220) { e.stopImmediatePropagation(); e.preventDefault(); return; } b._t = n; }, true);
+document.addEventListener('click', async e => {
+  const el = e.target;
+  const f = el.closest('[data-f]'); if (f) { filter = f.dataset.f; $('tools').dataset.k = ''; return render(); }
+  if (el.closest('[data-close]') && !el.closest('[data-a]')) { $('dr').classList.remove('on'); sel = null; return render(); }
+  const ex = el.closest('[data-ex]'); if (ex) { await exportData(ex.dataset.ex); return; }
+  const cp = el.closest('[data-copy]'); if (cp) { try { await navigator.clipboard.writeText(cp.dataset.copy); toast(t('copied')); } catch (_) {} return; }
+  const op = el.closest('[data-open]'); if (op) { F('open', op.dataset.open); return; }
+  const a = el.closest('[data-a]'); if (a) { const r = await F(a.dataset.a, a.dataset.k); if (a.dataset.a === 'wake') toast(t('wol')); if (a.dataset.close) { $('dr').classList.remove('on'); sel = null; } setState(r); return; }
+  const row = el.closest('tr.r'); if (row) { sel = row.dataset.k; render(); drawer(); }
+});
+document.addEventListener('change', async e => { if (e.target.id === 'nt') setState(await F('setting', 'notify', e.target.checked)); });
+$('q').addEventListener('input', e => { q = e.target.value.trim().toLowerCase(); render(); });
+$('scan').onclick = async () => { $('scan').disabled = true; setState(await F('scan', true)); };
+window.iphub.onState(setState);
+F('summary').then(setState);
+setInterval(() => { if (S && !S.scanning) render(); }, 30000);
+
+async function cloudPaint(c) {
+  c = c || await F('cloudStatus');
+  const base = document.getElementById('cloud-base');
+  const msg = document.getElementById('cloud-msg');
+  if (!msg) return;
+  if (c && c.user) msg.textContent = 'Conectado como ' + (c.user.name || c.user.email) + '. La página muestra esta red al abrir Topología.';
+  else if (c && c.pending) msg.textContent = 'Esperando que confirmes en el navegador…';
+  else msg.textContent = 'Iniciá sesión con la misma cuenta. Google y Discord abren la página para confirmar.';
+}
+document.getElementById('cloud-login').onclick = async () => {
+  try {
+    const c = await F('cloudLogin', { email: document.getElementById('cloud-email').value, password: document.getElementById('cloud-pass').value });
+    if (!c || c.error || !c.user) { toast((c && c.error) || 'No se pudo entrar'); return; }
+    cloudPaint(c); toast('Cuenta conectada');
+  } catch (e) { toast(e.message || 'No se pudo entrar'); }
+};
+async function cloudSocial() {
+  try {
+    const d = await F('cloudLink', {});
+    cloudPaint({ pending: d.code });
+    toast('Confirmá en el navegador');
+    for (let i = 0; i < 40; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      const c = await F('cloudPoll', d.code);
+      if (c && c.user) { cloudPaint(c); toast('Exe conectado'); return; }
+    }
+  } catch (e) { toast(e.message || 'No se pudo abrir la página'); }
+}
+document.getElementById('cloud-google').onclick = cloudSocial;
+document.getElementById('cloud-discord').onclick = cloudSocial;
+document.getElementById('cloud-out').onclick = async () => { cloudPaint(await F('cloudLogout')); };
+document.getElementById('cloud-file').onclick = async () => {
+  const rows = Object.values((S && S.devices) || {});
+  const content = JSON.stringify({ iphub: 1, exportedAt: new Date().toISOString(), host: (S && S.host) || '', summary: S, devices: rows }, null, 2);
+  const r = await F('export', { name: 'iphub-red.json', content });
+  if (r && r.ok) toast('Archivo listo para importar en Topología');
+};
+cloudPaint();
+</script></body></html>

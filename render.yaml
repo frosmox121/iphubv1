@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: iphub
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node start.js
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AUTO_VERIFY_ON_SMTP_FAIL
+        value: "1"
+      - key: APP_URL
+        sync: false
+      - key: EXE_URL
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SUPPORT_TO
+        sync: false
