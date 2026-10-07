@@ -1,103 +1,67 @@
-/* Perfil, IA, manual detallado y ayuda (icono gris ? sin emoji) al lado de cada sección. */
+/* Manual por funciones + tips (! hover) + perfil */
 (function () {
-  // [título corto, resumen para tooltip, texto detallado para el manual]
+  // Manual por FUNCIÓN: [título, resumen hover, detalle completo]
   const HELP = {
-    dashboard: [
-      'Panel / Dashboard',
-      'Resumen de tu actividad, riesgos y alertas recientes.',
-      'El dashboard muestra métricas de tu propia cuenta: eventos de auditoría, consultas de IP/DNS, escaneos, estado de la red publicada por el agente y, si tenés organización, resumen de activos, secretos pendientes y simulaciones. Podés reordenar tarjetas (configuración por usuario). Ningún dato de otra cuenta aparece aquí. Icono ? lleva al detalle en Manual.'
-    ],
-    topology: [
-      'Topología / Laboratorio de red',
-      'Entorno virtualizado tipo IDE para mapear IP, hosts, rutas y simulaciones.',
-      'La sección Topología funciona como un IDE profesional de red: panel izquierdo (árbol de proyectos/redes/subredes/hosts), lienzo central (mapa arrastrable), panel derecho (propiedades del nodo seleccionado). Podés crear proyectos independientes, redes, subredes (CIDR, gateway), hosts, routers, firewalls, VLANs, reglas simuladas, rutas y NAT. Incluye detección de IP duplicadas, subredes superpuestas y rutas inválidas. Trazas simuladas entre nodos, pruebas de estrés controladas (límites de paquetes, duración, CPU) y escenarios de propagación hipotética (gusano virtual, solo simulación, nunca malware real). Importá/exportá topologías, versioná y compará. Datos reales del agente o 100% simulados. Todo en modo laboratorio con límites y auditoría.'
-    ],
-    tools: [
-      'Herramientas',
-      'Diagnóstico real: IP, puertos, traceroute, DNS, subredes, ARP y velocidad.',
-      'Las herramientas ejecutan consultas desde el servidor o desde tu equipo (según la función) solo contra el objetivo que indiques. No reutilizan datos de otras cuentas. Resultados se pueden guardar en tu auditoría y asociar a un host del laboratorio. El icono ? explica cada herramienta individual cuando está disponible.'
-    ],
-    audit: [
-      'Auditoría',
-      'Historial inmutable de lo que hiciste en la plataforma.',
-      'Registra inicio de sesión, uso de herramientas, cambios de perfil, exportaciones, creación de simulaciones y acciones administrativas. Incluye timestamp, IP de acceso y recurso afectado. Exportable según permisos. En empresas, los administradores ven la auditoría de su organización con separación de funciones.'
-    ],
-    learn: [
-      'Aprender',
-      'Quizzes de redes con feedback inmediato y XP.',
-      'Los enunciados usan el prompt de aprendizaje de tu perfil. Si no hay clave del proveedor de IA elegido, se usa el banco local. Cooldown entre quizzes. Suben XP al ranking.'
-    ],
-    leaderboard: [
-      'Ranking',
-      'Ordena cuentas por XP obtenido con herramientas y quizzes.',
-      'Solo XP de actividad propia. No hay manipulación entre cuentas.'
-    ],
-    support: [
-      'Soporte',
-      'Tickets y reseñas.',
-      'El ticket se guarda y se notifica al correo de soporte. Categorías predefinidas. Historial por cuenta.'
-    ],
-    account: [
-      'Mi cuenta',
-      'Perfil personal o empresa, proveedor de IA y clave API.',
-      'Podés marcar la cuenta como personal o empresa, elegir proveedor de IA (auto/Groq/Gemini/OpenRouter) y definir el prompt de Aprender. La clave API autoriza las mismas funciones que la sesión vía encabezado X-API-Key. MFA y gestión de sesiones cuando esté habilitado.'
-    ],
-    empresa: [
-      'Empresa / Organización',
-      'Roles, permisos, inventario, secretos, phishing simulado y colaboración.',
-      'Solo el dueño o administradores asignan roles (admin, analista, desarrollador, auditor, solo lectura) y permisos por módulo/proyecto/activo. Inventario de endpoints, servidores, APIs, certificados. Monitor de exposición de secretos y API keys (patrones, commits autorizados, variables de entorno de agentes empresariales): nunca se almacenan secretos completos por defecto; se usa fingerprint. Mapa de destinos a los que las aplicaciones envían datos. Campañas de phishing de concientización autorizadas (dominios de laboratorio, pantalla educativa inmediata, sin captura de credenciales reales). Simulaciones sobre dispositivos empresariales autorizados. Foro empresarial vinculado a commits/funciones. Dual repositorio (GitHub + espejo privado). Todo con auditoría y mínimo privilegio.'
-    ],
-    lab: [
-      'Laboratorio virtualizado (IDE)',
-      'Construí y analizá redes virtuales sin tocar infraestructura real.',
-      'Modo laboratorio separado de datos reales. Crear/clonar/restaurar snapshots. Límites de recursos (paquetes, duración, concurrencia, ancho de banda). Detener manual o automático. Registrar, reproducir y comparar simulaciones. Compartir laboratorio de solo lectura. Aprobado por administrador en entorno empresarial. Ver también Topología.'
-    ],
-    secrets: [
-      'Secretos y API keys',
-      'Monitor de exposición de secretos y claves (no captura de contraseñas).',
-      'Detecta posibles secretos en repositorios autorizados, configs, logs y commits. Clasifica criticidad, asocia servicio/aplicación/propietario. Alertas por uso anómalo o desde activo no autorizado. Rotación con evidencia. Integración con secret managers. Redacción automática. Solo personal autorizado ve valores (cuando corresponde).'
-    ],
-    code: [
-      'Código / Commits / Code Query',
-      'Navegación de repositorios, funciones, grafos y consultas tipo SQL sobre el código.',
-      'Conectá GitHub, GitLab, Bitbucket o repositorio privado/espejo. Listá commits, buscá por función/clase/archivo. Abrí cualquier función: firmas, llamadas entrantes/salientes, dependencias, acceso a BD/API/secretos, complejidad. Code Query Explorer: filtrá funciones, clases, dependencias, vulnerabilidades. Grafos de llamadas y dependencias. Modo compartir (vista solo lectura, expiración, sanitización de secretos). Exportar investigación como commit de documentación o PR. Foro empresarial asociado a commits/funciones.'
-    ],
-    phishing: [
-      'Phishing de concientización',
-      'Campañas autorizadas de entrenamiento (nunca captura de credenciales reales).',
-      'Seleccioná empleados autorizados, plantillas, ventana temporal. Dominios controlados por la empresa. Tras el clic se muestra pantalla educativa. Métricas de interacción y reporte. Informes por departamento. Exclusión de empleados sensibles según política. Aprobación previa y auditoría completa.'
-    ],
-    simulations: [
-      'Simulaciones de seguridad',
-      'Propagación hipotética, estrés controlado y pruebas de segmentación.',
-      'Todo en modo laboratorio. Representación de “gusano” como evento virtual (no malware ejecutable). Árbol de propagación, barreras de segmentación, puntuación de exposición. Pruebas de estrés con límites duros. Simulación de caída de nodo/enlace. Comparar escenarios. Generar recomendaciones defensivas. Nunca se ejecuta acción real fuera del alcance autorizado.'
-    ],
-    manual: [
-      'Manual',
-      'Documentación detallada de cada función.',
-      'Cada sección y herramienta tiene un icono gris de interrogación (?) que abre el resumen y enlaza a este manual. El texto aquí es la versión completa. Usá el índice o los anclas #manual-xxx.'
-    ]
+    'topology-viewer': ['Visor de topología (web)', 'Muestra la red publicada por la app. No ejecuta laboratorio pesado.', 'La web solo visualiza. Fuente: snapshot del agente (POST /api/agent/snapshot) o JSON importado. Sin app no hay mapa en vivo. Botón Descargar → /api/download/exe. El IDE (edición, estrés, propagación) está en la aplicación de escritorio, no aquí.'],
+    'device-inventory': ['Inventario de dispositivos', 'Lista hosts detectados por el agente o importados.', 'Campos: IP, MAC, fabricante, tipo, SO, puertos, riesgo. Origen: agente local o importación. No mezcla cuentas.'],
+    'tool-ip': ['Analizador de IP', 'Consulta geolocalización e ISP de una IP pública.', 'API: POST /api/tools/ip-lookup. Backend consulta ip-api.com. Requiere sesión. Suma XP con cooldown. No escanea tu LAN.'],
+    'tool-ports': ['Escaneo de puertos', 'Prueba si puertos TCP están abiertos en un host.', 'API: POST /api/tools/port-scan. Usa net.Socket desde el servidor. Solo contra el host que indiques. Marca puertos críticos (21,23,445,3389,5900).'],
+    'tool-traceroute': ['Traceroute', 'Muestra saltos hasta un destino.', 'API: POST /api/tools/traceroute. Ejecuta traceroute/tracert del SO del servidor. Resultado orientativo según red del hosting.'],
+    'tool-dns': ['Consulta DNS', 'Resuelve registros DNS de un dominio.', 'API de herramientas DNS. Módulo dns de Node. Tipos comunes A/AAAA/MX/TXT/NS.'],
+    'tool-speed': ['Speedtest', 'Mide descarga/subida contra este servidor.', 'Endpoints /api/tools/speedtest/*. Mide el enlace hasta el servidor IPHub, no “todo Internet”.'],
+    'workspace': ['Workspace', 'Tablero personal con widgets y embeds.', 'API: PUT /api/workspace. Guardás layout en tu usuario. Widgets: dashboard, topología, IP, auditoría, notas, iframe externo.'],
+    'code-intel': ['Código e inteligencia', 'Repos, commits, funciones, query, grafos, foro.', 'Solo dueño (iphuboficial@gmail.com). APIs /api/code/* y /api/forum/*. Incluye demo seed + conexión de repos. Code Query filtra funciones/commits/archivos. Shared views con expiración.'],
+    'code-query': ['Code Query Explorer', 'Consultas tipo SQL sobre el modelo de código.', 'POST /api/code/query con entity, filters, sort. Guardar: POST /api/code/query/save. Solo lectura sobre el índice de código del dueño.'],
+    'code-graph': ['Grafo de código', 'Nodos y enlaces de llamadas/dependencias.', 'GET /api/code/graph/:repoId. Resalta críticos y externos.'],
+    'forum': ['Foro de código', 'Publicaciones ligadas a repo/commit/función.', 'POST /api/forum/posts. Categorías seguridad, backend, APIs, incidentes, etc. Solo dueño en esta fase.'],
+    'ai-settings': ['Configuración de IA', 'Elegí proveedor, modelo y clave propia.', 'PUT /api/ai/settings. Campos: aiProvider, aiModel, aiBaseUrl, aiApiKey, learnPrompt. En empresa el admin define el prompt de Aprender para el equipo.'],
+    'learn-prompt': ['Prompt de Aprender', 'Personaliza cómo se generan los quizzes.', 'Se guarda en el perfil. Perfil personal: cualquier usuario. Empresa: administrador. Si no hay clave IA, banco local.'],
+    'auth-login': ['Inicio de sesión', 'Correo/contraseña o Google/Discord.', 'POST /api/auth/login. JWT 7 días. Si la DB de Render se reinicia, hay que volver a entrar (USER_GONE).'],
+    'auth-register': ['Registro', 'Crea cuenta y verifica correo.', 'POST /api/auth/register. Si SMTP falla y AUTO_VERIFY_ON_SMTP_FAIL=1, entra sin código. Código también en Logs [VERIFY CODE].'],
+    'agent-app': ['Aplicación de escritorio', 'Escaneo local y laboratorio pesado.', 'Electron en agent/. Login con la misma cuenta. Publica snapshot a /api/agent/snapshot. Exporta JSON para la web.'],
+    'lab-ide-app': ['IDE de laboratorio (app)', 'Edición de topología, trazas, estrés, propagación.', 'Solo en la aplicación. Web = visor. Límites de recursos obligatorios. Propagación = evento virtual, no malware.'],
+    dashboard: ['Dashboard', 'Resumen de actividad de tu cuenta.', 'Métricas propias: auditoría, herramientas, red del agente. Sin datos de otras cuentas.'],
+    topology: ['Topología (sección)', 'Visor web de la red del agente.', 'Ver función topology-viewer. Descargar app para el laboratorio completo.'],
+    tools: ['Herramientas (sección)', 'IP, puertos, traceroute, DNS, velocidad.', 'Cada herramienta tiene su entrada en este manual (tool-ip, tool-ports, …).'],
+    audit: ['Auditoría', 'Historial de acciones de tu usuario.', 'Timestamp, acción, detalle. En empresa, vista organizativa según rol.'],
+    learn: ['Aprender', 'Quizzes de redes con XP.', 'Prompt configurable. Cooldown. Usa IA de tu perfil o banco local.'],
+    leaderboard: ['Ranking', 'Orden por XP.', 'XP de herramientas y quizzes propios.'],
+    support: ['Soporte', 'Tickets y reseñas.', 'Llegan a SUPPORT_TO. Límite de tickets frecuentes.'],
+    account: ['Mi cuenta', 'Perfil, API key, IA.', 'Incluye regenerar API key y settings de IA.'],
+    empresa: ['Empresa', 'Roles y permisos.', 'Visible según dueño/rol. No expone datos cross-org.'],
+    workspace: ['Workspace', 'Tablero configurable.', 'Ver función workspace.'],
+    code: ['Código', 'Módulo dueño.', 'Ver code-intel.'],
+    manual: ['Manual', 'Documentación por función.', 'Índice, buscador y anclas #manual-id. Tip ! en la UI resume al pasar el mouse.']
   };
   const $ = id => document.getElementById(id);
 
   function mark() {
     document.querySelectorAll('.section-header h2').forEach(h => {
-      if (h.querySelector('.help-q') || h.querySelector('.qmark')) return;
+      if (h.querySelector('.help-q') || h.querySelector('.fn-tip') || h.querySelector('.qmark')) return;
       const sec = h.closest('.section');
       const key = sec && sec.id;
       const item = HELP[key]; if (!item) return;
       const a = document.createElement('a');
-      a.className = 'help-q';
+      a.className = 'fn-tip';
       a.href = '#manual-' + key;
+      a.textContent = '!';
       a.title = item[1];
       a.setAttribute('aria-label', 'Ayuda: ' + item[0]);
       a.onclick = (e) => { e.preventDefault(); openHelp(key); };
       h.appendChild(a);
     });
+    // Tips ya en HTML con data-fn
+    document.querySelectorAll('.fn-tip[data-fn]').forEach(el => {
+      const item = HELP[el.getAttribute('data-fn')];
+      if (item) el.title = item[1];
+      el.onclick = (e) => {
+        e.preventDefault();
+        openHelp(el.getAttribute('data-fn'));
+      };
+    });
   }
 
   function openHelp(key) {
-    const item = HELP[key] || ['Ayuda', '', 'Sin detalle adicional.'];
     location.hash = 'manual-' + key;
     const box = $('manual-body');
     if (box) {
@@ -113,22 +77,31 @@
     const box = $('manual-body'); if (!box) return;
     if (box.dataset.ready === '1') return;
     box.dataset.ready = '1';
-    const toc = Object.entries(HELP).map(([k, v]) =>
-      `<li><a href="#manual-${k}">${v[0]}</a></li>`
-    ).join('');
+    const entries = Object.entries(HELP);
+    const toc = entries.map(([k, v]) => `<li><a href="#manual-${k}">${v[0]}</a></li>`).join('');
     box.innerHTML = `
       <div class="card glass" style="margin-bottom:1rem">
-        <h3>Índice del manual</h3>
-        <p class="muted small">Cada función de la plataforma tiene un icono gris de interrogación (?) junto al título. Al hacer clic se abre el resumen y se salta a la explicación detallada aquí.</p>
-        <ul style="columns:2;gap:1rem;margin:.6rem 0 0;padding-left:1.2rem">${toc}</ul>
+        <h3>Manual por funciones</h3>
+        <p class="muted small">El símbolo <strong>!</strong> junto a cada función muestra un resumen al pasar el mouse. Clic abre el detalle aquí. Incluye uso, APIs y límites en lenguaje claro.</p>
+        <input class="manual-search" id="manual-q" type="search" placeholder="Buscar función, API, herramienta…">
+        <ul id="manual-toc" style="columns:2;gap:1rem;margin:.6rem 0 0;padding-left:1.2rem">${toc}</ul>
       </div>
-      ${Object.entries(HELP).map(([k, v]) =>
-        `<article id="manual-${k}" class="card glass" style="margin-bottom:.8rem">
+      <div id="manual-articles">
+      ${entries.map(([k, v]) =>
+        `<article id="manual-${k}" class="card glass manual-art" data-text="${(v[0] + ' ' + v[1] + ' ' + v[2]).replace(/"/g, '')}" style="margin-bottom:.8rem">
           <h3>${v[0]}</h3>
           <p><strong>Resumen:</strong> ${v[1]}</p>
           <p>${v[2]}</p>
         </article>`
-      ).join('')}`;
+      ).join('')}
+      </div>`;
+    const q = $('manual-q');
+    if (q) q.oninput = () => {
+      const s = q.value.toLowerCase().trim();
+      box.querySelectorAll('.manual-art').forEach(art => {
+        art.style.display = !s || (art.getAttribute('data-text') || '').toLowerCase().includes(s) ? '' : 'none';
+      });
+    };
   }
 
   async function profileCard() {

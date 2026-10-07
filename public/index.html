@@ -153,16 +153,18 @@
         <button class="sidebar-close" id="sidebar-close">✕</button>
       </div>
       <nav class="sidebar-nav">
-        <a href="/home" class="nav-item active" data-section="dashboard"><span class="nav-icon">◈</span> Dashboard</a>
-        <a href="/topologia" class="nav-item" data-section="topology"><span class="nav-icon">⬡</span> Topología</a>
-        <a href="/herramientas" class="nav-item" data-section="tools"><span class="nav-icon">⚙</span> Herramientas</a>
-        <a href="/auditoria" class="nav-item" data-section="audit"><span class="nav-icon">☰</span> Auditoría</a>
-        <a href="/aprender" class="nav-item" data-section="learn"><span class="nav-icon">◈</span> Aprender</a>
-        <a href="/ranking" class="nav-item" data-section="leaderboard"><span class="nav-icon">♛</span> Ranking</a>
-        <a href="/soporte" class="nav-item" data-section="support"><span class="nav-icon">✉&#xFE0E;</span> Soporte</a>
-        <a href="/empresa" class="nav-item" data-section="empresa" id="nav-empresa" hidden><span class="nav-icon">▣</span> Empresa</a>
-        <a href="/manual" class="nav-item" data-section="manual"><span class="nav-icon">?</span> Manual</a>
-        <a href="/cuenta" class="nav-item" data-section="account"><span class="nav-icon">◎</span> Mi Cuenta</a>
+        <a href="/home" class="nav-item active" data-section="dashboard"><span class="nav-icon">&#9670;</span> Dashboard</a>
+        <a href="/topologia" class="nav-item" data-section="topology"><span class="nav-icon">&#9645;</span> Topología</a>
+        <a href="/workspace" class="nav-item" data-section="workspace"><span class="nav-icon">&#9638;</span> Workspace</a>
+        <a href="/herramientas" class="nav-item" data-section="tools"><span class="nav-icon">&#9881;</span> Herramientas</a>
+        <a href="/codigo" class="nav-item" data-section="code" id="nav-code" hidden><span class="nav-icon">&lt;/&gt;</span> Código</a>
+        <a href="/auditoria" class="nav-item" data-section="audit"><span class="nav-icon">&#9776;</span> Auditoría</a>
+        <a href="/aprender" class="nav-item" data-section="learn"><span class="nav-icon">&#9670;</span> Aprender</a>
+        <a href="/ranking" class="nav-item" data-section="leaderboard"><span class="nav-icon">&#9813;</span> Ranking</a>
+        <a href="/soporte" class="nav-item" data-section="support"><span class="nav-icon">&#9993;</span> Soporte</a>
+        <a href="/empresa" class="nav-item" data-section="empresa" id="nav-empresa" hidden><span class="nav-icon">&#9635;</span> Empresa</a>
+        <a href="/manual" class="nav-item" data-section="manual"><span class="nav-icon">!</span> Manual</a>
+        <a href="/cuenta" class="nav-item" data-section="account"><span class="nav-icon">&#9678;</span> Mi Cuenta</a>
       </nav>
       <div class="sidebar-footer">
         <a href="/download/agent" class="btn btn-sm btn-accent btn-full dl-btn">Descargar para Windows</a>
@@ -214,71 +216,81 @@
       <!-- ==================== TOPOLOGY / LAB IDE ==================== -->
       <section id="topology" class="section">
         <div class="section-header">
-          <h2>Laboratorio de red (IDE)</h2>
-          <p>Entorno virtualizado profesional: proyectos, subredes, hosts, trazas, estrés y simulaciones. Datos del exe o 100% simulados. Icono ? → Manual detallado.</p>
+          <h2>Topología <span class="fn-tip" data-fn="topology-viewer" title="Visor web de la red publicada por la aplicación de escritorio. No ejecuta laboratorio pesado.">!</span></h2>
+          <p>La web solo <strong>visualiza</strong> la red que publica la aplicación IPHub. El laboratorio virtual (IDE, trazas, estrés, propagación) corre en la app de escritorio.</p>
         </div>
-        <div class="lab-toolbar" data-no-i18n>
-          <button class="btn btn-sm" id="lab-new-proj" type="button">Nuevo proyecto</button>
-          <button class="btn btn-sm g" id="lab-new-net" type="button">Red / Subred</button>
-          <button class="btn btn-sm g" id="lab-new-host" type="button">Host</button>
-          <button class="btn btn-sm g" id="lab-trace" type="button">Traza</button>
-          <button class="btn btn-sm g" id="lab-stress" type="button">Estrés</button>
-          <button class="btn btn-sm g" id="lab-worm" type="button">Propagación (lab)</button>
-          <label class="btn btn-accent btn-sm">Importar<input id="topo-import" type="file" accept=".json,application/json" hidden></label>
-          <button class="btn btn-sm g" id="lab-export" type="button">Exportar</button>
-          <span class="muted small" style="margin-left:auto">Modo laboratorio · límites activos</span>
-        </div>
-        <div class="lab-ide" data-no-i18n>
-          <aside class="lab-side">
-            <div class="lab-tabs">
-              <button type="button" class="lab-tab on" data-labtab="tree">Proyectos</button>
-              <button type="button" class="lab-tab" data-labtab="agent">Agente</button>
+        <div class="card glass" style="margin-bottom:1rem;border:1px solid rgba(34,211,238,.35);background:linear-gradient(135deg,rgba(6,182,212,.12),rgba(139,92,246,.10))">
+          <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:center;justify-content:space-between">
+            <div>
+              <strong style="font-size:1.05rem">Aplicación IPHub requerida</strong>
+              <p class="muted small" style="margin:.35rem 0 0;max-width:520px">Sin la app no hay mapa en vivo. Descargala, abrí IPHub.exe, iniciá sesión con esta misma cuenta y la topología aparecerá acá.</p>
             </div>
-            <div id="lab-tree" class="lab-tree">
-              <details open>
-                <summary>Proyecto por defecto</summary>
-                <div class="node on">Red local (agente)</div>
-                <div class="node">Subred simulada</div>
-              </details>
-              <p class="muted small" style="margin-top:.5rem">Creá redes, subredes y hosts desde la barra. El árbol se actualiza al importar o al conectar el exe.</p>
-            </div>
-            <div id="agent-panel" style="display:none">
-              <div id="agent-view"><p class="muted">Buscando la conexión de esta cuenta…</p></div>
-              <div id="trace-box"></div>
-            </div>
-          </aside>
-          <div class="lab-main">
-            <div class="card glass topo-card" style="border:0;border-radius:0;margin:0;height:100%">
-              <canvas id="topo-canvas" hidden style="display:none"></canvas>
-              <div id="tmap" class="tmap" data-no-i18n>
-                <canvas></canvas>
-                <div class="tmap-count"></div>
-                <div class="tmap-ctl"><button data-tz="in" title="Acercar" type="button">＋</button><button data-tz="out" title="Alejar" type="button">－</button><button data-tz="fit" title="Ajustar a pantalla" type="button">◎</button><button data-tz="full" title="Pantalla completa" type="button">⛶</button></div>
-                <div class="tmap-hint">Arrastrá el fondo para mover · Ctrl + rueda para zoom · doble clic = ajustar</div>
-                <div class="tmap-tip"></div>
-                <div class="tmap-empty"><div><div style="font-size:2.2rem">📡</div><p>Sin dispositivos todavía.<br>Conectá el exe con esta cuenta o corré “Descubrir red”.</p></div></div>
-              </div>
-              <div id="topo-info" class="muted small">Pasá el cursor sobre un nodo, clic para ver sus propiedades, arrastrá para moverlo.</div>
-            </div>
+            <a class="btn btn-primary" href="/download/agent" id="topo-download-btn" style="padding:.75rem 1.4rem;font-size:1rem;white-space:nowrap">Descargar aplicación Windows</a>
           </div>
-          <aside class="lab-props">
-            <h4 style="margin:.2rem 0 .5rem;font-size:.9rem">Propiedades</h4>
-            <div id="lab-props-body">
-              <p class="muted small">Seleccioná un nodo en el mapa o en el árbol para ver IP, MAC, SO, puertos, servicios, rutas y riesgos. Desde aquí podés cambiar IP, máscara, gateway y etiquetas (solo en el laboratorio virtual).</p>
-            </div>
-            <div class="lab-status" id="lab-status">Listo · sin cambios pendientes</div>
-          </aside>
         </div>
-        <div class="card glass" style="margin-top:.8rem">
+        <div class="card glass" id="agent-panel" data-no-i18n>
           <div class="tool-form">
-            <input type="text" id="discover-cidr" placeholder="192.168.1.0/24  ·  192.168.1.10:80">
-            <button class="btn btn-primary" id="discover-btn">Descubrir Red</button>
+            <strong>Red del agente</strong>
+            <label class="btn btn-accent btn-sm">Importar JSON<input id="topo-import" type="file" accept=".json,application/json" hidden></label>
           </div>
-          <p id="discover-status" class="muted"></p>
+          <div id="agent-view"><p class="muted">Esperando datos del exe conectado con esta cuenta…</p></div>
+          <div id="trace-box"></div>
+        </div>
+        <div class="card glass topo-card" style="margin-top:.8rem;min-height:420px;position:relative">
+          <canvas id="topo-canvas" hidden style="display:none"></canvas>
+          <div id="tmap" class="tmap" data-no-i18n>
+            <canvas></canvas>
+            <div class="tmap-count"></div>
+            <div class="tmap-ctl"><button data-tz="in" title="Acercar" type="button">+</button><button data-tz="out" title="Alejar" type="button">-</button><button data-tz="fit" title="Ajustar" type="button">O</button><button data-tz="full" title="Pantalla completa" type="button">[]</button></div>
+            <div class="tmap-hint">Arrastrá el fondo · Ctrl + rueda = zoom · doble clic = ajustar</div>
+            <div class="tmap-tip"></div>
+            <div class="tmap-empty" id="tmap-empty">
+              <div class="tmap-empty-inner">
+                <p style="font-weight:600;margin:0 0 .4rem">Sin dispositivos en el visor</p>
+                <p class="muted small" style="margin:0 0 .8rem;max-width:320px">Conectá el exe con esta cuenta o importá un JSON exportado desde la aplicación.</p>
+                <a class="btn btn-sm btn-accent" href="/download/agent">Descargar app</a>
+              </div>
+            </div>
+          </div>
+          <div id="topo-info" class="muted small">Visor de solo lectura. Para editar topología, trazas o estrés usá la aplicación de escritorio.</div>
         </div>
         <div class="card glass" style="margin-top:1rem">
-          <h3>Inventario de Dispositivos</h3>
+          <h3>Inventario de dispositivos <span class="fn-tip" data-fn="device-inventory" title="Lista de hosts detectados por el agente o importados.">!</span></h3>
           <div class="device-list" id="device-list"><p class="muted">Sin datos aún.</p></div>
+        </div>
+      </section>
+
+      <section id="workspace" class="section">
+        <div class="section-header">
+          <h2>Workspace <span class="fn-tip" data-fn="workspace" title="Armá un tablero personal con widgets de la plataforma y embeds externos.">!</span></h2>
+          <p>Agregá funciones de IPHub, ordenalas, cambiá el tamaño y embebí recursos externos.</p>
+        </div>
+        <div class="card glass" data-no-i18n>
+          <div class="tool-form" style="margin-bottom:.8rem">
+            <select id="ws-add-widget">
+              <option value="">Agregar widget…</option>
+              <option value="dashboard">Resumen dashboard</option>
+              <option value="topology">Visor topología</option>
+              <option value="tools-ip">Herramienta IP</option>
+              <option value="audit">Última auditoría</option>
+              <option value="embed">Embed externo (URL)</option>
+              <option value="notes">Notas</option>
+            </select>
+            <button class="btn btn-primary btn-sm" id="ws-add-btn" type="button">Agregar</button>
+            <button class="btn btn-sm g" id="ws-save-btn" type="button">Guardar layout</button>
+          </div>
+          <div id="ws-grid" class="ws-grid"></div>
+          <p class="muted small" id="ws-hint">Los cambios se guardan en tu cuenta. En la aplicación de escritorio el workspace comparte el mismo layout cuando estás conectado.</p>
+        </div>
+      </section>
+
+      <section id="code" class="section" data-no-i18n>
+        <div class="section-header">
+          <h2>Código e inteligencia <span class="fn-tip" data-fn="code-intel" title="Repositorios, commits, funciones, Code Query, grafos y foro. Solo dueño.">!</span></h2>
+          <p>Módulo exclusivo del dueño: repositorios, commits, análisis de funciones, consultas tipo SQL, grafos y foro.</p>
+        </div>
+        <div id="code-root">
+          <p class="muted">Cargando…</p>
         </div>
       </section>
 
@@ -541,6 +553,20 @@
             <button class="btn btn-glass" id="regen-key-btn">Regenerar Clave</button>
           </div>
         </div>
+      <div class="card glass full-width" style="margin-top:1rem" data-no-i18n>
+          <h3>Asistente de IA y Aprender <span class="fn-tip" data-fn="ai-settings" title="Elegí proveedor, modelo y clave propia.">!</span></h3>
+          <p class="muted small">Podés usar la IA del servidor o tu propia API (Groq, Gemini, OpenRouter, OpenAI u otra compatible). El prompt de Aprender define cómo se arman los quizzes.</p>
+          <div class="grid-2" style="margin-top:.6rem">
+            <div class="input-group"><label>Proveedor</label>
+              <select id="ai-provider"><option value="auto">Automático (servidor)</option><option value="groq">Groq</option><option value="gemini">Gemini</option><option value="openrouter">OpenRouter</option><option value="openai">OpenAI</option><option value="custom">Personalizado (Base URL)</option></select>
+            </div>
+            <div class="input-group"><label>Modelo</label><input type="text" id="ai-model" placeholder="ej. llama-3.3-70b-versatile"></div>
+            <div class="input-group"><label>Base URL (opcional)</label><input type="text" id="ai-base" placeholder="https://api.groq.com/openai/v1"></div>
+            <div class="input-group"><label>API Key propia (opcional)</label><input type="password" id="ai-key" placeholder="se guarda en tu cuenta" autocomplete="off"></div>
+          </div>
+          <div class="input-group"><label>Prompt de Aprender</label><textarea id="ai-learn-prompt" rows="3" placeholder="Instrucciones para generar quizzes…"></textarea></div>
+          <button class="btn btn-primary" id="ai-save-btn" type="button">Guardar IA</button>
+        </div>
       <div class="card glass full-width" style="margin-top:1rem">
           <h3>Idioma y región</h3>
           <p class="muted small">Toda la página se traduce al idioma que elijas. Si elegís tu país, ajustamos el idioma automáticamente (podés cambiarlo aparte cuando quieras).</p>
@@ -589,5 +615,6 @@
   <script src="/v3.js"></script>
   <script src="/topo-pro.js"></script>
   <script src="/pro.js"></script>
+  <script src="/code.js"></script>
 </body>
 </html>

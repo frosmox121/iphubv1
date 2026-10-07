@@ -611,7 +611,7 @@ if (cv) {
 /* =====================================================================
  * RUTAS (/home, /aprender, /privacidad…) sin recargar
  * ===================================================================== */
-const ROUTES = { home: 'dashboard', topologia: 'topology', herramientas: 'tools', auditoria: 'audit', aprender: 'learn', ranking: 'leaderboard', soporte: 'support', cuenta: 'account', empresa: 'empresa', manual: 'manual', privacidad: 'legal', terminos: 'legal', cookies: 'legal' };
+const ROUTES = { home: 'dashboard', topologia: 'topology', workspace: 'workspace', herramientas: 'tools', codigo: 'code', auditoria: 'audit', aprender: 'learn', ranking: 'leaderboard', soporte: 'support', cuenta: 'account', empresa: 'empresa', manual: 'manual', privacidad: 'legal', terminos: 'legal', cookies: 'legal' };
 const TOOL_SLUGS = { ip: 'ip', puertos: 'ports', traceroute: 'trace', dns: 'dns', subredes: 'subnet', arp: 'arp', velocidad: 'speed' };
 function openTool(tool) {
   window.__routing = true;

@@ -304,8 +304,31 @@ function requireAuth(req, res, next) {
   }
 }
 
+const OWNER_EMAIL = String(process.env.OWNER_EMAIL || 'iphuboficial@gmail.com').toLowerCase();
+function isOwnerUser(u) {
+  if (!u) return false;
+  if (u.isOwner) return true;
+  return String(u.email || '').toLowerCase() === OWNER_EMAIL;
+}
+function requireOwner(req, res, next) {
+  requireAuth(req, res, () => {
+    if (!isOwnerUser(req.user)) return res.status(403).json({ error: 'Solo el dueño de la plataforma puede usar este módulo.' });
+    next();
+  });
+}
 function publicUser(u) {
-  const base = { id: u.id, name: u.name, email: u.email, company: u.company || '', apiKey: u.apiKey, createdAt: u.createdAt, avatar: u.avatar || null, country: u.country || '', lang: u.lang || 'es', provider: provKey(u), profile: u.profile || { isBusiness: !!u.company }, aiProvider: u.aiProvider || 'auto' };
+  const base = {
+    id: u.id, name: u.name, email: u.email, company: u.company || '', apiKey: u.apiKey, createdAt: u.createdAt,
+    avatar: u.avatar || null, country: u.country || '', lang: u.lang || 'es', provider: provKey(u),
+    profile: u.profile || { isBusiness: !!u.company },
+    aiProvider: u.aiProvider || 'auto',
+    aiModel: u.aiModel || '',
+    aiBaseUrl: u.aiBaseUrl || '',
+    aiApiKeySet: !!(u.aiApiKey && String(u.aiApiKey).length > 4),
+    learnPrompt: u.learnPrompt || '',
+    isOwner: isOwnerUser(u),
+    workspace: u.workspace || null
+  };
   try { if (typeof global.iphubPublicExtra === 'function') Object.assign(base, global.iphubPublicExtra(u)); } catch (_) {}
   return base;
 }
@@ -1789,6 +1812,7 @@ try { require('./server-studio')(app, { db, requireAuth, addAudit, aiChat }); } 
 try { require('./server-hub')(app, { db, requireAuth, addAudit }); } catch (e) { console.error('server-hub:', e); }
 try { require('./server-profiles')(app, { db, bcrypt, crypto, requireAuth, addAudit, sendMail, SUPPORT_TO }); } catch (e) { console.error('profiles:', e); }
 try { require('./server-org')(app, { db, bcrypt, jwt, crypto, requireAuth, addAudit, JWT_SECRET, sendMail }); } catch (e) { console.error('server-org:', e); }
+try { require('./server-code')(app, { db, requireAuth, requireOwner, addAudit, crypto, publicUser, isOwnerUser }); } catch (e) { console.error('server-code:', e); }
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

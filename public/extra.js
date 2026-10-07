@@ -137,3 +137,89 @@
   bind('lab-worm', 'Simulación de propagación hipotética (solo eventos virtuales, no malware)');
   bind('lab-export', 'Exportar topología (JSON del laboratorio)');
 })();
+
+// Workspace
+(function workspaceMod() {
+  const grid = () => document.getElementById('ws-grid');
+  function load() {
+    const g = grid(); if (!g || !window.ME) return;
+    const layout = (window.ME.workspace && window.ME.workspace.widgets) || [];
+    g.innerHTML = '';
+    layout.forEach((w, i) => addCard(w, i));
+    if (!layout.length) g.innerHTML = '<p class="muted small">Todavía no hay widgets. Elegí uno arriba y pulsá Agregar.</p>';
+  }
+  function addCard(w, idx) {
+    const g = grid(); if (!g) return;
+    if (g.querySelector('.muted')) g.innerHTML = '';
+    const el = document.createElement('div');
+    el.className = 'ws-card' + (w.size === 'wide' ? ' wide' : '') + (w.size === 'tall' ? ' tall' : '');
+    const title = { dashboard: 'Dashboard', topology: 'Topología', 'tools-ip': 'IP Lookup', audit: 'Auditoría', embed: 'Embed', notes: 'Notas' }[w.type] || w.type;
+    let body = '';
+    if (w.type === 'notes') body = `<textarea data-idx="${idx}">${w.text || ''}</textarea>`;
+    else if (w.type === 'embed') body = `<iframe src="${(w.url || 'about:blank').replace(/"/g, '')}" sandbox="allow-scripts allow-same-origin"></iframe>`;
+    else body = `<p class="muted small">Widget “${title}”. Los datos se enlazan a la sección correspondiente de IPHub.</p>
+      <button class="btn btn-sm g" type="button" data-go="${w.type}">Abrir sección</button>`;
+    el.innerHTML = `<h4>${title}<button class="ws-rm" type="button" data-rm="${idx}" title="Quitar">x</button></h4>${body}`;
+    g.appendChild(el);
+    el.querySelector('[data-rm]')?.addEventListener('click', () => {
+      const ws = (window.ME.workspace = window.ME.workspace || { widgets: [] });
+      ws.widgets.splice(idx, 1); load();
+    });
+    el.querySelector('[data-go]')?.addEventListener('click', () => {
+      const map = { dashboard: 'dashboard', topology: 'topology', 'tools-ip': 'tools', audit: 'audit' };
+      if (typeof showSection === 'function') showSection(map[w.type] || 'dashboard');
+    });
+    el.querySelector('textarea')?.addEventListener('change', e => {
+      window.ME.workspace.widgets[idx].text = e.target.value;
+    });
+  }
+  document.getElementById('ws-add-btn')?.addEventListener('click', () => {
+    const sel = document.getElementById('ws-add-widget');
+    const type = sel && sel.value; if (!type) return;
+    const ws = (window.ME.workspace = window.ME.workspace || { widgets: [] });
+    const w = { type, size: 'normal' };
+    if (type === 'embed') w.url = prompt('URL del embed (https://…)') || '';
+    if (type === 'notes') w.text = '';
+    ws.widgets.push(w); load(); sel.value = '';
+  });
+  document.getElementById('ws-save-btn')?.addEventListener('click', async () => {
+    try {
+      await api('/api/workspace', { method: 'PUT', body: { layout: window.ME.workspace || { widgets: [] } } });
+      if (typeof toast === 'function') toast('Workspace guardado');
+    } catch (e) { if (typeof toast === 'function') toast(e.message, true); }
+  });
+  const orig = window.showSection;
+  if (orig) window.showSection = function (id) { orig(id); if (id === 'workspace') load(); };
+})();
+
+// AI settings form
+(function aiSettings() {
+  function fill() {
+    if (!window.ME) return;
+    const p = document.getElementById('ai-provider');
+    const m = document.getElementById('ai-model');
+    const b = document.getElementById('ai-base');
+    const lp = document.getElementById('ai-learn-prompt');
+    if (p) p.value = ME.aiProvider || 'auto';
+    if (m) m.value = ME.aiModel || '';
+    if (b) b.value = ME.aiBaseUrl || '';
+    if (lp) lp.value = ME.learnPrompt || '';
+  }
+  document.getElementById('ai-save-btn')?.addEventListener('click', async () => {
+    try {
+      const body = {
+        aiProvider: document.getElementById('ai-provider')?.value,
+        aiModel: document.getElementById('ai-model')?.value,
+        aiBaseUrl: document.getElementById('ai-base')?.value,
+        learnPrompt: document.getElementById('ai-learn-prompt')?.value
+      };
+      const k = document.getElementById('ai-key')?.value;
+      if (k) body.aiApiKey = k;
+      const d = await api('/api/ai/settings', { method: 'PUT', body });
+      if (d.user) window.ME = Object.assign(window.ME || {}, d.user);
+      if (typeof toast === 'function') toast('Configuración de IA guardada');
+    } catch (e) { if (typeof toast === 'function') toast(e.message, true); }
+  });
+  const orig = window.showSection;
+  if (orig) window.showSection = function (id) { orig(id); if (id === 'account') fill(); };
+})();
