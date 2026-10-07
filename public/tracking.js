@@ -1498,7 +1498,7 @@
     section.innerHTML =
       '<div class="ts-ide">' +
       '  <div class="ts-topbar">' +
-      '    <div class="ts-topbar-left"><strong>TRACKING STUDIO</strong> <span class="muted small">Fase 6 · Dashboard predictivo</span></div>' +
+      '    <div class="ts-topbar-left"><strong>TRACKING STUDIO</strong> <span class="muted small">Logística · IoT · Analítica</span></div>' +
       '    <div class="ts-topbar-right" id="ts-mode-indicator"></div>' +
       '  </div>' +
       '  <div class="ts-body">' +
@@ -1516,17 +1516,20 @@
       '      <div class="ts-toolbar">' +
       '        <span id="ts-ws-title">Tracking Studio</span>' +
       '        <div class="ts-toolbar-actions">' +
+      '          <span class="ts-tb-group muted small">Vista</span>' +
       '          <button type="button" class="btn btn-sm" data-ts-view="map">Mapa</button>' +
-      '          <button type="button" class="btn btn-sm" data-ts-view="list">Lista</button>' +
+      '          <button type="button" class="btn btn-sm" data-ts-view="list">Envíos</button>' +
       '          <button type="button" class="btn btn-sm" data-ts-view="events">Eventos</button>' +
       '          <button type="button" class="btn btn-sm" data-ts-view="devices">Devices</button>' +
-      '          <button type="button" class="btn btn-sm" data-ts-view="resources">Resources</button>' +
+      '          <span class="ts-tb-group muted small">Analítica</span>' +
       '          <button type="button" class="btn btn-sm" data-ts-view="alerts">Alertas</button>' +
+      '          <button type="button" class="btn btn-sm" data-ts-view="smart">Smart</button>' +
+      '          <button type="button" class="btn btn-sm" data-ts-view="dashboard">KPIs</button>' +
+      '          <button type="button" class="btn btn-sm btn-primary" data-ts-view="predictive">Predictivo</button>' +
+      '          <span class="ts-tb-group muted small">Más</span>' +
+      '          <button type="button" class="btn btn-sm" data-ts-view="rules">Reglas</button>' +
+      '          <button type="button" class="btn btn-sm" data-ts-view="resources">Recursos</button>' +
       '          <button type="button" class="btn btn-sm" data-ts-view="analytics">Analytics</button>' +
-      '          <button type="button" class="btn btn-sm" data-ts-view="dashboard">Dashboard</button>' +
-      '          <button type="button" class="btn btn-sm" data-ts-view="smart">Smart Alerts</button>' +
-      '          <button type="button" class="btn btn-sm" data-ts-view="rules">Rules</button>' +
-      '          <button type="button" class="btn btn-sm btn-primary" data-ts-view="predictive">Predictive</button>' +
       '          <button type="button" class="btn btn-sm" id="ts-btn-device">+ Device</button>' +
       '          <button type="button" class="btn btn-sm" id="ts-btn-telemetry">+ Sample</button>' +
       '          <button type="button" class="btn btn-sm btn-primary" id="ts-btn-worker">Start Worker</button>' +

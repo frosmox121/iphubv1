@@ -1,151 +1,282 @@
-/* Manual por funciones + tips (! hover) + perfil */
+/* Manual por funciones + tips (!) + perfil */
 (function () {
-  // Manual por FUNCIÓN: [título, resumen hover, detalle completo]
   const HELP = {
-    'topology-viewer': ['Visor de topología (web)', 'Muestra la red publicada por la app. No ejecuta laboratorio pesado.', 'La web solo visualiza. Fuente: snapshot del agente (POST /api/agent/snapshot) o JSON importado. Sin app no hay mapa en vivo. Botón Descargar → /api/download/exe. El IDE (edición, estrés, propagación) está en la aplicación de escritorio, no aquí.'],
-    'device-inventory': ['Inventario de dispositivos', 'Lista hosts detectados por el agente o importados.', 'Campos: IP, MAC, fabricante, tipo, SO, puertos, riesgo. Origen: agente local o importación. No mezcla cuentas.'],
-    'tool-ip': ['Analizador de IP', 'Consulta geolocalización e ISP de una IP pública.', 'API: POST /api/tools/ip-lookup. Backend consulta ip-api.com. Requiere sesión. Suma XP con cooldown. No escanea tu LAN.'],
-    'tool-ports': ['Escaneo de puertos', 'Prueba si puertos TCP están abiertos en un host.', 'API: POST /api/tools/port-scan. Usa net.Socket desde el servidor. Solo contra el host que indiques. Marca puertos críticos (21,23,445,3389,5900).'],
-    'tool-traceroute': ['Traceroute', 'Muestra saltos hasta un destino.', 'API: POST /api/tools/traceroute. Ejecuta traceroute/tracert del SO del servidor. Resultado orientativo según red del hosting.'],
-    'tool-dns': ['Consulta DNS', 'Resuelve registros DNS de un dominio.', 'API de herramientas DNS. Módulo dns de Node. Tipos comunes A/AAAA/MX/TXT/NS.'],
-    'tool-speed': ['Speedtest', 'Mide descarga/subida contra este servidor.', 'Endpoints /api/tools/speedtest/*. Mide el enlace hasta el servidor IPHub, no “todo Internet”.'],
-    'workspace': ['Workspace', 'Tablero personal con widgets y embeds.', 'API: PUT /api/workspace. Guardás layout en tu usuario. Widgets: dashboard, topología, IP, auditoría, notas, iframe externo.'],
-    'code-intel': ['Código e inteligencia', 'Repos, commits, funciones, query, grafos, foro.', 'Solo dueño (iphuboficial@gmail.com). APIs /api/code/* y /api/forum/*. Incluye demo seed + conexión de repos. Code Query filtra funciones/commits/archivos. Shared views con expiración.'],
-    'code-query': ['Code Query Explorer', 'Consultas tipo SQL sobre el modelo de código.', 'POST /api/code/query con entity, filters, sort. Guardar: POST /api/code/query/save. Solo lectura sobre el índice de código del dueño.'],
-    'code-graph': ['Grafo de código', 'Nodos y enlaces de llamadas/dependencias.', 'GET /api/code/graph/:repoId. Resalta críticos y externos.'],
-    'forum': ['Foro de código', 'Publicaciones ligadas a repo/commit/función.', 'POST /api/forum/posts. Categorías seguridad, backend, APIs, incidentes, etc. Solo dueño en esta fase.'],
-    'ai-settings': ['Configuración de IA', 'Elegí proveedor, modelo y clave propia.', 'PUT /api/ai/settings. Campos: aiProvider, aiModel, aiBaseUrl, aiApiKey, learnPrompt. En empresa el admin define el prompt de Aprender para el equipo.'],
-    'learn-prompt': ['Prompt de Aprender', 'Personaliza cómo se generan los quizzes.', 'Se guarda en el perfil. Perfil personal: cualquier usuario. Empresa: administrador. Si no hay clave IA, banco local.'],
-    'auth-login': ['Inicio de sesión', 'Correo/contraseña o Google/Discord.', 'POST /api/auth/login. JWT 7 días. Si la DB de Render se reinicia, hay que volver a entrar (USER_GONE).'],
-    'auth-register': ['Registro', 'Crea cuenta y verifica correo.', 'POST /api/auth/register. Si SMTP falla y AUTO_VERIFY_ON_SMTP_FAIL=1, entra sin código. Código también en Logs [VERIFY CODE].'],
-    'agent-app': ['Aplicación de escritorio', 'Escaneo local y laboratorio pesado.', 'Electron en agent/. Login con la misma cuenta. Publica snapshot a /api/agent/snapshot. Exporta JSON para la web.'],
-    'lab-ide-app': ['IDE de laboratorio (app)', 'Edición de topología, trazas, estrés, propagación.', 'Solo en la aplicación. Web = visor. Límites de recursos obligatorios. Propagación = evento virtual, no malware.'],
-    dashboard: ['Dashboard', 'Resumen de actividad de tu cuenta.', 'Métricas propias: auditoría, herramientas, red del agente. Sin datos de otras cuentas.'],
-    topology: ['Topología (sección)', 'Visor web de la red del agente.', 'Ver función topology-viewer. Descargar app para el laboratorio completo.'],
-    tools: ['Herramientas (sección)', 'IP, puertos, traceroute, DNS, velocidad.', 'Cada herramienta tiene su entrada en este manual (tool-ip, tool-ports, …).'],
-    audit: ['Auditoría', 'Historial de acciones de tu usuario.', 'Timestamp, acción, detalle. En empresa, vista organizativa según rol.'],
-    learn: ['Aprender', 'Quizzes de redes con XP.', 'Prompt configurable. Cooldown. Usa IA de tu perfil o banco local.'],
-    leaderboard: ['Ranking', 'Orden por XP.', 'XP de herramientas y quizzes propios.'],
-    support: ['Soporte', 'Tickets y reseñas.', 'Llegan a SUPPORT_TO. Límite de tickets frecuentes.'],
-    account: ['Mi cuenta', 'Perfil, API key, IA.', 'Incluye regenerar API key y settings de IA.'],
-    empresa: ['Empresa', 'Roles y permisos.', 'Visible según dueño/rol. No expone datos cross-org.'],
-    workspace: ['Workspace', 'Tablero configurable.', 'Ver función workspace.'],
-    code: ['Código', 'Módulo dueño.', 'Ver code-intel.'],
-    manual: ['Manual', 'Documentación por función.', 'Índice, buscador y anclas #manual-id. Tip ! en la UI resume al pasar el mouse.']
+    'topology-viewer': [
+      'Visor de topología (web)',
+      'Muestra la red publicada por la app de escritorio.',
+      'Fuente de datos: POST /api/agent/snapshot (JSON del exe) o importación de archivo. La web NO escanea tu LAN: solo visualiza. Botón Descargar exe → GET /api/download/exe. Campos del snapshot: devices[], gateway, host, online/offline, score. Actualización típica cada pocos segundos mientras el exe esté logueado.'
+    ],
+    'device-inventory': [
+      'Inventario de dispositivos',
+      'Lista hosts detectados por el agente o importados.',
+      'Campos: IP, MAC, vendor, hostname, puertos, RTT, online. Origen: agente Electron (agent/core.js) o JSON importado. No mezcla cuentas. En el exe podés confiar, ocultar, eliminar y restaurar dispositivos.'
+    ],
+    'tool-ip': [
+      'Analizador de IP',
+      'Geolocalización e ISP de una IP pública.',
+      'API: POST /api/tools/ip-lookup  Body: { ip }. Backend → http://ip-api.com/json/{ip} (campos: country, city, isp, org, as, proxy, hosting, mobile, lat/lon). Respuesta enriquecida con VPN heuristic, OSM link, reverse DNS. Requiere JWT. Auditoría: "IP lookup". No escanea LAN privada.'
+    ],
+    'tool-ports': [
+      'Escaneo de puertos TCP',
+      'Prueba si puertos TCP están abiertos en un host.',
+      'API: POST /api/tools/port-scan  Body: { host, ports } (ej. "80,443" o "1-1024"). Implementación: net.Socket.connect desde el servidor Node (concurrencia ~100). Marca críticos: 21,23,445,3389,5900. Guarda en colección scans. Limitación: el escaneo sale desde el servidor (Render/VPS/LAN del server), no desde tu PC.'
+    ],
+    'tool-traceroute': [
+      'Traceroute / Tracepacket',
+      'Muestra saltos (hops) hasta un destino.',
+      'APIs: POST /api/tools/traceroute y POST /api/tools/tracepacket  Body: { target }. Motor: 1) binario del SO (traceroute/tracert) si existe; 2) fallback Promise.any(Globalping API, HackerTarget MTR). Tracepacket usa más probes (-q 3). Respuesta: { raw, hops?, tool }. En el EXE también hay traceroute/tracepacket local (ICMP/TCP según SO).'
+    ],
+    'tool-dns': [
+      'Consulta DNS',
+      'Resuelve registros de un dominio.',
+      'API: POST /api/tools/dns-lookup  Body: { domain, type: A|AAAA|MX|TXT|NS|CNAME|SOA }. Usa dns.Resolver de Node apuntando a 1.1.1.1 y 8.8.8.8, con fallback al resolver del sistema. No usa API de terceros de pago.'
+    ],
+    'tool-subnet': [
+      'Calculadora de subredes',
+      'Aritmética CIDR pura en el servidor.',
+      'API: POST /api/tools/subnet-calc  Body: { cidr: "192.168.1.0/24" }. Calcula network, mask, broadcast, first/last host, usableHosts, wildcard. Sin red externa.'
+    ],
+    'tool-arp': [
+      'Tabla ARP / MAC',
+      'Lee vecinos conocidos del sistema del servidor.',
+      'API: GET /api/tools/arp-table. Orden: `arp -a` → /proc/net/arp → `ip neigh`. En hosting cloud suele estar vacía (normal). En LAN local del server muestra IP↔MAC.'
+    ],
+    'tool-speed': [
+      'Speedtest',
+      'Mide descarga/subida contra este servidor.',
+      'GET /api/tools/speedtest/download?mb=N  POST /api/tools/speedtest/upload  POST /api/tools/speedtest/log. El navegador descarga/sube buffers; el RTT es hacia el origen de IPHub, no “todo Internet”.'
+    ],
+    'tool-innov': [
+      'Herramientas innovadoras',
+      'Ping matrix, path probe, TLS, headers, ASN, DNS prop, compare traces.',
+      'POST /api/tools/ping-matrix {host,samples} — RTT TCP :80/:443.\nPOST /api/tools/path-probe {host} — connect a 443/80/22/53.\nPOST /api/tools/tls-info {host} — tls.connect + certificado.\nPOST /api/tools/http-headers {url} — fetch headers de seguridad.\nPOST /api/tools/asn-lookup {ip} — ip-api.com AS/org.\nPOST /api/tools/dns-propagation {domain} — A en 1.1.1.1, 8.8.8.8, 9.9.9.9, 208.67.222.222.\nCompare TR vs TP — lanza traceroute y tracepacket en paralelo.'
+    ],
+    'tool-ping-matrix': [
+      'Ping matrix TCP',
+      'Latencia TCP multi-muestra sin ICMP.',
+      'API: POST /api/tools/ping-matrix. Útil cuando ICMP está bloqueado (cloud). Calcula min/avg/max y pérdida sobre muestras a puertos 80/443.'
+    ],
+    'tool-path-probe': [
+      'Path probe',
+      'Sondea puertos clave del path.',
+      'API: POST /api/tools/path-probe. Reporta ms por puerto y sugerencia de mejor RTT. Complementa traceroute cuando solo TCP responde.'
+    ],
+    'tool-tls': [
+      'TLS certificate',
+      'Inspecciona certificado HTTPS.',
+      'API: POST /api/tools/tls-info. tls.connect Node: subject, issuer, validTo, protocol, cipher, daysLeft.'
+    ],
+    'tool-http': [
+      'HTTP headers',
+      'Cabeceras de seguridad y servidor.',
+      'API: POST /api/tools/http-headers. fetch GET; expone server, HSTS, CSP-related, cf-ray, etc.'
+    ],
+    'tool-asn': [
+      'ASN lookup',
+      'Sistema autónomo de una IP.',
+      'API: POST /api/tools/asn-lookup → ip-api.com fields as/org/isp/country.'
+    ],
+    'tool-dnsprop': [
+      'DNS propagation',
+      'Misma consulta A en varios resolvers.',
+      'API: POST /api/tools/dns-propagation. Detecta inconsistencias de propagación DNS.'
+    ],
+    'workspace': [
+      'Workspace',
+      'Tablero con widgets y embeds.',
+      'API: PUT/GET /api/workspace  Body: { layout: { widgets:[{type,size,url?,text?}] } }. Tipos: dashboard, topology, tools-ip, audit, notes, embed. Persistido en el usuario.'
+    ],
+    'code-intel': [
+      'Código e inteligencia',
+      'Repos, commits, funciones, query, grafos, foro.',
+      'Solo dueño. APIs /api/code/* y /api/forum/*. requireOwner en servidor.'
+    ],
+    'code-query': [
+      'Code Query',
+      'Consultas sobre el índice de código.',
+      'POST /api/code/query { entity, filters, sort }. Guardar: POST /api/code/query/save.'
+    ],
+    'code-graph': [
+      'Grafo de código',
+      'Nodos y enlaces de dependencias.',
+      'GET /api/code/graph/:repoId.'
+    ],
+    'forum': [
+      'Foro de código',
+      'Posts ligados a repo/commit/función.',
+      'POST /api/forum/posts. Solo dueño.'
+    ],
+    'ai-settings': [
+      'Configuración de IA',
+      'Proveedor, modelo y clave propia.',
+      'PUT /api/ai/settings. Chat: POST /api/chat con historial. System prompt incluye base de conocimiento IPHub + Tracking Studio + herramientas.'
+    ],
+    'learn-prompt': [
+      'Prompt de Aprender',
+      'Personaliza quizzes.',
+      'Guardado en perfil. Quiz: banco local o IA.'
+    ],
+    'auth-login': [
+      'Inicio de sesión',
+      'Correo/contraseña o OAuth.',
+      'POST /api/auth/login → JWT 7 días. Google/Discord vía flujos OAuth. USER_GONE si la DB se reinició.'
+    ],
+    'auth-register': [
+      'Registro',
+      'Alta de cuenta + verificación.',
+      'POST /api/auth/register. SMTP o AUTO_VERIFY_ON_SMTP_FAIL. Código en logs [VERIFY CODE].'
+    ],
+    'agent-app': [
+      'App de escritorio (exe)',
+      'Escaneo local, WoL, traceroute local.',
+      'Electron agent/. Login cloud + Google/Discord. Publica /api/agent/snapshot. Traceroute/Tracepacket locales en el panel del exe. Restaurar dispositivos eliminados desde filtro Eliminados.'
+    ],
+    'lab-ide-app': [
+      'IDE de laboratorio (app)',
+      'Topología pesada en escritorio.',
+      'Solo en la aplicación. Web = visor.'
+    ],
+    'tracking-studio': [
+      'Tracking Studio',
+      'IDE logístico IoT + analítica.',
+      'APIs bajo /api/tracking/*: proyectos, envíos, telemetría, workers, alertas smart, predictive, bridge Virtual Lab, GIS rutas/geofences, simulación, snapshots, incidentes, reportes, consignments, POD, e-seal, carriers, replay, webhooks, RBAC, topology, AI local.'
+    ],
+    dashboard: [
+      'Dashboard',
+      'Resumen de actividad de tu cuenta.',
+      'GET /api/dashboard/activity: events24h, ipLookups, portScans, dnsQueries, traces, tickets, rating.'
+    ],
+    topology: [
+      'Topología (sección)',
+      'Visor web de la red del agente.',
+      'Ver topology-viewer. Datos vía snapshot del exe.'
+    ],
+    tools: [
+      'Herramientas (sección)',
+      'Suite de diagnóstico de red.',
+      'Tabs: IP, Puertos, Traceroute, DNS, Subredes, ARP, Velocidad, Innovadoras. Cada botón llama su /api/tools/* documentado en este manual por función.'
+    ],
+    audit: [
+      'Auditoría',
+      'Historial de acciones.',
+      'GET /api/audit. Timestamp, acción, detalle por usuario.'
+    ],
+    learn: [
+      'Aprender',
+      'Quizzes de redes + XP.',
+      'Banco local o IA. Cooldown entre intentos.'
+    ],
+    leaderboard: [
+      'Ranking',
+      'Orden por XP.',
+      'GET /api/leaderboard.'
+    ],
+    support: [
+      'Soporte',
+      'Tickets y reseñas.',
+      'POST tickets → SUPPORT_TO. Límite de frecuencia.'
+    ],
+    empresa: [
+      'Empresa',
+      'Roles, miembros, permisos por sección.',
+      'Permisos: dashboard, topology, workspace, tracking, tools, audit, learn, ranking, support, manual, account. APIs /api/org/*.'
+    ],
+    manual: [
+      'Manual',
+      'Documentación por función.',
+      'Este panel. Tips (!) en cada función abren el detalle técnico.'
+    ],
+    account: [
+      'Mi cuenta',
+      'Perfil, API key, switch de cuentas.',
+      'PUT /api/auth/profile. Roster local iphub_roster para multi-cuenta. Dueño: no elimina cuenta ni cambia mail/pass.'
+    ],
   };
-  const $ = id => document.getElementById(id);
-
-  function mark() {
-    document.querySelectorAll('.section-header h2').forEach(h => {
-      if (h.querySelector('.help-q') || h.querySelector('.fn-tip') || h.querySelector('.qmark')) return;
-      const sec = h.closest('.section');
-      const key = sec && sec.id;
-      const item = HELP[key]; if (!item) return;
-      const a = document.createElement('a');
-      a.className = 'fn-tip';
-      a.href = '#manual-' + key;
-      a.textContent = '!';
-      a.title = item[1];
-      a.setAttribute('aria-label', 'Ayuda: ' + item[0]);
-      a.onclick = (e) => { e.preventDefault(); openHelp(key); };
-      h.appendChild(a);
-    });
-    // Tips ya en HTML con data-fn
-    document.querySelectorAll('.fn-tip[data-fn]').forEach(el => {
-      const item = HELP[el.getAttribute('data-fn')];
-      if (item) el.title = item[1];
-      el.onclick = (e) => {
-        e.preventDefault();
-        openHelp(el.getAttribute('data-fn'));
-      };
-    });
-  }
 
   function openHelp(key) {
-    location.hash = 'manual-' + key;
-    const box = $('manual-body');
-    if (box) {
-      box.dataset.ready = '';
-      manual();
-      const art = document.getElementById('manual-' + key);
-      if (art) art.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const item = HELP[key];
+    if (!item) return;
+    let modal = document.getElementById('fn-help-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'fn-help-modal';
+      modal.innerHTML = '<div class="fn-help-backdrop"></div><div class="fn-help-card"><button type="button" class="fn-help-x" aria-label="Cerrar">✕</button><h3></h3><p class="fn-help-sum"></p><pre class="fn-help-detail"></pre></div>';
+      document.body.appendChild(modal);
+      modal.querySelector('.fn-help-backdrop').onclick = () => modal.classList.remove('open');
+      modal.querySelector('.fn-help-x').onclick = () => modal.classList.remove('open');
     }
-    if (typeof showSection === 'function') showSection('manual');
+    modal.querySelector('h3').textContent = item[0];
+    modal.querySelector('.fn-help-sum').textContent = item[1];
+    modal.querySelector('.fn-help-detail').textContent = item[2];
+    modal.classList.add('open');
   }
 
-  function manual() {
-    const box = $('manual-body'); if (!box) return;
-    if (box.dataset.ready === '1') return;
-    box.dataset.ready = '1';
-    const entries = Object.entries(HELP);
-    const toc = entries.map(([k, v]) => `<li><a href="#manual-${k}">${v[0]}</a></li>`).join('');
-    box.innerHTML = `
-      <div class="card glass" style="margin-bottom:1rem">
-        <h3>Manual por funciones</h3>
-        <p class="muted small">El símbolo <strong>!</strong> junto a cada función muestra un resumen al pasar el mouse. Clic abre el detalle aquí. Incluye uso, APIs y límites en lenguaje claro.</p>
-        <input class="manual-search" id="manual-q" type="search" placeholder="Buscar función, API, herramienta…">
-        <ul id="manual-toc" style="columns:2;gap:1rem;margin:.6rem 0 0;padding-left:1.2rem">${toc}</ul>
-      </div>
-      <div id="manual-articles">
-      ${entries.map(([k, v]) =>
-        `<article id="manual-${k}" class="card glass manual-art" data-text="${(v[0] + ' ' + v[1] + ' ' + v[2]).replace(/"/g, '')}" style="margin-bottom:.8rem">
-          <h3>${v[0]}</h3>
-          <p><strong>Resumen:</strong> ${v[1]}</p>
-          <p>${v[2]}</p>
-        </article>`
-      ).join('')}
-      </div>`;
-    const q = $('manual-q');
-    if (q) q.oninput = () => {
-      const s = q.value.toLowerCase().trim();
-      box.querySelectorAll('.manual-art').forEach(art => {
-        art.style.display = !s || (art.getAttribute('data-text') || '').toLowerCase().includes(s) ? '' : 'none';
+  function bindTips() {
+    document.querySelectorAll('.fn-tip[data-fn]').forEach(el => {
+      if (el.dataset.bound) return;
+      el.dataset.bound = '1';
+      el.setAttribute('role', 'button');
+      el.tabIndex = 0;
+      el.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        openHelp(el.getAttribute('data-fn'));
       });
-    };
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openHelp(el.getAttribute('data-fn')); }
+      });
+    });
   }
 
-  async function profileCard() {
-    const host = $('profile-box'); if (!host || !window.ME) return;
-    let d = {};
-    try { d = await api('/api/profile'); } catch (_) { return; }
-    host.innerHTML = `<h3>Perfil <a class="help-q" href="#manual-account" id="q-profile" title="Ayuda de perfil" aria-label="Ayuda de perfil"></a></h3>
-      <p class="muted small">Si no elegís nada, la cuenta queda personal.</p>
-      <div class="tool-form">
-        <select id="pf-type"><option value="0">Personal</option><option value="1">Empresa</option></select>
-        <select id="pf-ai"><option value="auto">IA automática</option><option value="groq">Groq</option><option value="gemini">Gemini</option><option value="openrouter">OpenRouter</option></select>
-        <button class="btn btn-primary" id="pf-save" type="button">Guardar perfil</button>
-      </div>
-      <label>Prompt de Aprender</label>
-      <textarea id="pf-prompt" rows="3">${d.learnPrompt || ''}</textarea>
-      <p class="muted small">La clave API de esta cuenta sirve para todas las funciones: encabezado <code>X-API-Key</code>.</p>`;
-    $('pf-type').value = d.profile && d.profile.isBusiness ? '1' : '0';
-    $('pf-ai').value = d.aiProvider || 'auto';
-    $('pf-save').onclick = async () => {
-      await api('/api/profile', { method: 'PUT', body: { isBusiness: $('pf-type').value === '1', aiProvider: $('pf-ai').value, learnPrompt: $('pf-prompt').value } });
-      if (typeof toast === 'function') toast('Perfil guardado');
-    };
-    const q = $('q-profile'); if (q) q.onclick = (e) => { e.preventDefault(); openHelp('account'); };
+  function renderManual() {
+    const root = document.getElementById('manual-body') || document.querySelector('#manual .manual-body') || document.querySelector('#manual');
+    if (!root) return;
+    // Prefer dedicated container
+    let host = document.getElementById('manual-fn-list');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'manual-fn-list';
+      const section = document.getElementById('manual');
+      if (section) {
+        const header = section.querySelector('.section-header');
+        if (header && header.nextSibling) section.insertBefore(host, header.nextSibling);
+        else section.appendChild(host);
+      }
+    }
+    const entries = Object.keys(HELP).map(k => {
+      const [title, sum, detail] = HELP[k];
+      return `<details class="manual-card" data-fn="${k}">
+        <summary><strong>${title}</strong> <span class="muted small">${sum}</span></summary>
+        <pre class="manual-tech">${detail.replace(/</g,'&lt;')}</pre>
+      </details>`;
+    }).join('');
+    host.innerHTML = '<h3 class="manual-fn-title">Manual por funciones</h3><p class="muted">Cada entrada documenta la API y el comportamiento real. Los signos <b>!</b> en la UI abren el mismo detalle.</p>' + entries;
   }
 
-  async function traces() {
-    const box = $('trace-box'); if (!box) return;
-    try {
-      const d = await api('/api/agent/snapshot');
-      const rows = (d.snapshot && d.snapshot.traces) || [];
-      const routes = (d.snapshot && d.snapshot.routes) || [];
-      box.innerHTML = `<h3>Trazas de esta cuenta</h3>
-        <p class="muted small">${rows.length ? '' : 'Todavía no hay trazas del exe.'}</p>
-        <div class="table-wrap"><table class="data-table"><thead><tr><th>Cuando</th><th>Protocolo</th><th>IP</th><th>Info</th></tr></thead><tbody>
-        ${rows.map(t => `<tr><td>${t.at || ''}</td><td>${t.proto || ''}</td><td>${t.ip || ''}</td><td>${t.info || ''} ${t.ttl ? 'TTL ' + t.ttl : ''}</td></tr>`).join('') || '<tr><td colspan="4">Sin trazas</td></tr>'}
-        </tbody></table></div>
-        <h3>Tabla de ruteo inferida</h3>
-        <div class="table-wrap"><table class="data-table"><thead><tr><th>Destino</th><th>Vía</th><th>Protocolo</th></tr></thead><tbody>
-        ${routes.map(r => `<tr><td>${r.dest}</td><td>${r.via}</td><td>${r.proto}</td></tr>`).join('') || '<tr><td colspan="3">Sin datos</td></tr>'}
-        </tbody></table></div>`;
-    } catch (_) {}
-  }
+  document.addEventListener('click', e => {
+    const tip = e.target.closest && e.target.closest('.fn-tip[data-fn]');
+    if (tip) {
+      e.preventDefault();
+      openHelp(tip.getAttribute('data-fn'));
+    }
+  });
 
+  const boot = () => { bindTips(); renderManual(); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+  setTimeout(bindTips, 800);
+  setTimeout(bindTips, 2500);
+
+  // Re-bind when navigating
   const orig = window.showSection;
-  if (orig) window.showSection = function (id) { orig(id); if (id === 'account') profileCard(); if (id === 'manual') manual(); if (id === 'topology') traces(); };
-  setInterval(() => { if (window.ME) { mark(); manual(); } }, 1000);
+  if (typeof orig === 'function') {
+    window.showSection = function (id) {
+      orig(id);
+      setTimeout(bindTips, 50);
+      if (id === 'manual') renderManual();
+    };
+  }
+
+  window.iphubOpenHelp = openHelp;
+  window.iphubHELP = HELP;
 })();

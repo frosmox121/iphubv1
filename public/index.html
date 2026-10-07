@@ -326,6 +326,7 @@
           <button class="tool-tab" data-tool="subnet" data-slug="subredes">Subredes</button>
           <button class="tool-tab" data-tool="arp" data-slug="arp">ARP / MAC</button>
           <button class="tool-tab" data-tool="speed" data-slug="velocidad">Velocidad</button>
+          <button class="tool-tab" data-tool="innov" data-slug="innovadoras">Innovadoras</button>
         </div>
 
         <div class="tool-panel active" id="tool-ip">
@@ -404,7 +405,8 @@
 
         <div class="tool-panel" id="tool-speed">
           <div class="card glass">
-            <p class="muted">Mide el enlace real entre tu navegador y este servidor (si el server corre en tu LAN, mide tu LAN; si lo desplegás en un VPS, mide tu internet real).</p>
+            <h3>Speedtest <span class="fn-tip" data-fn="tool-speed" title="Mide descarga/subida contra este servidor">!</span></h3>
+            <p class="muted">Mide el enlace real entre tu navegador y este servidor. API: /api/tools/speedtest/*</p>
             <div class="input-group" style="max-width:220px"><label>Unidad</label><select id="speed-unit"><option value="Mbps">Mbps (megabits/s)</option><option value="MB/s">MB/s (megabytes/s)</option><option value="Gbps">Gbps</option><option value="kbps">kbps</option><option value="KB/s">KB/s</option></select></div>
             <button class="btn btn-accent" id="speed-test-btn">Ejecutar Prueba de Velocidad Real</button>
             <div class="speed-meters">
@@ -412,6 +414,23 @@
               <div class="meter"><span>Upload</span><strong id="ul-speed">—</strong></div>
               <div class="meter"><span>Latencia</span><strong id="latency">—</strong></div>
             </div>
+          </div>
+        </div>
+
+        <div class="tool-panel" id="tool-innov" style="grid-column:1/-1">
+          <div class="card glass">
+            <h3>Herramientas innovadoras <span class="fn-tip" data-fn="tool-innov" title="Ping matrix, path probe, TLS, headers, ASN, DNS prop, compare traces">!</span></h3>
+            <p class="muted">Sondas avanzadas de red y seguridad. Cada una usa una API documentada en el Manual.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin:.8rem 0">
+              <button class="btn btn-primary btn-sm" id="innov-ping-btn" type="button">Ping matrix TCP</button>
+              <button class="btn btn-primary btn-sm" id="innov-path-btn" type="button">Path probe</button>
+              <button class="btn btn-primary btn-sm" id="innov-tls-btn" type="button">TLS certificate</button>
+              <button class="btn btn-primary btn-sm" id="innov-http-btn" type="button">HTTP headers</button>
+              <button class="btn btn-primary btn-sm" id="innov-asn-btn" type="button">ASN lookup</button>
+              <button class="btn btn-primary btn-sm" id="innov-dnsprop-btn" type="button">DNS propagation</button>
+              <button class="btn btn-accent btn-sm" id="innov-compare-btn" type="button">Compare TR vs TP</button>
+            </div>
+            <div id="innov-results" class="hidden" style="margin-top:.6rem"></div>
           </div>
         </div>
       </section>

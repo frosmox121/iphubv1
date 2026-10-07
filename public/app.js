@@ -55,13 +55,37 @@ async function enterApp() {
   ME = me.user;
   $('#user-name').textContent = ME.name;
   $('#user-email').textContent = ME.email;
-  $('#user-avatar').textContent = ME.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  (function setAv() {
+    const n = String(ME.name || ME.email || '?').trim().split(/\s+/).filter(Boolean);
+    const ini = n.length >= 2 ? (n[0][0] + n[1][0]) : (n[0] || '?').slice(0, 2);
+    const av = $('#user-avatar');
+    if (av) av.textContent = ini.toUpperCase();
+  })();
   $('#acc-name').value = ME.name;
   $('#acc-company').value = ME.company || '';
   $('#api-key').textContent = ME.apiKey;
   const w = $('#dash-welcome');
   if (w) w.textContent = '¡Bienvenido a IPHub! (' + (ME.name || '') + ')';
   await Promise.all([refreshDashboard(), refreshDevices(), refreshAudit(), refreshProgress()]);
+  try {
+    if (ME && ME.isOwner) {
+      document.querySelectorAll('#acc-email, #acc-password, [data-delete-account], #delete-account-btn').forEach(el => {
+        if (!el) return;
+        el.disabled = true;
+        el.title = 'La cuenta del dueño no se puede modificar ni eliminar';
+      });
+      const del = document.querySelector('#account h3');
+      // hide delete section if present
+      document.querySelectorAll('#account h3').forEach(h => {
+        if (/Eliminar cuenta/i.test(h.textContent || '')) {
+          let n = h.nextElementSibling;
+          h.style.display = 'none';
+          while (n && n.tagName !== 'H3') { const nx = n.nextElementSibling; n.style.display = 'none'; n = nx; }
+        }
+      });
+    }
+  } catch (_) {}
+
   try { if (typeof saveAccountLocal === 'function') saveAccountLocal(ME); } catch (_) {}
 }
 
@@ -277,67 +301,60 @@ $('#discover-btn').addEventListener('click', async () => {
   } catch (e) { status.textContent = ''; toast(e.message, true); }
 });
 
-// ---------- IP lookup ----------
-$('#ip-lookup-btn').addEventListener('click', async () => {
-  const errEl = $('#ip-error'); errEl.classList.add('hidden');
+// ---------- Tools (event delegation — siempre funciona) ----------
+function toolErr(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) { toast(msg, true); return; }
+  el.textContent = msg; el.classList.remove('hidden');
+}
+function toolOk(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('hidden');
+}
+
+async function toolIpLookup() {
+  toolOk('ip-error');
   try {
-    const d = await api('/api/tools/ip-lookup', { method: 'POST', body: { ip: $('#ip-input').value.trim() } });
-    const box = $('#ip-results'); box.classList.remove('hidden');
+    const d = await api('/api/tools/ip-lookup', { method: 'POST', body: { ip: ($('#ip-input') || {}).value?.trim() || '' } });
+    const box = $('#ip-results'); if (!box) return;
+    box.classList.remove('hidden');
     box.innerHTML = `
       <div class="result-item"><label>IP</label><strong>${d.query}</strong></div>
-      <div class="result-item"><label>País / Región</label><strong><span class="flag">${d.countryCode ? countryFlag(d.countryCode) : ""}</span> ${d.country} (${d.countryCode}) · ${d.regionName}</strong></div>
-      <div class="result-item"><label>Ciudad</label><strong>${d.city}</strong></div>
-      <div class="result-item"><label>ISP</label><strong>${d.isp}</strong></div>
-      <div class="result-item"><label>Organización / AS</label><strong>${d.org || '—'} · ${d.as || '—'}</strong></div>
-      <div class="result-item"><label>Hosting / Datacenter</label><strong>${d.hosting ? 'Sí' : 'No'}</strong></div>
+      <div class="result-item"><label>País / Región</label><strong><span class="flag">${d.countryCode ? countryFlag(d.countryCode) : ""}</span> ${d.country || '—'} (${d.countryCode || '—'}) · ${d.regionName || '—'}</strong></div>
+      <div class="result-item"><label>Ciudad</label><strong>${d.city || '—'}</strong></div>
+      <div class="result-item"><label>ISP / Org / AS</label><strong>${d.isp || '—'} · ${d.org || '—'} · ${d.as || '—'}</strong></div>
       <div class="result-item"><label>VPN / Proxy</label><strong><span class="vpn-badge ${d.isVpnOrProxy ? 'vpn-yes' : 'vpn-no'}">${d.isVpnOrProxy ? 'Detectado' : 'No detectado'}</span></strong></div>
-      <div class="result-item"><label>Confianza VPN</label><strong>${d.vpnConfidence || '—'}</strong></div>
-      <div class="result-item"><label>Motivo</label><strong>${d.vpnReason || '—'}</strong></div>
-      <div class="result-item"><label>Proxy conocido</label><strong>${d.proxy ? 'Sí' : 'No'}</strong></div>
-      <div class="result-item"><label>Hosting / DC</label><strong>${d.hosting ? 'Sí' : 'No'}</strong></div>
-      <div class="result-item"><label>Móvil</label><strong>${d.mobile ? 'Sí' : 'No'}</strong></div>
-      <div class="result-item"><label>Coordenadas</label><strong>${d.lat}, ${d.lon}</strong></div>
-      <div class="result-item"><label>Reverse DNS</label><strong>${d.reverse || '—'}</strong></div>
-      <div class="result-item"><label>Versión de IP</label><strong>${d.ipVersion || '—'}</strong></div>
-      <div class="result-item"><label>Continente</label><strong>${d.continent || '—'} (${d.continentCode || '—'})</strong></div>
-      <div class="result-item"><label>Distrito / Código postal</label><strong>${d.district || '—'} · ${d.zip || '—'}</strong></div>
-      <div class="result-item"><label>Zona horaria</label><strong>${d.timezone || '—'} (UTC${d.offset >= 0 ? '+' : ''}${(d.offset || 0) / 3600})</strong></div>
-      <div class="result-item"><label>Hora local allí</label><strong>${d.localTime || '—'}</strong></div>
-      <div class="result-item"><label>Moneda</label><strong>${d.currency || '—'}</strong></div>
-      <div class="result-item"><label>Nombre del AS</label><strong>${d.asname || '—'}</strong></div>
-      <div class="result-item"><label>Mapa</label><strong><a href="${d.osmUrl}" target="_blank" rel="noopener">Abrir en OpenStreetMap</a></strong></div>
-    `;
-    refreshAudit();
-  } catch (e) { errEl.textContent = e.message; errEl.classList.remove('hidden'); }
-});
+      <div class="result-item"><label>Hosting / Móvil</label><strong>${d.hosting ? 'Hosting' : 'No'} · ${d.mobile ? 'Móvil' : 'No'}</strong></div>
+      <div class="result-item"><label>Coords / Mapa</label><strong>${d.lat}, ${d.lon} · <a href="${d.osmUrl || '#'}" target="_blank" rel="noopener">OSM</a></strong></div>
+      <div class="result-item"><label>API</label><strong class="muted">POST /api/tools/ip-lookup → ip-api.com</strong></div>`;
+    refreshAudit(); toast('IP analizada');
+  } catch (e) { toolErr('ip-error', e.message); }
+}
 
-// ---------- Port scan ----------
-$('#port-scan-btn').addEventListener('click', async () => {
-  const errEl = $('#port-error'); errEl.classList.add('hidden');
+async function toolPortScan() {
+  toolOk('port-error');
   try {
     const d = await api('/api/tools/port-scan', {
       method: 'POST',
-      body: { host: $('#port-target').value.trim(), ports: $('#port-range').value.trim() },
+      body: { host: ($('#port-target') || {}).value?.trim(), ports: ($('#port-range') || {}).value?.trim() },
     });
-    $('#port-grid').innerHTML = d.results.map(r => `
+    const g = $('#port-grid');
+    if (g) g.innerHTML = (d.results || []).map(r => `
       <div class="port-item ${r.open ? 'open' : 'closed'}">
         <div style="font-family:var(--mono);font-size:1.05rem;font-weight:700">${r.port}</div>
         <div style="font-size:.75rem">${r.open ? 'ABIERTO' : 'cerrado'}</div>
-        <div style="font-size:.7rem;color:var(--text-dim)">${r.service}${r.critical ? ' ⚠️' : ''}</div>
+        <div style="font-size:.7rem;color:var(--text-dim)">${r.service || ''}${r.critical ? ' ⚠️' : ''}</div>
       </div>`).join('');
-    toast(`Escaneo real completado en ${d.host}`);
-    refreshAudit(); refreshDashboard();
-  } catch (e) { errEl.textContent = e.message; errEl.classList.remove('hidden'); }
-});
+    toast('Escaneo en ' + d.host); refreshAudit(); refreshDashboard();
+  } catch (e) { toolErr('port-error', e.message); }
+}
 
-// ---------- Traceroute / Tracepacket ----------
 function parseTraceRows(raw) {
   const rows = [];
   for (const line of String(raw || '').split(/\r?\n/)) {
     const m = line.match(/^\s*(\d+)\s+(.+)$/);
     if (!m) continue;
-    const hop = m[1];
-    const rest = m[2].trim();
+    const hop = m[1], rest = m[2].trim();
     if (/^\*\s+\*\s+\*/.test(rest) || rest === '* * *') {
       rows.push({ hop, host: '*', rtts: ['*', '*', '*'] }); continue;
     }
@@ -353,102 +370,243 @@ function renderTrace(d) {
   const wrap = $('#trace-table-wrap');
   const body = $('#trace-body');
   const rows = d.hops || parseTraceRows(d.raw);
-  if (rows.length) {
+  if (wrap && body && rows.length) {
     wrap.classList.remove('hidden');
     body.innerHTML = rows.map(r => `<tr><td>${r.hop}</td><td style="font-family:var(--mono)">${r.host}</td><td>${r.rtts[0]}</td><td>${r.rtts[1]}</td><td>${r.rtts[2]}</td></tr>`).join('');
-  } else { wrap.classList.add('hidden'); body.innerHTML = ''; }
-  out.textContent = d.raw || '';
+  } else if (wrap) wrap.classList.add('hidden');
+  if (out) out.textContent = (d.tool ? '[' + d.tool + ']\n' : '') + (d.raw || '');
 }
+
 async function runTrace(mode) {
-  const errEl = $('#trace-error'); errEl.classList.add('hidden');
-  const out = $('#trace-output'); out.textContent = mode === 'packet' ? 'Ejecutando tracepacket…' : 'Ejecutando traceroute real, puede tardar hasta 30s…';
+  const errEl = $('#trace-error'); if (errEl) errEl.classList.add('hidden');
+  const out = $('#trace-output');
+  if (out) out.textContent = mode === 'packet' ? 'Ejecutando tracepacket…' : 'Ejecutando traceroute…';
   try {
     const path = mode === 'packet' ? '/api/tools/tracepacket' : '/api/tools/traceroute';
-    const d = await api(path, { method: 'POST', body: { target: $('#trace-target').value.trim() } });
+    const d = await api(path, { method: 'POST', body: { target: ($('#trace-target') || {}).value?.trim() } });
     renderTrace(d);
+    toast(mode === 'packet' ? 'Tracepacket listo' : 'Traceroute listo');
     refreshAudit();
-  } catch (e) { out.textContent = ''; errEl.textContent = e.message; errEl.classList.remove('hidden'); }
+  } catch (e) {
+    if (out) out.textContent = '';
+    toolErr('trace-error', e.message);
+  }
 }
-$('#trace-btn').addEventListener('click', () => runTrace('route'));
-document.addEventListener('click', e => { if (e.target && e.target.id === 'tracepacket-btn') runTrace('packet'); });
 
-// ---------- DNS ----------
-$('#dns-lookup-btn').addEventListener('click', async () => {
-  const errEl = $('#dns-error'); errEl.classList.add('hidden');
+async function toolDns() {
+  toolOk('dns-error');
   try {
     const d = await api('/api/tools/dns-lookup', {
-      method: 'POST', body: { domain: $('#dns-domain').value.trim(), type: $('#dns-type').value },
+      method: 'POST', body: { domain: ($('#dns-domain') || {}).value?.trim(), type: ($('#dns-type') || {}).value },
     });
-    $('#dns-results').innerHTML = `<p class="muted" style="margin:.75rem 0">${d.note || `Registros ${d.type} para ${d.domain}:`}</p>` +
-      d.records.map(r => `<div class="result-item" style="margin-bottom:.4rem"><strong style="font-family:var(--mono)">${r}</strong></div>`).join('');
-    refreshAudit();
-  } catch (e) { errEl.textContent = e.message; errEl.classList.remove('hidden'); }
-});
+    const box = $('#dns-results');
+    if (box) box.innerHTML = `<p class="muted" style="margin:.75rem 0">${d.note || ('Registros ' + d.type + ' para ' + d.domain + ':')}</p>` +
+      (d.records || []).map(r => `<div class="result-item" style="margin-bottom:.4rem"><strong style="font-family:var(--mono)">${r}</strong></div>`).join('');
+    toast('DNS OK'); refreshAudit();
+  } catch (e) { toolErr('dns-error', e.message); }
+}
 
-// ---------- Subnet calc ----------
-$('#cidr-calc-btn').addEventListener('click', async () => {
+async function toolCidr() {
   try {
-    const d = await api('/api/tools/subnet-calc', { method: 'POST', body: { cidr: $('#cidr-input').value.trim() } });
-    const box = $('#cidr-results'); box.classList.remove('hidden');
+    const d = await api('/api/tools/subnet-calc', { method: 'POST', body: { cidr: ($('#cidr-input') || {}).value?.trim() } });
+    const box = $('#cidr-results'); if (!box) return;
+    box.classList.remove('hidden');
     box.innerHTML = Object.entries({
       'Red': d.network, 'Máscara': d.mask, 'Broadcast': d.broadcast, 'Primer host': d.firstHost,
       'Último host': d.lastHost, 'Hosts útiles': d.usableHosts, 'CIDR': d.cidr, 'Wildcard': d.wildcard,
     }).map(([k, v]) => `<div class="cidr-item"><label>${k}</label><strong>${v}</strong></div>`).join('');
-    refreshAudit();
+    toast('Subred calculada'); refreshAudit();
   } catch (e) { toast(e.message, true); }
-});
+}
 
-// ---------- ARP ----------
-$('#arp-btn').addEventListener('click', async () => {
+async function toolArp() {
   try {
     const d = await api('/api/tools/arp-table');
-    $('#arp-results').innerHTML = d.entries.length ? d.entries.map(e => `
-      <div class="port-item open"><div style="font-size:.8rem">${e.ip}</div><div style="font-family:var(--mono);font-size:.75rem">${e.mac}</div></div>
-    `).join('') : '<p class="muted">Tabla ARP vacía (todavía no hubo tráfico hacia esos hosts).</p>';
-    refreshAudit();
+    const box = $('#arp-results');
+    if (box) box.innerHTML = (d.entries || []).length ? d.entries.map(e => `
+      <div class="port-item open"><div style="font-size:.8rem">${e.ip}</div><div style="font-family:var(--mono);font-size:.75rem">${e.mac}</div></div>`).join('') : '<p class="muted">Sin entradas ARP (normal en hosting cloud)</p>';
+    toast('ARP leída'); refreshAudit();
   } catch (e) { toast(e.message, true); }
-});
+}
 
-// ---------- Speed test real ----------
-$('#speed-test-btn').addEventListener('click', async () => {
-  const btn = $('#speed-test-btn'); btn.disabled = true; btn.textContent = 'Midiendo...';
+async function toolSpeed() {
+  const btn = $('#speed-test-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Midiendo…'; }
   try {
-    // Latencia: promedio de 4 requests pequeños reales
-    const lats = [];
-    for (let i = 0; i < 4; i++) {
-      const t0 = performance.now();
-      await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${TOKEN}` } });
-      lats.push(performance.now() - t0);
-    }
-    const latency = lats.reduce((a, b) => a + b, 0) / lats.length;
-    const jitter = Math.max(...lats) - Math.min(...lats);
-    $('#latency').textContent = latency.toFixed(0) + ' ms';
-
-    // Download real: mide bytes/segundo reales de un stream de 15MB
-    const sizeMb = 15;
-    const t1 = performance.now();
+    const sizeMb = 2;
+    const t0 = performance.now();
     const resp = await fetch(`/api/tools/speedtest/download?mb=${sizeMb}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
-    const buf = await resp.arrayBuffer();
-    const dlSeconds = (performance.now() - t1) / 1000;
-    const dlMbps = (buf.byteLength * 8 / 1_000_000) / dlSeconds;
-    LAST.dl = dlMbps; showSpeeds();
-
-    // Upload real: manda esos mismos bytes de vuelta y mide el tiempo real
-    const t2 = performance.now();
+    if (!resp.ok) throw new Error('Download falló');
+    await resp.arrayBuffer();
+    const dlMs = performance.now() - t0;
+    const dlMbps = (sizeMb * 8 * 1000) / dlMs;
+    const buf = new Uint8Array(sizeMb * 1024 * 1024);
+    const t1 = performance.now();
     await fetch('/api/tools/speedtest/upload', {
       method: 'POST', headers: { 'Content-Type': 'application/octet-stream', Authorization: `Bearer ${TOKEN}` }, body: buf,
     });
-    const ulSeconds = (performance.now() - t2) / 1000;
-    const ulMbps = (buf.byteLength * 8 / 1_000_000) / ulSeconds;
-    LAST.ul = ulMbps; showSpeeds();
-
-    await api('/api/tools/speedtest/log', {
-      method: 'POST', body: { downloadMbps: dlMbps, uploadMbps: ulMbps, latencyMs: latency, jitterMs: jitter },
-    });
-    toast('Medición real completada');
+    const upMs = performance.now() - t1;
+    const upMbps = (sizeMb * 8 * 1000) / upMs;
+    await api('/api/tools/speedtest/log', { method: 'POST', body: { downloadMbps: dlMbps, uploadMbps: upMbps } }).catch(() => {});
+    const unit = ($('#speed-unit') || {}).value || 'Mbps';
+    const conv = v => unit === 'MB/s' ? (v / 8).toFixed(2) + ' MB/s' : unit === 'Gbps' ? (v / 1000).toFixed(3) + ' Gbps' : unit === 'kbps' ? (v * 1000).toFixed(0) + ' kbps' : unit === 'KB/s' ? (v * 125).toFixed(0) + ' KB/s' : v.toFixed(2) + ' Mbps';
+    toast('↓ ' + conv(dlMbps) + ' · ↑ ' + conv(upMbps));
     refreshAudit();
   } catch (e) { toast(e.message, true); }
-  finally { btn.disabled = false; btn.textContent = 'Ejecutar Prueba de Velocidad Real'; }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'Ejecutar Prueba de Velocidad Real'; } }
+}
+
+async function toolPingMatrix() {
+  const host = prompt('Host o IP a medir (ping TCP :80/:443):', '1.1.1.1');
+  if (!host) return;
+  try {
+    const d = await api('/api/tools/ping-matrix', { method: 'POST', body: { host, samples: 5 } });
+    const box = $('#innov-results');
+    if (box) {
+      box.classList.remove('hidden');
+      box.innerHTML = `<h4>Ping matrix TCP · ${d.host}</h4>
+        <div class="result-item"><label>Muestras</label><strong>${d.samples}</strong></div>
+        <div class="result-item"><label>RTT min/avg/max</label><strong>${d.min} / ${d.avg} / ${d.max} ms</strong></div>
+        <div class="result-item"><label>Pérdida</label><strong>${d.loss}%</strong></div>
+        <div class="result-item"><label>Puertos</label><strong>${(d.ports || []).join(', ')}</strong></div>
+        <div class="result-item"><label>API</label><strong class="muted">POST /api/tools/ping-matrix</strong></div>`;
+    }
+    toast('Ping matrix OK');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function toolPathMtu() {
+  const host = prompt('Host para estimar path (TCP connect timings):', 'cloudflare.com');
+  if (!host) return;
+  try {
+    const d = await api('/api/tools/path-probe', { method: 'POST', body: { host } });
+    const box = $('#innov-results');
+    if (box) {
+      box.classList.remove('hidden');
+      box.innerHTML = `<h4>Path probe · ${d.host}</h4>
+        ${(d.probes || []).map(p => `<div class="result-item"><label>${p.port}/${p.proto}</label><strong>${p.ok ? p.ms + ' ms' : 'fail'} · ${p.note || ''}</strong></div>`).join('')}
+        <div class="result-item"><label>Sugerencia</label><strong>${d.hint || '—'}</strong></div>
+        <div class="result-item"><label>API</label><strong class="muted">POST /api/tools/path-probe</strong></div>`;
+    }
+    toast('Path probe listo');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function toolTls() {
+  const host = prompt('Host TLS (sin https://):', 'google.com');
+  if (!host) return;
+  try {
+    const d = await api('/api/tools/tls-info', { method: 'POST', body: { host } });
+    const box = $('#innov-results');
+    if (box) {
+      box.classList.remove('hidden');
+      box.innerHTML = `<h4>TLS · ${d.host}</h4>
+        <div class="result-item"><label>Subject</label><strong>${d.subject || '—'}</strong></div>
+        <div class="result-item"><label>Issuer</label><strong>${d.issuer || '—'}</strong></div>
+        <div class="result-item"><label>Válido hasta</label><strong>${d.validTo || '—'}</strong></div>
+        <div class="result-item"><label>Protocolo / Cipher</label><strong>${d.protocol || '—'} · ${d.cipher || '—'}</strong></div>
+        <div class="result-item"><label>Días restantes</label><strong>${d.daysLeft != null ? d.daysLeft : '—'}</strong></div>
+        <div class="result-item"><label>API</label><strong class="muted">POST /api/tools/tls-info (tls.connect Node)</strong></div>`;
+    }
+    toast('TLS OK');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function toolHttpHeaders() {
+  const url = prompt('URL a inspeccionar:', 'https://example.com');
+  if (!url) return;
+  try {
+    const d = await api('/api/tools/http-headers', { method: 'POST', body: { url } });
+    const box = $('#innov-results');
+    if (box) {
+      box.classList.remove('hidden');
+      box.innerHTML = `<h4>HTTP · ${d.status} · ${d.url}</h4>
+        <div class="result-item"><label>Tiempo</label><strong>${d.ms} ms</strong></div>
+        ${Object.entries(d.headers || {}).map(([k,v]) => `<div class="result-item"><label>${k}</label><strong style="font-family:var(--mono);font-size:.75rem">${v}</strong></div>`).join('')}
+        <div class="result-item"><label>API</label><strong class="muted">POST /api/tools/http-headers</strong></div>`;
+    }
+    toast('Headers OK');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function toolAsn() {
+  const ip = prompt('IP para ASN/geo rápida:', '8.8.8.8');
+  if (!ip) return;
+  try {
+    const d = await api('/api/tools/asn-lookup', { method: 'POST', body: { ip } });
+    const box = $('#innov-results');
+    if (box) {
+      box.classList.remove('hidden');
+      box.innerHTML = `<h4>ASN · ${d.ip}</h4>
+        <div class="result-item"><label>AS</label><strong>${d.as || '—'}</strong></div>
+        <div class="result-item"><label>Org</label><strong>${d.org || '—'}</strong></div>
+        <div class="result-item"><label>ISP</label><strong>${d.isp || '—'}</strong></div>
+        <div class="result-item"><label>Ruta</label><strong>${d.country || '—'} · ${d.city || '—'}</strong></div>
+        <div class="result-item"><label>API</label><strong class="muted">POST /api/tools/asn-lookup → ip-api.com</strong></div>`;
+    }
+    toast('ASN OK');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function toolDnsProp() {
+  const domain = prompt('Dominio para propagación DNS multi-resolver:', 'example.com');
+  if (!domain) return;
+  try {
+    const d = await api('/api/tools/dns-propagation', { method: 'POST', body: { domain } });
+    const box = $('#innov-results');
+    if (box) {
+      box.classList.remove('hidden');
+      box.innerHTML = `<h4>DNS propagation · ${d.domain}</h4>` +
+        (d.resolvers || []).map(r => `<div class="result-item"><label>${r.server}</label><strong style="font-family:var(--mono);font-size:.75rem">${(r.records || []).join(', ') || r.error || '—'}</strong></div>`).join('') +
+        `<div class="result-item"><label>API</label><strong class="muted">POST /api/tools/dns-propagation</strong></div>`;
+    }
+    toast('Propagación consultada');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function toolTraceCompare() {
+  const target = ($('#trace-target') || {}).value?.trim() || prompt('Destino para comparar traceroute vs tracepacket:', '1.1.1.1');
+  if (!target) return;
+  const box = $('#innov-results');
+  if (box) { box.classList.remove('hidden'); box.innerHTML = '<p class="muted">Comparando traceroute y tracepacket…</p>'; }
+  try {
+    const [a, b] = await Promise.all([
+      api('/api/tools/traceroute', { method: 'POST', body: { target } }),
+      api('/api/tools/tracepacket', { method: 'POST', body: { target } }),
+    ]);
+    const ha = a.hops || parseTraceRows(a.raw);
+    const hb = b.hops || parseTraceRows(b.raw);
+    if (box) box.innerHTML = `<h4>Compare · ${target}</h4>
+      <div class="result-item"><label>Traceroute hops</label><strong>${ha.length} · tool ${a.tool || '—'}</strong></div>
+      <div class="result-item"><label>Tracepacket hops</label><strong>${hb.length} · tool ${b.tool || '—'}</strong></div>
+      <div class="result-item"><label>Último hop TR</label><strong>${ha.length ? ha[ha.length-1].host : '—'}</strong></div>
+      <div class="result-item"><label>Último hop TP</label><strong>${hb.length ? hb[hb.length-1].host : '—'}</strong></div>
+      <div class="result-item"><label>API</label><strong class="muted">POST /api/tools/traceroute + /tracepacket en paralelo</strong></div>`;
+    toast('Comparación lista');
+  } catch (e) { toast(e.message, true); }
+}
+
+document.addEventListener('click', e => {
+  const id = e.target && e.target.id;
+  if (!id) return;
+  const map = {
+    'ip-lookup-btn': toolIpLookup,
+    'port-scan-btn': toolPortScan,
+    'trace-btn': () => runTrace('route'),
+    'tracepacket-btn': () => runTrace('packet'),
+    'dns-lookup-btn': toolDns,
+    'cidr-calc-btn': toolCidr,
+    'arp-btn': toolArp,
+    'speed-test-btn': toolSpeed,
+    'innov-ping-btn': toolPingMatrix,
+    'innov-path-btn': toolPathMtu,
+    'innov-tls-btn': toolTls,
+    'innov-http-btn': toolHttpHeaders,
+    'innov-asn-btn': toolAsn,
+    'innov-dnsprop-btn': toolDnsProp,
+    'innov-compare-btn': toolTraceCompare,
+  };
+  if (map[id]) { e.preventDefault(); map[id](); }
 });
 
 // ---------- Auditoría ----------

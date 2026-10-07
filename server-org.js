@@ -4,22 +4,32 @@
  */
 module.exports = function register(app, ctx) {
   const { db, bcrypt, jwt, crypto, requireAuth, addAudit, JWT_SECRET, sendMail } = ctx;
-  const PLBL = { dashboard: 'Dashboard', topology: 'Topología', tools: 'Herramientas', audit: 'Auditoría', learn: 'Aprender', ranking: 'Ranking', support: 'Soporte' };
+  const PLBL = {
+    dashboard: 'Dashboard', topology: 'Topología', workspace: 'Workspace', tracking: 'Tracking Studio',
+    tools: 'Herramientas', audit: 'Auditoría', learn: 'Aprender', ranking: 'Ranking',
+    support: 'Soporte', manual: 'Manual', account: 'Mi Cuenta',
+  };
   const OWNER_EMAIL = 'iphuboficial@gmail.com';
-  const PERMS = ['dashboard', 'topology', 'tools', 'audit', 'learn', 'ranking', 'support'];
+  const PERMS = ['dashboard', 'topology', 'workspace', 'tracking', 'tools', 'audit', 'learn', 'ranking', 'support', 'manual', 'account'];
 
   function ensureOrg() {
     if (!db.get('org').value()) {
       db.set('org', {
         companyName: 'IPHub',
         roles: [
-          { id: 'empleado', name: 'Empleado', desc: 'Ve el panel y la topología que envía el exe.', perms: ['dashboard', 'topology', 'support'] },
-          { id: 'auditor', name: 'Auditor', desc: 'Revisa la red, la auditoría y las herramientas.', perms: ['dashboard', 'topology', 'tools', 'audit'] },
-          { id: 'soporte', name: 'Soporte', desc: 'Atiende tickets y consulta la topología.', perms: ['dashboard', 'support', 'topology'] },
+          { id: 'empleado', name: 'Empleado', desc: 'Panel, topología y tracking básico.', perms: ['dashboard', 'topology', 'tracking', 'support', 'manual', 'account'] },
+          { id: 'auditor', name: 'Auditor', desc: 'Red, auditoría, herramientas y tracking.', perms: ['dashboard', 'topology', 'tracking', 'tools', 'audit', 'workspace', 'manual', 'account'] },
+          { id: 'soporte', name: 'Soporte', desc: 'Tickets, topología y manual.', perms: ['dashboard', 'support', 'topology', 'manual', 'account'] },
         ],
         members: [],
         shares: [],
       }).write();
+    } else {
+      // migrate: ensure new perm keys exist on labels (roles keep their chosen perms)
+      const o = db.get('org').value();
+      if (o && Array.isArray(o.roles)) {
+        /* no forced overwrite of existing role perms */
+      }
     }
     if (!db.get('agentSnapshots').value()) db.set('agentSnapshots', {}).write();
     if (!db.get('agentLinks').value()) db.set('agentLinks', {}).write();
@@ -31,7 +41,7 @@ module.exports = function register(app, ctx) {
 
   function roleOf(u) {
     if (!u) return null;
-    if (isOwner(u)) return { id: 'owner', name: 'Dueño', perms: PERMS.concat(['empresa']) };
+    if (isOwner(u)) return { id: 'owner', name: 'Dueño', perms: PERMS.concat(['empresa', 'code']) };
     const o = org();
     const m = (o.members || []).find(x => String(x.email).toLowerCase() === String(u.email).toLowerCase());
     if (!m) return null;
@@ -83,6 +93,8 @@ module.exports = function register(app, ctx) {
       || (/^\/api\/(quiz|progress)/.test(req.path) && 'learn')
       || (/^\/api\/leaderboard/.test(req.path) && 'ranking')
       || (/^\/api\/contact/.test(req.path) && 'support')
+      || (/^\/api\/tracking/.test(req.path) && 'tracking')
+      || (/^\/api\/workspace/.test(req.path) && 'workspace')
       || null;
     if (!need || isOwner(user)) return next();
     const role = roleOf(user);

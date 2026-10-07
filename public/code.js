@@ -4,12 +4,19 @@
   let tab = 'repos';
 
   function ownerOnly() {
-    return !!(window.ME && window.ME.isOwner);
+    const me = window.ME;
+    if (!me) return false;
+    if (me.isOwner) return true;
+    const em = String(me.email || '').toLowerCase();
+    return em === 'iphuboficial@gmail.com';
   }
 
   function showNav() {
     const n = $('nav-code');
-    if (n) n.hidden = !ownerOnly();
+    if (!n) return;
+    const show = ownerOnly();
+    if (n.hidden === !show) return; // avoid flicker
+    n.hidden = !show;
   }
 
   async function api(path, opts) {
@@ -238,5 +245,11 @@
       if (id === 'code') render();
     };
   }
-  setInterval(showNav, 1500);
+  // show nav once when ME is ready (no interval = no flicker)
+  let _navTries = 0;
+  const _navIv = setInterval(() => {
+    _navTries++;
+    if (window.ME) { showNav(); clearInterval(_navIv); }
+    else if (_navTries > 20) clearInterval(_navIv);
+  }, 400);
 })();

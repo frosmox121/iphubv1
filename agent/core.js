@@ -473,5 +473,22 @@ async function watchNet() {
   return false;
 }
 currentNet().then(info => { if (info) useNet(info); emit(); }).catch(() => {});
-module.exports = { bus, scan, summary, watchNet, trust, untrust, ignore, unignore, remove, restore, note, trustAll, setSetting, wake, flush, _t: { classify, guessOs, parseHttp, arpTable, netInfo } };
+
+function runTraceLocal(target, packet) {
+  return new Promise(resolve => {
+    const cmd = WIN ? 'tracert' : 'traceroute';
+    const args = WIN
+      ? ['-d', '-h', '20', '-w', '1500', String(target)]
+      : ['-n', '-m', '20', '-w', '2'].concat(packet ? ['-q', '3'] : []).concat([String(target)]);
+    execFile(cmd, args, { timeout: 45000, maxBuffer: 2 * 1024 * 1024 }, (err, stdout, stderr) => {
+      const raw = (stdout || '') || (stderr || '') || (err && err.message) || 'Sin salida';
+      pushTrace({ target: String(target), mode: packet ? 'tracepacket' : 'traceroute', raw: String(raw).slice(0, 12000) });
+      resolve({ ok: !err || !!stdout, target, mode: packet ? 'tracepacket' : 'traceroute', raw: String(raw).slice(0, 12000), error: err && !stdout ? err.message : null });
+    });
+  });
+}
+const traceroute = (target) => runTraceLocal(target, false);
+const tracepacket = (target) => runTraceLocal(target, true);
+
+module.exports = { bus, scan, summary, watchNet, trust, untrust, ignore, unignore, remove, restore, note, trustAll, setSetting, wake, flush, traceroute, tracepacket, _t: { classify, guessOs, parseHttp, arpTable, netInfo } };
 

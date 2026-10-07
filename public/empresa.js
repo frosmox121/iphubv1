@@ -1,8 +1,9 @@
 /* Empresa, roles y topología conectada al exe. */
 (function () {
   const PERM_LABEL = {
-    dashboard: 'Dashboard', topology: 'Topología', tools: 'Herramientas',
-    audit: 'Auditoría', learn: 'Aprender', ranking: 'Ranking', support: 'Soporte',
+    dashboard: 'Dashboard', topology: 'Topología', workspace: 'Workspace', tracking: 'Tracking Studio',
+    tools: 'Herramientas', audit: 'Auditoría', learn: 'Aprender', ranking: 'Ranking',
+    support: 'Soporte', manual: 'Manual', account: 'Mi Cuenta',
   };
   const $ = id => document.getElementById(id);
   let poll = null;
@@ -18,6 +19,12 @@
       const sec = a.dataset.section;
       if (sec === 'empresa') return;
       if (sec === 'account') { a.hidden = false; return; }
+      if (sec === 'code') return; // code: solo dueño (otro módulo)
+      if (sec === 'leaderboard') {
+        if (!role || owner) { a.hidden = false; return; }
+        a.hidden = !(role.perms || []).includes('ranking');
+        return;
+      }
       if (!role || owner) { a.hidden = false; return; }
       a.hidden = !(role.perms || []).includes(sec);
     });

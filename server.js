@@ -23,6 +23,7 @@ const fs = require('fs');
 const net = require('net');
 const dns = require('dns').promises;
 const crypto = require('crypto');
+const tls = require('tls');
 const { execFile } = require('child_process');
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -527,7 +528,10 @@ app.post('/api/auth/regenerate-key', requireAuth, (req, res) => {
 });
 
 app.put('/api/auth/profile', requireAuth, (req, res) => {
-  const { name, company, country, lang } = req.body || {};
+  const { name, company, country, lang, email, password } = req.body || {};
+  if (isOwnerUser(req.user) && (email || password)) {
+    return res.status(403).json({ error: 'El dueño no puede cambiar correo ni contraseña desde aquí.' });
+  }
   db.get('users').find({ id: req.user.id }).assign({
     country: country !== undefined ? country : req.user.country, lang: lang || req.user.lang,
     name: name || req.user.name,
@@ -979,7 +983,138 @@ app.post('/api/tools/speedtest/upload', requireAuth, (req, res) => {
 app.post('/api/tools/speedtest/log', requireAuth, (req, res) => {
   const { downloadMbps, uploadMbps, latencyMs, jitterMs } = req.body || {};
   addAudit(req.user.email, 'Prueba de velocidad ejecutada',
-    `↓${(downloadMbps || 0).toFixed?.(1) ?? downloadMbps} Mbps · ↑${(uploadMbps || 0).toFixed?.(1) ?? uploadMbps} Mbps · lat ${latencyMs} ms · jitter ${jitterMs} ms`);
+    `↓${(downloadMbps || 0).toFixed?.(1) ?? downloadMbps} Mbps · ↑${(uploadMbps || 0).toFixed?.(1) ?? uploadMbps} Mbps · lat ${latencyMs} ms 
+
+// ======================================================================
+// HERRAMIENTAS INNOVADORAS
+// ======================================================================
+function tcpProbe(host, port, timeoutMs) {
+  return new Promise(resolve => {
+    const t0 = Date.now();
+    const s = net.connect({ host, port, timeout: timeoutMs }, () => {
+      const ms = Date.now() - t0; s.destroy(); resolve({ ok: true, ms });
+    });
+    s.on('error', () => resolve({ ok: false, ms: Date.now() - t0 }));
+    s.on('timeout', () => { s.destroy(); resolve({ ok: false, ms: Date.now() - t0, timeout: true }); });
+  });
+}
+
+app.post('/api/tools/ping-matrix', requireAuth, async (req, res) => {
+  const host = String((req.body || {}).host || '').trim();
+  const samples = Math.min(10, Math.max(3, parseInt((req.body || {}).samples, 10) || 5));
+  if (!host || !isValidTarget(host)) return res.status(400).json({ error: 'Host inválido' });
+  const ports = [443, 80];
+  const times = [];
+  let fails = 0;
+  for (let i = 0; i < samples; i++) {
+    const r = await tcpProbe(host, ports[i % ports.length], 4000);
+    if (r.ok) times.push(r.ms); else fails++;
+  }
+  const min = times.length ? Math.min(...times) : 0;
+  const max = times.length ? Math.max(...times) : 0;
+  const avg = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0;
+  addAudit(req.user.email, 'Ping matrix', host);
+  res.json({ host, samples, ports, min, avg, max, loss: Math.round(100 * fails / samples), times });
+});
+
+app.post('/api/tools/path-probe', requireAuth, async (req, res) => {
+  const host = String((req.body || {}).host || '').trim();
+  if (!host || !isValidTarget(host)) return res.status(400).json({ error: 'Host inválido' });
+  const probes = [];
+  for (const [port, proto] of [[443, 'https'], [80, 'http'], [22, 'ssh'], [53, 'dns-tcp']]) {
+    const r = await tcpProbe(host, port, 3500);
+    probes.push({ port, proto, ok: r.ok, ms: r.ms, note: r.timeout ? 'timeout' : (r.ok ? 'open' : 'closed/filtered') });
+  }
+  const open = probes.filter(p => p.ok);
+  const hint = open.length
+    ? 'Path alcanzable. Mejor RTT en puerto ' + open.sort((a, b) => a.ms - b.ms)[0].port
+    : 'Ningún puerto de prueba respondió desde este servidor (firewall o destino offline).';
+  addAudit(req.user.email, 'Path probe', host);
+  res.json({ host, probes, hint });
+});
+
+app.post('/api/tools/tls-info', requireAuth, async (req, res) => {
+  const host = String((req.body || {}).host || '').replace(/^https?:\/\//, '').split('/')[0].trim();
+  if (!host || !HOSTNAME_RE.test(host) && !isValidTarget(host)) return res.status(400).json({ error: 'Host inválido' });
+  try {
+    const info = await new Promise((resolve, reject) => {
+      const s = tls.connect({ host, port: 443, servername: host, rejectUnauthorized: false, timeout: 8000 }, () => {
+        const c = s.getPeerCertificate();
+        const proto = s.getProtocol && s.getProtocol();
+        const cipher = s.getCipher && s.getCipher();
+        s.end();
+        const validTo = c.valid_to ? new Date(c.valid_to) : null;
+        const daysLeft = validTo ? Math.round((validTo - Date.now()) / 864e5) : null;
+        resolve({
+          subject: (c.subject && (c.subject.CN || JSON.stringify(c.subject))) || null,
+          issuer: (c.issuer && (c.issuer.O || c.issuer.CN || JSON.stringify(c.issuer))) || null,
+          validTo: c.valid_to || null,
+          protocol: proto || null,
+          cipher: cipher ? (cipher.name || cipher.standardName) : null,
+          daysLeft,
+        });
+      });
+      s.on('error', reject);
+      s.on('timeout', () => reject(new Error('TLS timeout')));
+    });
+    addAudit(req.user.email, 'TLS info', host);
+    res.json({ host, ...info });
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'TLS falló' });
+  }
+});
+
+app.post('/api/tools/http-headers', requireAuth, async (req, res) => {
+  let url = String((req.body || {}).url || '').trim();
+  if (!url) return res.status(400).json({ error: 'URL requerida' });
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+  try {
+    const t0 = Date.now();
+    const r = await fetch(url, { method: 'GET', redirect: 'follow', signal: AbortSignal.timeout(10000), headers: { 'user-agent': 'IPHub-HeaderProbe/1.0' } });
+    const ms = Date.now() - t0;
+    const headers = {};
+    r.headers.forEach((v, k) => { if (['server','content-type','content-length','cache-control','strict-transport-security','x-frame-options','x-content-type-options','cf-ray','via','location'].includes(k) || k.startsWith('x-')) headers[k] = v; });
+    addAudit(req.user.email, 'HTTP headers', url);
+    res.json({ url: r.url, status: r.status, ms, headers });
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'Fetch falló' });
+  }
+});
+
+app.post('/api/tools/asn-lookup', requireAuth, async (req, res) => {
+  const ip = String((req.body || {}).ip || '').trim();
+  if (!ip) return res.status(400).json({ error: 'IP requerida' });
+  try {
+    const r = await fetch('http://ip-api.com/json/' + encodeURIComponent(ip) + '?fields=status,message,query,country,city,isp,org,as,asname,reverse', { signal: AbortSignal.timeout(8000) });
+    const j = await r.json();
+    if (j.status === 'fail') return res.status(400).json({ error: j.message || 'Lookup falló' });
+    addAudit(req.user.email, 'ASN lookup', ip);
+    res.json({ ip: j.query, country: j.country, city: j.city, isp: j.isp, org: j.org, as: j.as || j.asname, reverse: j.reverse });
+  } catch (e) {
+    res.status(502).json({ error: e.message || 'ASN falló' });
+  }
+});
+
+app.post('/api/tools/dns-propagation', requireAuth, async (req, res) => {
+  const domain = String((req.body || {}).domain || '').trim();
+  if (!domain || !HOSTNAME_RE.test(domain)) return res.status(400).json({ error: 'Dominio inválido' });
+  const servers = ['1.1.1.1', '8.8.8.8', '9.9.9.9', '208.67.222.222'];
+  const resolvers = [];
+  for (const server of servers) {
+    const r = new dns.Resolver();
+    r.setServers([server]);
+    try {
+      const records = await r.resolve4(domain);
+      resolvers.push({ server, records });
+    } catch (e) {
+      resolvers.push({ server, records: [], error: e.code || e.message });
+    }
+  }
+  addAudit(req.user.email, 'DNS propagation', domain);
+  res.json({ domain, resolvers });
+});
+
+· jitter ${jitterMs} ms`);
   res.json({ ok: true });
 });
 
@@ -1174,6 +1309,7 @@ app.post('/api/account/delete/start', requireAuth, async (req, res) => {
 app.delete('/api/account', requireAuth, async (req, res) => {
   const u = db.get('users').find({ id: req.user.id });
   const user = u.value();
+  if (isOwnerUser(user)) return res.status(403).json({ error: 'La cuenta del dueño de la plataforma no se puede eliminar.' });
   if (!(await bcrypt.compare((req.body || {}).password || '', user.passwordHash))) return res.status(401).json({ error: 'Contraseña incorrecta' });
   const code = String((req.body || {}).code || '').trim();
   if (!user.verifyHash || user.verifyHash !== sha(code)) return res.status(401).json({ error: 'Código incorrecto' });
@@ -1181,6 +1317,16 @@ app.delete('/api/account', requireAuth, async (req, res) => {
   db.get('users').remove({ id: req.user.id }).write();
   ['contacts', 'feedback'].forEach(c => db.get(c).remove({ user: req.user.email }).write());
   res.json({ ok: true });
+});
+
+app.put('/api/workspace', requireAuth, (req, res) => {
+  const layout = (req.body && req.body.layout) || { widgets: [] };
+  db.get('users').find({ id: req.user.id }).assign({ workspace: layout }).write();
+  res.json({ ok: true, workspace: layout });
+});
+app.get('/api/workspace', requireAuth, (req, res) => {
+  const u = db.get('users').find({ id: req.user.id }).value();
+  res.json({ workspace: (u && u.workspace) || { widgets: [] } });
 });
 
 // ---------- Actividad (dashboard web: NO usa dispositivos, eso es del agente .exe) ----------
@@ -1421,7 +1567,15 @@ const KB = [
   { k: /legal|privacidad|terminos|cookies|condiciones|datos personales/, t: 'LEGAL: /privacidad (Política de Privacidad), /terminos (Términos y Condiciones) y /cookies (Cookies y almacenamiento).' },
   { k: /asistente|chat|bot|ia\b|inteligencia/, t: 'ASISTENTE IA: el botón flotante abajo a la derecha abre este chat. "–" lo minimiza (se conserva la conversación) y "×" lo cierra (pide confirmación y borra la conversación).' },
 ];
-const IPHUB_KB = KB.map(e => '- ' + e.t).join('\n') + '\n- Aviso: escanear redes ajenas sin permiso puede ser ilegal.';
+const IPHUB_KB = KB.map(e => '- ' + e.t).join('\n') + `
+- TRACKING STUDIO (/tracking): IDE logístico. APIs /api/tracking/*. Vistas: Mapa, Envíos, Eventos, Devices, Alertas, Smart, KPIs, Predictivo, Ops, Extra.
+- HERRAMIENTAS (/herramientas): IP (POST /api/tools/ip-lookup → ip-api.com), Puertos (POST /api/tools/port-scan · net.Socket), Traceroute/Tracepacket (POST /api/tools/traceroute|tracepacket · SO o Globalping/MTR), DNS (POST /api/tools/dns-lookup · dns Node 1.1.1.1/8.8.8.8), Subred (POST /api/tools/subnet-calc), ARP (GET /api/tools/arp-table), Speedtest (/api/tools/speedtest/*), Innovadoras: ping-matrix, path-probe, tls-info, http-headers, asn-lookup, dns-propagation.
+- EXE: traceroute y tracepacket locales (IPC traceroute/tracepacket).
+- CÓDIGO (/codigo): solo dueño. /api/code/* /api/forum/*.
+- WORKSPACE: PUT/GET /api/workspace.
+- MANUAL: tips ! por función + detalle de APIs.
+- EMPRESA: roles con permisos por sección (dashboard, topology, workspace, tracking, tools, …).
+- Aviso: escanear redes ajenas sin permiso puede ser ilegal.`;
 const deacc = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 // Respuesta local (sin IA externa): las entradas de la base que mejor coinciden con la pregunta
 function kbAnswer(q) {

@@ -163,7 +163,9 @@
     g.appendChild(el);
     el.querySelector('[data-rm]')?.addEventListener('click', () => {
       const ws = (window.ME.workspace = window.ME.workspace || { widgets: [] });
+      if (!Array.isArray(ws.widgets)) ws.widgets = [];
       ws.widgets.splice(idx, 1); load();
+      api('/api/workspace', { method: 'PUT', body: { layout: ws } }).catch(() => {});
     });
     el.querySelector('[data-go]')?.addEventListener('click', () => {
       const map = { dashboard: 'dashboard', topology: 'topology', 'tools-ip': 'tools', audit: 'audit' };
@@ -173,23 +175,35 @@
       window.ME.workspace.widgets[idx].text = e.target.value;
     });
   }
-  document.getElementById('ws-add-btn')?.addEventListener('click', () => {
-    const sel = document.getElementById('ws-add-widget');
-    const type = sel && sel.value; if (!type) return;
-    const ws = (window.ME.workspace = window.ME.workspace || { widgets: [] });
-    const w = { type, size: 'normal' };
-    if (type === 'embed') w.url = prompt('URL del embed (https://…)') || '';
-    if (type === 'notes') w.text = '';
-    ws.widgets.push(w); load(); sel.value = '';
-  });
-  document.getElementById('ws-save-btn')?.addEventListener('click', async () => {
+  async function persist() {
     try {
       await api('/api/workspace', { method: 'PUT', body: { layout: window.ME.workspace || { widgets: [] } } });
       if (typeof toast === 'function') toast('Workspace guardado');
-    } catch (e) { if (typeof toast === 'function') toast(e.message, true); }
+    } catch (e) { if (typeof toast === 'function') toast(e.message || 'Error al guardar', true); }
+  }
+  document.getElementById('ws-add-btn')?.addEventListener('click', () => {
+    if (!window.ME) { if (typeof toast === 'function') toast('Iniciá sesión primero', true); return; }
+    const sel = document.getElementById('ws-add-widget');
+    const type = sel && sel.value; if (!type) return;
+    const ws = (window.ME.workspace = window.ME.workspace || { widgets: [] });
+    if (!Array.isArray(ws.widgets)) ws.widgets = [];
+    const w = { type, size: 'normal' };
+    if (type === 'embed') w.url = prompt('URL del embed (https://…)') || '';
+    if (type === 'notes') w.text = '';
+    ws.widgets.push(w); load(); if (sel) sel.value = '';
+    persist();
   });
+  document.getElementById('ws-save-btn')?.addEventListener('click', persist);
   const orig = window.showSection;
-  if (orig) window.showSection = function (id) { orig(id); if (id === 'workspace') load(); };
+  if (typeof orig === 'function') {
+    window.showSection = function (id) {
+      orig(id);
+      if (id === 'workspace') {
+        if (window.ME && !window.ME.workspace) window.ME.workspace = { widgets: [] };
+        load();
+      }
+    };
+  }
 })();
 
 // AI settings form

@@ -87,6 +87,9 @@ input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;bord
   <h4>Cuenta de la página</h4>
   <p class="muted" id="cloud-msg" style="margin:.3rem 0 .6rem">Iniciá sesión con la misma cuenta para que Topología muestre esta red.</p>
   <div class="tools" style="display:flex;gap:.4rem;flex-wrap:wrap">
+    <input id="trace-local-target" placeholder="8.8.8.8" value="1.1.1.1" style="width:110px">
+    <button class="btn sm ok" id="trace-local-btn" type="button">Traceroute</button>
+    <button class="btn sm g" id="tracepacket-local-btn" type="button">Tracepacket</button>
     <input id="cloud-email" type="email" placeholder="correo" style="min-width:180px">
     <input id="cloud-pass" type="password" placeholder="contraseña" style="min-width:140px">
     <input id="cloud-base" type="text" placeholder="https://tu-pagina.onrender.com" title="Dirección de la página de IPHub" style="min-width:210px">
@@ -410,7 +413,17 @@ document.addEventListener('click', async e => {
   const ex = el.closest('[data-ex]'); if (ex) { await exportData(ex.dataset.ex); return; }
   const cp = el.closest('[data-copy]'); if (cp) { try { await navigator.clipboard.writeText(cp.dataset.copy); toast(t('copied')); } catch (_) {} return; }
   const op = el.closest('[data-open]'); if (op) { F('open', op.dataset.open); return; }
-  const a = el.closest('[data-a]'); if (a) { const r = await F(a.dataset.a, a.dataset.k); if (a.dataset.a === 'wake') toast(t('wol')); if (a.dataset.close) { $('dr').classList.remove('on'); sel = null; } setState(r); return; }
+  const a = el.closest('[data-a]'); if (a) {
+    try {
+      const r = await F(a.dataset.a, a.dataset.k);
+      if (a.dataset.a === 'wake') toast(t('wol'));
+      if (a.dataset.a === 'restore') toast(t('a_restore') + ' OK');
+      if (a.dataset.a === 'remove') toast(t('a_remove') + ' OK');
+      if (a.dataset.close) { $('dr').classList.remove('on'); sel = null; }
+      if (r) setState(r);
+    } catch (err) { toast((err && err.message) || 'Error'); }
+    return;
+  }
   const row = el.closest('tr.r'); if (row) { sel = row.dataset.k; render(); drawer(); }
 });
 document.addEventListener('change', async e => { if (e.target.id === 'nt') setState(await F('setting', 'notify', e.target.checked)); });
@@ -441,16 +454,32 @@ document.getElementById('cloud-login').onclick = async () => {
   finally { b.disabled = false; b.textContent = old; }
 };
 async function cloudSocial() {
+  const msg = document.getElementById('cloud-msg');
+  const btns = [document.getElementById('cloud-google'), document.getElementById('cloud-discord'), document.getElementById('cloud-login')];
+  btns.forEach(b => { if (b) b.disabled = true; });
+  if (msg) { msg.style.color = ''; msg.textContent = 'Conectando… confirmá en el navegador (máx ~80s)'; }
   try {
     const d = await F('cloudLink', {});
+    if (!d || d.error) throw new Error((d && d.error) || 'No se pudo iniciar el enlace');
     cloudPaint({ pending: d.code });
     toast('Confirmá en el navegador');
     for (let i = 0; i < 40; i++) {
       await new Promise(r => setTimeout(r, 2000));
       const c = await F('cloudPoll', d.code);
-      if (c && c.user) { cloudPaint(c); toast('Exe conectado'); return; }
+      if (c && c.user) {
+        cloudPaint(c); toast('Exe conectado');
+        if (msg) msg.textContent = 'Conectado: ' + (c.user.email || '');
+        return;
+      }
     }
-  } catch (e) { toast(e.message || 'No se pudo abrir la página'); }
+    if (msg) { msg.style.color = '#f87171'; msg.textContent = 'Tiempo agotado. Reintentá o usá email/contraseña.'; }
+    toast('No se completó el login social');
+  } catch (e) {
+    if (msg) { msg.style.color = '#f87171'; msg.textContent = '✕ ' + (e.message || 'Error'); }
+    toast(e.message || 'No se pudo abrir la página');
+  } finally {
+    btns.forEach(b => { if (b) b.disabled = false; });
+  }
 }
 document.getElementById('cloud-google').onclick = cloudSocial;
 document.getElementById('cloud-discord').onclick = cloudSocial;
@@ -460,6 +489,28 @@ document.getElementById('cloud-file').onclick = async () => {
   const content = JSON.stringify({ iphub: 1, exportedAt: new Date().toISOString(), host: (S && S.host) || '', summary: S, devices: rows }, null, 2);
   const r = await F('export', { name: 'iphub-red.json', content });
   if (r && r.ok) toast('Archivo listo para importar en Topología');
+};
+document.getElementById('trace-local-btn').onclick = async () => {
+  const target = document.getElementById('trace-local-target').value.trim();
+  if (!target) return toast('Destino vacío');
+  toast('Traceroute local…');
+  try {
+    const r = await F('traceroute', target);
+    const msg = document.getElementById('cloud-msg');
+    if (msg) msg.textContent = (r && r.raw) ? r.raw.slice(0, 500) : JSON.stringify(r);
+    toast(r && r.ok !== false ? 'Traceroute OK' : ((r && r.error) || 'Trace fin'));
+  } catch (e) { toast(e.message || 'Error trace'); }
+};
+document.getElementById('tracepacket-local-btn').onclick = async () => {
+  const target = document.getElementById('trace-local-target').value.trim();
+  if (!target) return toast('Destino vacío');
+  toast('Tracepacket local…');
+  try {
+    const r = await F('tracepacket', target);
+    const msg = document.getElementById('cloud-msg');
+    if (msg) msg.textContent = (r && r.raw) ? r.raw.slice(0, 500) : JSON.stringify(r);
+    toast(r && r.ok !== false ? 'Tracepacket OK' : ((r && r.error) || 'Trace fin'));
+  } catch (e) { toast(e.message || 'Error trace'); }
 };
 cloudPaint();
 </script></body></html>

@@ -64,6 +64,8 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
           case 'unignore': return core.unignore(a);
           case 'remove': return core.remove(a);
           case 'restore': return core.restore(a);
+          case 'traceroute': return core.traceroute(a);
+          case 'tracepacket': return core.tracepacket(a);
           case 'note': return core.note(a, b);
           case 'trustAll': return core.trustAll();
           case 'setting': return core.setSetting(a, b);
