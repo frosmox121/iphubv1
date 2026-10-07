@@ -1,11 +1,1 @@
-node_modules/
-dist/
-agent/node_modules/
-agent/dist/
-.env
-*.zip
-IPHub-exe.part*
-data/
-*.db.json
-db.json
-.DS_Store
+(empty)
