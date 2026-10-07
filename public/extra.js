@@ -138,58 +138,85 @@
   bind('lab-export', 'Exportar topología (JSON del laboratorio)');
 })();
 
-// Workspace
+// Workspace (delegación de eventos — funciona aunque ME cargue después)
 (function workspaceMod() {
-  const grid = () => document.getElementById('ws-grid');
+  function grid() { return document.getElementById('ws-grid'); }
+  function ensureWs() {
+    if (!window.ME) window.ME = {};
+    if (!ME.workspace || !Array.isArray(ME.workspace.widgets)) ME.workspace = { widgets: [] };
+    return ME.workspace;
+  }
   function load() {
-    const g = grid(); if (!g || !window.ME) return;
-    const layout = (window.ME.workspace && window.ME.workspace.widgets) || [];
+    const g = grid(); if (!g) return;
+    const layout = ensureWs().widgets;
     g.innerHTML = '';
+    if (!layout.length) {
+      g.innerHTML = '<p class="muted small">Todavía no hay widgets. Elegí uno arriba y pulsá Agregar.</p>';
+      return;
+    }
     layout.forEach((w, i) => addCard(w, i));
-    if (!layout.length) g.innerHTML = '<p class="muted small">Todavía no hay widgets. Elegí uno arriba y pulsá Agregar.</p>';
   }
   function addCard(w, idx) {
     const g = grid(); if (!g) return;
-    if (g.querySelector('.muted')) g.innerHTML = '';
     const el = document.createElement('div');
     el.className = 'ws-card' + (w.size === 'wide' ? ' wide' : '') + (w.size === 'tall' ? ' tall' : '');
     const title = { dashboard: 'Dashboard', topology: 'Topología', 'tools-ip': 'IP Lookup', audit: 'Auditoría', embed: 'Embed', notes: 'Notas' }[w.type] || w.type;
     let body = '';
-    if (w.type === 'notes') body = `<textarea data-idx="${idx}">${w.text || ''}</textarea>`;
-    else if (w.type === 'embed') body = `<iframe src="${(w.url || 'about:blank').replace(/"/g, '')}" sandbox="allow-scripts allow-same-origin"></iframe>`;
-    else body = `<p class="muted small">Widget “${title}”. Los datos se enlazan a la sección correspondiente de IPHub.</p>
-      <button class="btn btn-sm g" type="button" data-go="${w.type}">Abrir sección</button>`;
-    el.innerHTML = `<h4>${title}<button class="ws-rm" type="button" data-rm="${idx}" title="Quitar">x</button></h4>${body}`;
+    if (w.type === 'notes') body = '<textarea data-ws-note="' + idx + '">' + (w.text || '').replace(/</g, '&lt;') + '</textarea>';
+    else if (w.type === 'embed') body = '<iframe src="' + String(w.url || 'about:blank').replace(/"/g, '') + '" sandbox="allow-scripts allow-same-origin"></iframe>';
+    else body = '<p class="muted small">Widget “' + title + '”.</p><button class="btn btn-sm g" type="button" data-ws-go="' + w.type + '">Abrir sección</button>';
+    el.innerHTML = '<h4>' + title + '<button class="ws-rm" type="button" data-ws-rm="' + idx + '" title="Quitar">x</button></h4>' + body;
     g.appendChild(el);
-    el.querySelector('[data-rm]')?.addEventListener('click', () => {
-      const ws = (window.ME.workspace = window.ME.workspace || { widgets: [] });
-      ws.widgets.splice(idx, 1); load();
-    });
-    el.querySelector('[data-go]')?.addEventListener('click', () => {
-      const map = { dashboard: 'dashboard', topology: 'topology', 'tools-ip': 'tools', audit: 'audit' };
-      if (typeof showSection === 'function') showSection(map[w.type] || 'dashboard');
-    });
-    el.querySelector('textarea')?.addEventListener('change', e => {
-      window.ME.workspace.widgets[idx].text = e.target.value;
-    });
   }
-  document.getElementById('ws-add-btn')?.addEventListener('click', () => {
-    const sel = document.getElementById('ws-add-widget');
-    const type = sel && sel.value; if (!type) return;
-    const ws = (window.ME.workspace = window.ME.workspace || { widgets: [] });
-    const w = { type, size: 'normal' };
-    if (type === 'embed') w.url = prompt('URL del embed (https://…)') || '';
-    if (type === 'notes') w.text = '';
-    ws.widgets.push(w); load(); sel.value = '';
+  document.addEventListener('click', async e => {
+    const addBtn = e.target.closest('#ws-add-btn');
+    if (addBtn) {
+      e.preventDefault();
+      const sel = document.getElementById('ws-add-widget');
+      const type = sel && sel.value;
+      if (!type) { if (typeof toast === 'function') toast('Elegí un tipo de widget', true); return; }
+      const ws = ensureWs();
+      const w = { type, size: 'normal' };
+      if (type === 'embed') w.url = prompt('URL del embed (https://…)') || '';
+      if (type === 'notes') w.text = '';
+      ws.widgets.push(w);
+      if (sel) sel.value = '';
+      load();
+      return;
+    }
+    const saveBtn = e.target.closest('#ws-save-btn');
+    if (saveBtn) {
+      e.preventDefault();
+      try {
+        await api('/api/workspace', { method: 'PUT', body: { layout: ensureWs() } });
+        if (typeof toast === 'function') toast('Workspace guardado');
+      } catch (err) { if (typeof toast === 'function') toast(err.message, true); }
+      return;
+    }
+    const rm = e.target.closest('[data-ws-rm]');
+    if (rm) {
+      const i = Number(rm.getAttribute('data-ws-rm'));
+      ensureWs().widgets.splice(i, 1);
+      load();
+      return;
+    }
+    const go = e.target.closest('[data-ws-go]');
+    if (go) {
+      const map = { dashboard: 'dashboard', topology: 'topology', 'tools-ip': 'tools', audit: 'audit' };
+      if (typeof showSection === 'function') showSection(map[go.getAttribute('data-ws-go')] || 'dashboard');
+    }
   });
-  document.getElementById('ws-save-btn')?.addEventListener('click', async () => {
-    try {
-      await api('/api/workspace', { method: 'PUT', body: { layout: window.ME.workspace || { widgets: [] } } });
-      if (typeof toast === 'function') toast('Workspace guardado');
-    } catch (e) { if (typeof toast === 'function') toast(e.message, true); }
+  document.addEventListener('change', e => {
+    const ta = e.target.closest('[data-ws-note]');
+    if (!ta) return;
+    const i = Number(ta.getAttribute('data-ws-note'));
+    if (ensureWs().widgets[i]) ensureWs().widgets[i].text = ta.value;
   });
   const orig = window.showSection;
-  if (orig) window.showSection = function (id) { orig(id); if (id === 'workspace') load(); };
+  if (orig && !window.__wsWrapped) {
+    window.__wsWrapped = true;
+    window.showSection = function (id) { orig(id); if (id === 'workspace') load(); };
+  }
 })();
 
 // AI settings form

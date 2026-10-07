@@ -147,5 +147,5 @@
 
   const orig = window.showSection;
   if (orig) window.showSection = function (id) { orig(id); if (id === 'account') profileCard(); if (id === 'manual') manual(); if (id === 'topology') traces(); };
-  setInterval(() => { if (window.ME) { mark(); manual(); } }, 1000);
+  setInterval(() => { if (window.ME) { mark(); } }, 3000);
 })();

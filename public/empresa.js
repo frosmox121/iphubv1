@@ -9,16 +9,30 @@
 
   function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+  function isOwnerMe() {
+    if (!window.ME) return false;
+    if (ME.isOwner) return true;
+    return String(ME.email || '').toLowerCase() === 'iphuboficial@gmail.com';
+  }
+
   function applyAccess() {
-    const owner = !!(ME && ME.isOwner);
-    const nav = $('nav-empresa');
-    if (nav) nav.hidden = !owner;
+    const owner = isOwnerMe();
+    const navE = $('nav-empresa');
+    if (navE) navE.hidden = !owner;
+    const navC = $('nav-code');
+    if (navC) navC.hidden = !owner;
     const role = ME && ME.role;
+    const always = new Set(['account', 'manual', 'legal', 'workspace']);
     document.querySelectorAll('.nav-item[data-section]').forEach(a => {
       const sec = a.dataset.section;
-      if (sec === 'empresa') return;
-      if (sec === 'account') { a.hidden = false; return; }
-      if (!role || owner) { a.hidden = false; return; }
+      if (sec === 'empresa' || sec === 'code') {
+        a.hidden = !owner;
+        return;
+      }
+      if (always.has(sec) || owner || !role) {
+        a.hidden = false;
+        return;
+      }
       a.hidden = !(role.perms || []).includes(sec);
     });
     const pill = $('user-email');
@@ -28,11 +42,38 @@
     }
   }
 
+  function clearTopoUI() {
+    stopTopo();
+    const box = $('agent-view');
+    if (box) box.innerHTML = '<p class="muted">Sin datos de esta cuenta. Conectá el exe o importá un JSON.</p>';
+    const list = $('device-list');
+    if (list) list.innerHTML = '<p class="muted">Sin datos aún.</p>';
+    const props = $('lab-props-body');
+    if (props) props.innerHTML = '<p class="muted small">Seleccioná un dispositivo cuando haya datos de esta cuenta.</p>';
+    const empty = document.getElementById('tmap-empty');
+    const tmap = document.getElementById('tmap');
+    if (tmap) tmap.classList.remove('has-devices');
+    if (empty) empty.style.display = '';
+    try {
+      if (window.__tmap && typeof window.__tmap.draw === 'function') window.__tmap.draw([]);
+    } catch (_) {}
+    const cv = $('topo-canvas');
+    if (cv) {
+      const ctx = cv.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, cv.width || 0, cv.height || 0);
+    }
+  }
+  window.clearTopoUI = clearTopoUI;
+
   const origShow = window.showSection;
   window.showSection = function (id) {
     const role = ME && ME.role;
-    if (id === 'empresa' && !(ME && ME.isOwner)) id = 'dashboard';
-    if (role && !ME.isOwner && id !== 'account' && id !== 'empresa' && id !== 'legal' && !(role.perms || []).includes(id)) {
+    const owner = isOwnerMe();
+    if ((id === 'empresa' || id === 'code') && !owner) {
+      if (typeof toast === 'function') toast('Solo el dueño puede abrir esta sección');
+      id = 'dashboard';
+    }
+    if (role && !owner && !['account', 'manual', 'legal', 'workspace'].includes(id) && !(role.perms || []).includes(id)) {
       if (typeof toast === 'function') toast('Tu rol no incluye esa sección');
       id = (role.perms || [])[0] || 'account';
     }
@@ -53,8 +94,14 @@
   function paintSnap(snap) {
     const box = $('agent-view');
     if (!box) return;
-    if (!snap) {
-      box.innerHTML = '<p class="muted">Todavía no hay una red del exe. Abrí IPHub.exe, iniciá sesión con esta cuenta (o Google/Discord) y esta sección se llena sola. También podés importar el archivo que exporta el exe.</p>';
+    if (!snap || !(snap.devices && snap.devices.length)) {
+      box.innerHTML = '<p class="muted">Todavía no hay una red del exe para esta cuenta. Abrí IPHub.exe, iniciá sesión con la misma cuenta e importá o esperá el snapshot.</p>';
+      const list = $('device-list');
+      if (list) list.innerHTML = '<p class="muted">Sin datos del exe en esta cuenta.</p>';
+      const tmap = document.getElementById('tmap');
+      if (tmap) tmap.classList.remove('has-devices');
+      try { if (window.__tmap && window.__tmap.draw) window.__tmap.draw([]); } catch (_) {}
+      drawMap([]);
       return;
     }
     const when = snap.updatedAt ? new Date(snap.updatedAt).toLocaleString() : '';
@@ -67,7 +114,10 @@
     if (list) {
       list.innerHTML = (snap.devices || []).map(d => `<div class="device-row"><strong>${esc(d.ip)}</strong> <span class="muted">${esc(d.name || d.vendor || '')}</span> <span>${d.online ? '●' : '○'}</span></div>`).join('') || '<p class="muted">Sin datos del exe.</p>';
     }
+    const tmap = document.getElementById('tmap');
+    if (tmap) tmap.classList.add('has-devices');
     drawMap(snap.devices || []);
+    try { if (window.__tmap && window.__tmap.draw) window.__tmap.draw(snap.devices || []); } catch (_) {}
   }
 
   function drawMap(devices) {

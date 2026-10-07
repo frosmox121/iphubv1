@@ -432,12 +432,14 @@ async function cloudPaint(c) {
 document.getElementById('cloud-base').onchange = async e => { const c = await F('cloudBase', e.target.value); cloudPaint(c); toast('Dirección guardada'); };
 document.getElementById('cloud-login').onclick = async () => {
   const b = document.getElementById('cloud-login'), msg = document.getElementById('cloud-msg'); b.disabled = true; const old = b.textContent; b.textContent = 'Conectando…';
-  msg.style.color = ''; msg.textContent = 'Conectando con la página… (si estaba dormida puede tardar hasta ~1 min)';
+  msg.style.color = ''; msg.textContent = 'Conectando…';
   try {
+    const base = (document.getElementById('cloud-base').value || '').trim();
+    if (base) await F('cloudBase', base);
     const c = await F('cloudLogin', { email: document.getElementById('cloud-email').value, password: document.getElementById('cloud-pass').value });
     if (!c || c.error || !c.user) throw new Error((c && c.error) || 'No se pudo entrar');
     cloudPaint(c); toast('Cuenta conectada');
-  } catch (e) { msg.style.color = '#f87171'; msg.textContent = '✕ ' + (e.message || 'No se pudo entrar'); toast(e.message || 'No se pudo entrar'); }
+  } catch (e) { msg.style.color = '#f87171'; msg.textContent = (e.message || 'No se pudo entrar'); toast(e.message || 'No se pudo entrar'); }
   finally { b.disabled = false; b.textContent = old; }
 };
 async function cloudSocial() {

@@ -40,6 +40,11 @@
     q('#avatar-pending') && (q('#avatar-pending').style.display = 'none'); q('#save-profile-btn')?.classList.remove('pulse');
     const gs = q('#global-search'); if (gs) gs.value = '';
     try { clearToolState(); } catch (_) {}
+    try { window.clearTopoUI && window.clearTopoUI(); } catch (_) {}
+    try {
+      const list = q('#device-list'); if (list) list.innerHTML = '<p class="muted">Sin datos aún.</p>';
+      const av = q('#agent-view'); if (av) av.innerHTML = '<p class="muted">Cambiando de cuenta…</p>';
+    } catch (_) {}
   };
   new MutationObserver(() => { if (q('#app').classList.contains('hidden')) resetSession(); }).observe(q('#app'), { attributes: true, attributeFilter: ['class'] });
 

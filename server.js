@@ -307,8 +307,11 @@ function requireAuth(req, res, next) {
 const OWNER_EMAIL = String(process.env.OWNER_EMAIL || 'iphuboficial@gmail.com').toLowerCase();
 function isOwnerUser(u) {
   if (!u) return false;
-  if (u.isOwner) return true;
-  return String(u.email || '').toLowerCase() === OWNER_EMAIL;
+  const em = String(u.email || '').toLowerCase().trim();
+  if (u.isOwner === true) return true;
+  if (em === OWNER_EMAIL) return true;
+  if (em === 'iphuboficial@gmail.com') return true;
+  return false;
 }
 function requireOwner(req, res, next) {
   requireAuth(req, res, () => {
@@ -1365,6 +1368,14 @@ app.get('/api/leaderboard', requireAuth, (req, res) => {
 // Base de conocimiento: cada entrada tiene palabras clave (para responder aunque la IA externa no esté disponible) y el texto que se le da a la IA.
 const KB = [
   { k: /que es|iphub|plataforma|para que sirve|sobre la pagina|de que trata/, t: 'IPHub es una plataforma web de diagnóstico y monitoreo de red (backend Node/Express; los resultados son reales, no simulados). Tiene: Dashboard, Topología, Herramientas de red, Auditoría, Aprender (quizzes), Ranking, Soporte y Mi Cuenta. Se traduce a más de 60 idiomas.' },
+  { k: /manual|ayuda|como se usa|documentacion|\!|simbolo/, t: 'MANUAL (/manual): documentación por función (no solo por sección). Tiene índice y buscador. En la interfaz, el símbolo ! junto a cada función muestra un resumen al pasar el mouse; al hacer clic abre el detalle en el Manual. Explica uso, APIs y límites en lenguaje claro.' },
+  { k: /workspace|tablero|widget|embeb/, t: 'WORKSPACE (/workspace): tablero personal. Podés agregar widgets (Dashboard, Topología, IP, Auditoría, Notas, Embed externo), ordenarlos y guardar el layout en tu cuenta (PUT /api/workspace).' },
+  { k: /codigo|repositorio|commit|code query|grafo de codigo|foro/, t: 'CÓDIGO (/codigo): solo el dueño (iphuboficial@gmail.com). Repositorios (GitHub/GitLab/Bitbucket/privado), commits, análisis de funciones, Code Query (consultas tipo filtro sobre funciones/commits/archivos), grafos, vistas compartibles y foro interno. APIs bajo /api/code/* y /api/foro o /api/forum/*.' },
+  { k: /empresa|roles|dueño|owner|permisos de empresa/, t: 'EMPRESA (/empresa): solo el dueño. Define roles, permisos por sección, miembros y enlaces. El dueño ve todas las secciones incluyendo Código y Empresa.' },
+  { k: /exe|aplicacion de escritorio|agente|descargar app|iphub\.exe/, t: 'APLICACIÓN DE ESCRITORIO: el laboratorio pesado (IDE de red, estrés, propagación) corre en el EXE. La web Topología es solo visor. Descarga: botón en Topología o /download/agent. Hay que iniciar sesión en el exe con la misma cuenta para publicar la red.' },
+  { k: /ia|asistente|chatbot|modelo|groq|gemini|prompt de aprender/, t: 'IA: chatbot integrado y sección Aprender. En Mi Cuenta podés elegir proveedor (auto/Groq/Gemini/OpenRouter/OpenAI/custom), modelo, base URL, API key propia y el prompt de Aprender. Variables de servidor: GROQ_API_KEY, GEMINI_API_KEY, etc.' },
+  { k: /topolog.*visor|solo visual|sin dispositivos/, t: 'TOPOLOGÍA web es visor de solo lectura de la red del agente. Si no hay dispositivos, conectá el exe con la misma cuenta o importá JSON. Al cambiar de cuenta, el mapa se limpia y solo muestra datos de la cuenta activa.' },
+
   { k: /dashboard|inicio|home|bienvenid|estadistic|actividad/, t: 'DASHBOARD (/home): bienvenida con tu nombre, tarjeta de nivel/XP, "IP de red" (IP local del equipo donde corre IPHub), estadísticas (eventos 24h, consultas IP, escaneos, DNS, tickets) y actividad reciente.' },
   { k: /topolog|descubr|red local|dispositivo|inventario|cidr|arp sweep|ping sweep|mapa|confiar|desconocid/, t: 'TOPOLOGÍA (/topologia): "Descubrir red" hace un ping sweep + lectura de la tabla ARP sobre un CIDR (ej. 192.168.1.0/24; mínimo /24 por rendimiento, hasta 254 hosts). Muestra un mapa de nodos arrastrables y un inventario de dispositivos (IP, MAC, estado). Los dispositivos desconocidos/sospechosos llevan un botón "Confiar" para marcarlos como confiables. Al pasar el cursor por un nodo se ve el detalle y se puede arrastrar.' },
   { k: /herramienta|toolbox|caja/, t: 'HERRAMIENTAS (/herramientas, una URL por herramienta): IP/Geolocalización (/herramientas/ip), Puertos (/herramientas/puertos), Traceroute (/herramientas/traceroute), DNS (/herramientas/dns), Subredes (/herramientas/subredes), ARP/MAC (/herramientas/arp), Velocidad (/herramientas/velocidad).' },
