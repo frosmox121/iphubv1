@@ -187,6 +187,38 @@ db.defaults({
   feedback: [],
   contacts: [],
   i18n: {},
+  trackingProjects: [],
+  shipments: [],
+  trackingEvents: [],
+  telemetryReads: [],
+  iotDevices: [],
+  trackingAlerts: [],
+  trackingRisk: [],
+  trackingAlertRules: [],
+  trackingAlertGroups: [],
+  trackingAlertEscalations: [],
+  trackingBridge: null,
+  logisticRoutes: [],
+  geofences: [],
+  geofenceEvents: [],
+  trackingSnapshots: [],
+  simulationRuns: [],
+  scenarios: [],
+  trackingIncidents: [],
+  trackingReports: [],
+  trackingCodeFindings: [],
+  consignments: [],
+  chainOfCustody: [],
+  deliveryProofs: [],
+  eSeals: [],
+  carrierJobs: [],
+  replaySessions: [],
+  trackingWebhooks: [],
+  webhookDeliveries: [],
+  projectRoles: [],
+  topologyNodes: [],
+  topologyLinks: [],
+  aiChatLogs: [],
 }).write();
 for (const k of Object.keys(state)) if (k.startsWith('i18n,')) { const l = k.slice(5); state.i18n = state.i18n || {}; state.i18n[l] = Object.assign({}, state.i18n[l] || {}, state[k]); delete state[k]; }
 console.log('[DB] users en memoria =', (db.get('users').value() || []).length);
@@ -1813,6 +1845,15 @@ try { require('./server-hub')(app, { db, requireAuth, addAudit }); } catch (e) {
 try { require('./server-profiles')(app, { db, bcrypt, crypto, requireAuth, addAudit, sendMail, SUPPORT_TO }); } catch (e) { console.error('profiles:', e); }
 try { require('./server-org')(app, { db, bcrypt, jwt, crypto, requireAuth, addAudit, JWT_SECRET, sendMail }); } catch (e) { console.error('server-org:', e); }
 try { require('./server-code')(app, { db, requireAuth, requireOwner, addAudit, crypto, publicUser, isOwnerUser }); } catch (e) { console.error('server-code:', e); }
+try { require('./server-tracking')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking:', e); }
+try { require('./server-tracking-analytics')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking-analytics:', e); }
+try { require('./server-tracking-smart-alerts')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking-smart-alerts:', e); }
+try { require('./server-tracking-predictive')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking-predictive:', e); }
+try { require('./server-tracking-bridge')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking-bridge:', e); }
+try { require('./server-tracking-gis')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking-gis:', e); }
+try { require('./server-tracking-sim')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking-sim:', e); }
+try { require('./server-tracking-ops')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking-ops:', e); }
+try { require('./server-tracking-extra')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking-extra:', e); }
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

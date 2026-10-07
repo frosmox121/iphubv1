@@ -648,3 +648,180 @@ input[type=password]::-ms-reveal,input[type=password]::-ms-clear{display:none}
 
 /* Manual search */
 .manual-search { width: 100%; max-width: 420px; margin-bottom: .8rem; }
+
+/* ========== Tracking Studio IDE ========== */
+#tracking.section { padding: 0 !important; }
+#tracking .section-header { display: none; }
+.ts-ide {
+  display: flex; flex-direction: column;
+  height: calc(100vh - 56px); min-height: 520px;
+  background: var(--deep); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden;
+}
+.ts-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+  background: rgba(14,21,40,.95); flex-shrink: 0;
+}
+.ts-topbar-left { display: flex; align-items: center; gap: 10px; font-size: .9rem; }
+.ts-body { display: flex; flex: 1; min-height: 0; }
+.ts-explorer {
+  width: 240px; min-width: 200px; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; background: rgba(10,15,30,.6); flex-shrink: 0;
+}
+.ts-inspector {
+  width: 280px; min-width: 220px; border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; background: rgba(10,15,30,.6); flex-shrink: 0;
+}
+.ts-main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--deep); }
+.ts-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; font-size: .72rem; font-weight: 700; letter-spacing: .04em;
+  color: var(--muted); border-bottom: 1px solid var(--border); text-transform: uppercase;
+  flex-shrink: 0;
+}
+.ts-panel-body { flex: 1; overflow: auto; padding: 4px 0; min-height: 80px; }
+.ts-tree-item {
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  cursor: pointer; font-size: .82rem; border-left: 2px solid transparent;
+}
+.ts-tree-item:hover { background: rgba(34,211,238,.06); }
+.ts-tree-item.active { background: rgba(34,211,238,.12); border-left-color: var(--accent); }
+.ts-tree-ico {
+  width: 18px; height: 18px; border-radius: 4px; background: rgba(34,211,238,.15);
+  color: var(--accent); font-size: .65rem; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ts-tree-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ts-tree-meta { font-size: .72rem; color: var(--muted); }
+.ts-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  background: rgba(14,21,40,.7);
+}
+.ts-toolbar-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.ts-pane { flex: 1; min-height: 0; overflow: auto; position: relative; }
+#ts-map-canvas { width: 100%; height: 100%; display: block; }
+.ts-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.ts-table th, .ts-table td { padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,.06); text-align: left; }
+.ts-table th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--deep); }
+.ts-table tr { cursor: pointer; }
+.ts-table tr:hover { background: rgba(34,211,238,.05); }
+.ts-table tr.active { background: rgba(34,211,238,.1); }
+.ts-empty { padding: 1.2rem; color: var(--muted); font-size: .85rem; text-align: center; }
+.ts-console {
+  height: 140px; border-top: 1px solid var(--border); display: flex; flex-direction: column;
+  background: rgba(6,11,24,.95); flex-shrink: 0;
+}
+.ts-console-log { flex: 1; overflow: auto; padding: 6px 10px; font-family: var(--mono); font-size: .75rem; }
+.ts-log-line { padding: 1px 0; color: #94a3b8; }
+.ts-log-error { color: var(--danger); }
+.ts-log-warn { color: var(--warn); }
+.ts-log-info { color: #94a3b8; }
+.ts-insp-section { padding: 8px 12px 12px; border-bottom: 1px solid rgba(255,255,255,.05); }
+.ts-insp-section h4 { font-size: .7rem; color: var(--muted); letter-spacing: .05em; margin-bottom: 8px; }
+.ts-kv { display: flex; justify-content: space-between; gap: 8px; font-size: .8rem; padding: 3px 0; }
+.ts-kv span { color: var(--muted); }
+.ts-kv b { font-weight: 600; text-align: right; word-break: break-all; }
+.ts-mode-badge {
+  display: inline-block; font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+  padding: 3px 8px; border-radius: 999px; border: 1px solid;
+}
+.ts-mode-real { color: #f87171; border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.1); }
+.ts-mode-sim { color: #22d3ee; border-color: rgba(34,211,238,.4); background: rgba(34,211,238,.1); }
+.ts-mode-replay { color: #a78bfa; border-color: rgba(167,139,250,.4); background: rgba(167,139,250,.1); }
+.ts-mode-hybrid { color: #fbbf24; border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.1); }
+.ts-st { font-size: .68rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+.ts-st-ok { color: var(--ok); background: rgba(52,211,153,.12); }
+.ts-st-bad { color: var(--danger); background: rgba(248,113,113,.12); }
+.ts-st-run { color: var(--accent); background: rgba(34,211,238,.12); }
+.ts-st-idle { color: var(--muted); background: rgba(139,152,184,.1); }
+.ts-event-row {
+  display: grid; grid-template-columns: 150px 140px 90px 1fr 70px;
+  gap: 8px; padding: 6px 12px; font-size: .78rem; font-family: var(--mono);
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.ts-event-ts { color: var(--muted); }
+.ts-event-type { color: var(--accent); }
+.ts-event-src { color: var(--muted); }
+.ts-event-hash { color: #64748b; }
+@media (max-width: 960px) {
+  .ts-inspector { display: none; }
+  .ts-explorer { width: 180px; }
+  .ts-event-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* Tracking Studio — Fase 2 resources */
+.ts-res-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+.ts-res-card {
+  background: rgba(14,21,40,.8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  text-align: center;
+}
+.ts-res-card h4 {
+  font-size: .68rem;
+  color: var(--muted);
+  letter-spacing: .05em;
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+.ts-res-val {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--mono);
+}
+.mono { font-family: var(--mono); font-size: .8rem; }
+
+/* Tracking Studio — Fase 3 alerts */
+.ts-alert-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.ts-alert-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 4px; }
+.ts-alert-msg { font-size: .85rem; margin: 4px 0; }
+.ts-alert-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+
+/* Tracking Studio — Fase 4 dashboard */
+.ts-dash-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+}
+.ts-dash-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+.ts-chart-card {
+  background: rgba(14,21,40,.85);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+}
+.ts-chart-card h4 {
+  font-size: .72rem;
+  color: var(--muted);
+  letter-spacing: .04em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+.ts-chart-card canvas {
+  width: 100%;
+  height: 180px;
+  display: block;
+  border-radius: 6px;
+}
+.ts-dash-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+  padding: 0 12px 12px;
+}

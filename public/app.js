@@ -202,6 +202,7 @@ function showSection(id) {
   $(`.nav-item[data-section="${id}"]`)?.classList.add('active');
   $('#sidebar')?.classList.remove('open');
   clearToolState();
+  try { document.dispatchEvent(new CustomEvent('iphub:section', { detail: id })); } catch (_) {}
 }
 $$('.nav-item').forEach(item => item.addEventListener('click', e => { e.preventDefault(); showSection(item.dataset.section); }));
 $('#menu-toggle').addEventListener('click', () => $('#sidebar').classList.add('open'));

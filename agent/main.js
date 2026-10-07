@@ -3,6 +3,8 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Notification } = require('electron');
 const path = require('path'), fs = require('fs'), http = require('http'), https = require('https');
 const core = require('./core');
+const { getEngine } = require('./telemetry-engine');
+const teleEngine = getEngine();
 
 function cloudFile() { return path.join(app.getPath('userData'), 'iphub-cloud.json'); }
 const SITE = (process.env.IPHUB_URL || 'https://iphuboficial.onrender.com').replace(/\/$/, '');
@@ -97,6 +99,23 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
           }
           case 'cloudLogout': writeCloud({ base: curBase() }); return readCloud();
           case 'cloudBase': writeCloud({ ...readCloud(), base: normBase(a) }); return readCloud();
+          // Tracking Studio — motor de telemetría (workers)
+          case 'teleResources': return teleEngine.resources();
+          case 'teleList': return teleEngine.list();
+          case 'teleStart': {
+            const c = readCloud();
+            if (c.token && c.base) teleEngine.setCloud(normBase(c.base), c.token);
+            const id = String((a && a.id) || ('w-' + Date.now()));
+            return teleEngine.startWorker(id, a && a.config);
+          }
+          case 'teleStop': return teleEngine.stopWorker(String(a));
+          case 'teleStopAll': return teleEngine.stopAll();
+          case 'teleConfig': return teleEngine.configure(String(a), b || {});
+          case 'teleSetCloud': {
+            const c = readCloud();
+            teleEngine.setCloud(normBase((a && a.base) || c.base), (a && a.token) || c.token);
+            return { ok: true };
+          }
           default: return core.summary();
         }
       } catch (e) { return { error: e.message }; }
@@ -119,6 +138,6 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
     setInterval(() => core.scan(), 45000);
     setInterval(async () => { try { if (await core.watchNet()) core.scan({ full: true }); } catch (_) {} }, 12000);
   });
-  app.on('before-quit', () => core.flush());
+  app.on('before-quit', () => { try { teleEngine.stopAll(); } catch (_) {} core.flush(); });
   app.on('window-all-closed', () => app.quit());
 }
