@@ -16,8 +16,25 @@ function apiCall(base, method, urlPath, body, token) {
     const req = lib.request({ method, hostname: u.hostname, port: u.port, path: u.pathname + u.search, headers: { 'Content-Type': 'application/json', 'x-iphub-agent': '1', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(data ? { 'Content-Length': data.length } : {}) } }, res => {
       const chunks = []; res.on('data', c => chunks.push(c)); res.on('end', () => { let j = {}; try { j = JSON.parse(Buffer.concat(chunks).toString() || '{}'); } catch (_) {} if (res.statusCode >= 400) reject(new Error(j.error || ('HTTP ' + res.statusCode))); else resolve(j); });
     });
+    req.setTimeout(70000, () => req.destroy(new Error('El servidor tardó demasiado en responder (puede estar despertando). Probá de nuevo.')));
     req.on('error', reject); if (data) req.write(data); req.end();
   });
+}
+const normBase = b => { b = String(b || '').trim().replace(/\/+$/, ''); if (!b) return SITE; if (!/^https?:\/\//i.test(b)) b = 'https://' + b; return b; };
+const curBase = () => normBase(readCloud().base || SITE);
+async function apiRetry(base, method, p, body, token, tries = 3) { // Render Free devuelve 502/503 o corta la conexión mientras despierta
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try { return await apiCall(base, method, p, body, token); }
+    catch (e) {
+      last = e; const m = String(e.message || '');
+      if (!/HTTP 50[234]|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|tardó demasiado/i.test(m) || i === tries - 1) break;
+      await new Promise(r => setTimeout(r, 4000 * (i + 1)));
+    }
+  }
+  const m = String(last && last.message || last);
+  if (/ENOTFOUND|ECONNREFUSED/.test(m)) throw new Error('No se encontró la página (' + base + '). Revisá la dirección y tu conexión a internet.');
+  throw last;
 }
 let pushT = null;
 function schedulePush() {
@@ -54,27 +71,27 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
             if (r.canceled || !r.filePath) return { canceled: true };
             fs.writeFileSync(r.filePath, '\ufeff' + a.content, 'utf8'); return { ok: true, path: r.filePath };
           }
-          case 'cloudStatus': return readCloud();
+          case 'cloudStatus': { const c = readCloud(); return { ...c, base: normBase(c.base || SITE) }; }
           case 'cloudLogin': {
-            const base = SITE;
-            const d = await apiCall(base, 'POST', '/api/auth/login', { email: a.email, password: a.password });
-            if (!d.token) throw new Error(d.error || 'No se pudo entrar');
+            const base = curBase();
+            const d = await apiRetry(base, 'POST', '/api/auth/login', { email: String(a.email || '').trim(), password: a.password });
+            if (!d.token) throw new Error(d.needsVerification ? 'Tenés que verificar tu correo en la página antes de conectar el exe.' : (d.error || 'No se pudo entrar'));
             writeCloud({ base, token: d.token, user: d.user }); schedulePush(); return readCloud();
           }
           case 'cloudLink': {
-            const base = SITE;
-            const d = await apiCall(base, 'POST', '/api/agent/link/start', {});
+            const base = curBase();
+            const d = await apiRetry(base, 'POST', '/api/agent/link/start', {});
             writeCloud({ ...readCloud(), base, pending: d.code });
             shell.openExternal(d.url); return d;
           }
           case 'cloudPoll': {
             const c = readCloud();
-            const d = await apiCall(c.base, 'GET', '/api/agent/link/status?code=' + encodeURIComponent(a || c.pending));
+            const d = await apiRetry(normBase(c.base), 'GET', '/api/agent/link/status?code=' + encodeURIComponent(a || c.pending));
             if (d.token) { writeCloud({ base: c.base, token: d.token, user: d.user }); schedulePush(); }
             return d.token ? readCloud() : d;
           }
-          case 'cloudLogout': writeCloud({ base: SITE }); return readCloud();
-          case 'cloudBase': writeCloud({ ...readCloud(), base: String(a || '').replace(/\/$/, '') }); return readCloud();
+          case 'cloudLogout': writeCloud({ base: curBase() }); return readCloud();
+          case 'cloudBase': writeCloud({ ...readCloud(), base: normBase(a) }); return readCloud();
           default: return core.summary();
         }
       } catch (e) { return { error: e.message }; }

@@ -71,7 +71,7 @@
           const d = await r.json();
           if (code === CUR && d.map && Object.keys(d.map).length) { Object.assign(MAP, d.map); retranslate(); persist(); }
           if (!d.partial) break;
-          await new Promise(ok => setTimeout(ok, 1500));
+          await new Promise(ok => setTimeout(ok, 500));
         }
       } catch (_) {}
       finally { inflight--; if (inflight <= 0) bar.classList.add('hidden'); bundleP = null; }

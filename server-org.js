@@ -3,7 +3,8 @@
  * Se registra desde server.js para no reescribir el backend existente.
  */
 module.exports = function register(app, ctx) {
-  const { db, bcrypt, jwt, crypto, requireAuth, addAudit, JWT_SECRET } = ctx;
+  const { db, bcrypt, jwt, crypto, requireAuth, addAudit, JWT_SECRET, sendMail } = ctx;
+  const PLBL = { dashboard: 'Dashboard', topology: 'Topología', tools: 'Herramientas', audit: 'Auditoría', learn: 'Aprender', ranking: 'Ranking', support: 'Soporte' };
   const OWNER_EMAIL = 'iphuboficial@gmail.com';
   const PERMS = ['dashboard', 'topology', 'tools', 'audit', 'learn', 'ranking', 'support'];
 
@@ -245,7 +246,14 @@ module.exports = function register(app, ctx) {
     if (Array.isArray(b.perms)) {
       const perms = b.perms.filter(p => PERMS.includes(p));
       if (!perms.length) return res.status(400).json({ error: 'Elegí al menos un permiso' });
+      const before = r.perms || [], added = perms.filter(p => !before.includes(p)), removed = before.filter(p => !perms.includes(p));
       r.perms = perms;
+      if ((added.length || removed.length) && typeof sendMail === 'function') {
+        const lines = [...added.map(p => '  ＋ ' + (PLBL[p] || p)), ...removed.map(p => '  － ' + (PLBL[p] || p))].join('\n');
+        for (const m of (o.members || []).filter(x => x.roleId === r.id && x.email)) {
+          sendMail(m.email, `Se actualizaron tus permisos en IPHub (${r.name})`, `Hola. El dueño actualizó los permisos del rol "${r.name}" y ya se aplicaron a tu cuenta:\n\n${lines}\n\nPermisos actuales: ${perms.map(p => PLBL[p] || p).join(', ')}.\nIniciá sesión en IPHub para verlo.`).catch(() => {});
+        }
+      }
     }
     db.set('org', o).write();
     addAudit(req.user.email, 'Rol modificado', r.name);

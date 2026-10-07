@@ -7,7 +7,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(160deg,var(--p),var(--s)) fixed;color:var(--t);min-height:100vh;padding:1.2rem 1.5rem 2rem}
 header{display:flex;align-items:center;gap:.9rem;margin-bottom:1rem;flex-wrap:wrap}
-.logo{width:42px;height:42px;border-radius:12px;overflow:hidden;background:#16324a}.logo img{width:100%;height:100%;object-fit:cover;display:block}
+.logo{width:46px;height:46px;flex:none}.logo img{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 4px 14px rgba(6,182,212,.35))}
 h1{font-size:1.3rem}h1 small{display:block;font-size:.78rem;color:var(--m);font-weight:400;margin-top:.1rem}
 .sp{flex:1}
 input,select{background:rgba(15,23,42,.8);border:1px solid var(--line);color:var(--t);border-radius:999px;padding:.5rem .9rem;font:inherit;font-size:.85rem;outline:none}
@@ -66,6 +66,14 @@ tr.r{cursor:pointer}tr.r:hover td{background:rgba(255,255,255,.035)}tr.off td{op
 .mleg{position:absolute;left:.8rem;bottom:.7rem;display:flex;gap:.9rem;flex-wrap:wrap;font-size:.72rem;color:var(--m);background:rgba(15,23,42,.72);padding:.35rem .8rem;border-radius:999px;border:1px solid var(--line);z-index:2}
 .mleg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:.35rem}
 .mhint{position:absolute;left:.9rem;top:.7rem;font-size:.72rem;color:var(--m);z-index:2}
+
+@keyframes aur{0%{background-position:0% 0%,100% 0%,50% 100%}100%{background-position:12% 8%,88% 10%,45% 92%}}
+body{background:radial-gradient(40% 35% at 15% 20%,rgba(129,140,248,.20),transparent 70%) 0 0/200% 200% no-repeat,radial-gradient(35% 30% at 85% 15%,rgba(6,182,212,.16),transparent 70%) 0 0/200% 200% no-repeat,linear-gradient(160deg,var(--p),var(--s)) fixed;animation:aur 22s ease-in-out infinite alternate}
+@keyframes up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+header,#mapbox,.card,section{animation:up .6s cubic-bezier(.22,1,.36,1) both}
+button,.btn{transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s,filter .25s,border-color .25s}button:hover,.btn:hover{transform:translateY(-2px)}button:active,.btn:active{transform:scale(.97)}
+input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;border-color:var(--c)!important;box-shadow:0 0 0 3px rgba(6,182,212,.18)}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:rgba(129,140,248,.3);border-radius:99px}
 </style></head><body>
 <header>
   <div class="logo"><img src="logo-icon.png" alt="IPHub"></div>
@@ -81,6 +89,7 @@ tr.r{cursor:pointer}tr.r:hover td{background:rgba(255,255,255,.035)}tr.off td{op
   <div class="tools" style="display:flex;gap:.4rem;flex-wrap:wrap">
     <input id="cloud-email" type="email" placeholder="correo" style="min-width:180px">
     <input id="cloud-pass" type="password" placeholder="contraseña" style="min-width:140px">
+    <input id="cloud-base" type="text" placeholder="https://tu-pagina.onrender.com" title="Dirección de la página de IPHub" style="min-width:210px">
     <button class="btn sm" id="cloud-login" type="button">Entrar</button>
     <button class="btn sm g" id="cloud-google" type="button">Continuar con Google</button>
     <button class="btn sm g" id="cloud-discord" type="button">Continuar con Discord</button>
@@ -413,19 +422,22 @@ setInterval(() => { if (S && !S.scanning) render(); }, 30000);
 
 async function cloudPaint(c) {
   c = c || await F('cloudStatus');
-  const base = document.getElementById('cloud-base');
+  const base = document.getElementById('cloud-base'); if (base && c && c.base && document.activeElement !== base) base.value = c.base;
   const msg = document.getElementById('cloud-msg');
   if (!msg) return;
   if (c && c.user) msg.textContent = 'Conectado como ' + (c.user.name || c.user.email) + '. La página muestra esta red al abrir Topología.';
   else if (c && c.pending) msg.textContent = 'Esperando que confirmes en el navegador…';
   else msg.textContent = 'Iniciá sesión con la misma cuenta. Google y Discord abren la página para confirmar.';
 }
+document.getElementById('cloud-base').onchange = async e => { const c = await F('cloudBase', e.target.value); cloudPaint(c); toast('Dirección guardada'); };
 document.getElementById('cloud-login').onclick = async () => {
+  const b = document.getElementById('cloud-login'); b.disabled = true; const old = b.textContent; b.textContent = 'Conectando…'; toast('Conectando con la página (si estaba dormida puede tardar ~1 min)…');
   try {
     const c = await F('cloudLogin', { email: document.getElementById('cloud-email').value, password: document.getElementById('cloud-pass').value });
     if (!c || c.error || !c.user) { toast((c && c.error) || 'No se pudo entrar'); return; }
     cloudPaint(c); toast('Cuenta conectada');
   } catch (e) { toast(e.message || 'No se pudo entrar'); }
+  finally { b.disabled = false; b.textContent = old; }
 };
 async function cloudSocial() {
   try {

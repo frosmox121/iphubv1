@@ -42,7 +42,10 @@ function Mini(state, persist) {
   }
   return {
     get: key => wrap(state[key], key),
-    set(key, val) { state[key] = val; return { write: save }; },
+    set(key, val) {
+      if (Array.isArray(key)) { let o = state; for (let i = 0; i < key.length - 1; i++) o = (o[key[i]] = o[key[i]] || {}); o[key[key.length - 1]] = val; } else state[key] = val;
+      return { write: save };
+    },
     defaults(obj) { for (const k of Object.keys(obj)) if (state[k] == null) state[k] = obj[k]; return { write: save }; },
   };
 }

@@ -20,4 +20,7 @@ async function push(state) {
   catch (e) { console.warn('[remote] no se pudo guardar:', e.message); } busy = false;
 }
 function save(state, now) { if (!enabled) return Promise.resolve(); clearTimeout(timer); if (now) return push(state); timer = setTimeout(() => push(state), 3000); return Promise.resolve(); }
-module.exports = { enabled, load, save };
+const lt = {};
+async function loadLang(l) { if (!enabled) return null; try { const v = await cmd(['GET', 'iphub_i18n_' + l]); return v ? JSON.parse(v) : null; } catch (_) { return null; } }
+function saveLang(l, map) { if (!enabled) return; clearTimeout(lt[l]); lt[l] = setTimeout(async () => { try { const t = JSON.stringify(map); if (t.length < 900000) await cmd(['SET', 'iphub_i18n_' + l, t]); } catch (_) {} }, 2000); }
+module.exports = { enabled, load, save, loadLang, saveLang };

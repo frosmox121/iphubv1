@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IPHub - Oficial</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/pro.css">
 </head>
 <body>
   <canvas id="particles"></canvas>
@@ -248,8 +249,16 @@
           </aside>
           <div class="lab-main">
             <div class="card glass topo-card" style="border:0;border-radius:0;margin:0;height:100%">
-              <canvas id="topo-canvas"></canvas>
-              <div id="topo-info" class="muted small">Pasá el cursor sobre un nodo, clic para propiedades, arrastrá para mover. Doble clic = editar IP.</div>
+              <canvas id="topo-canvas" hidden style="display:none"></canvas>
+              <div id="tmap" class="tmap" data-no-i18n>
+                <canvas></canvas>
+                <div class="tmap-count"></div>
+                <div class="tmap-ctl"><button data-tz="in" title="Acercar" type="button">＋</button><button data-tz="out" title="Alejar" type="button">－</button><button data-tz="fit" title="Ajustar a pantalla" type="button">◎</button><button data-tz="full" title="Pantalla completa" type="button">⛶</button></div>
+                <div class="tmap-hint">Arrastrá el fondo para mover · Ctrl + rueda para zoom · doble clic = ajustar</div>
+                <div class="tmap-tip"></div>
+                <div class="tmap-empty"><div><div style="font-size:2.2rem">📡</div><p>Sin dispositivos todavía.<br>Conectá el exe con esta cuenta o corré “Descubrir red”.</p></div></div>
+              </div>
+              <div id="topo-info" class="muted small">Pasá el cursor sobre un nodo, clic para ver sus propiedades, arrastrá para moverlo.</div>
             </div>
           </div>
           <aside class="lab-props">
@@ -578,5 +587,7 @@
   <script src="/studio.js"></script>
   <script src="/i18n.js"></script>
   <script src="/v3.js"></script>
+  <script src="/topo-pro.js"></script>
+  <script src="/pro.js"></script>
 </body>
 </html>

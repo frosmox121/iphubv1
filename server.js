@@ -166,19 +166,19 @@ if (!global.__IPHUB_STATE || !Object.keys(global.__IPHUB_STATE).length) {
   }
 }
 let prisma = null;
-const state = global.__IPHUB_STATE || {}; const dirty = new Set(); let flushing = false;
-async function flush() {
-  if (flushing) return; flushing = true;
-  try {
-    while (dirty.size) {
-      const k = [...dirty][0]; dirty.delete(k);
-      try { fs.mkdirSync(path.dirname(dbFile), { recursive: true }); } catch (_) {}
-      fs.writeFileSync(dbFile, JSON.stringify(state, null, 2));
-    }
-  } catch (e) { console.error('DB persist:', e.message); try { fs.writeFileSync(dbFile, JSON.stringify(state, null, 2)); } catch (_) {} }
-  flushing = false; if (dirty.size) flush(); else { try { require('./remote-store').save(state); } catch (_) {} }
+const state = global.__IPHUB_STATE || {};
+function writeDbNow() {
+  try { fs.mkdirSync(path.dirname(dbFile), { recursive: true }); } catch (_) {}
+  const tmp = dbFile + '.tmp';
+  try { fs.writeFileSync(tmp, JSON.stringify(state)); fs.renameSync(tmp, dbFile); }
+  catch (e) { try { fs.writeFileSync(dbFile, JSON.stringify(state)); } catch (e2) { console.error('DB persist:', e2.message); } }
 }
-const db = miniDb(state, () => { for (const k of Object.keys(state)) dirty.add(k); flush(); });
+let flushT = null;
+function flush() { // guardado agrupado: antes se reescribía el archivo entero varias veces por cada cambio y bloqueaba el servidor (502)
+  clearTimeout(flushT);
+  flushT = setTimeout(() => { writeDbNow(); try { require('./remote-store').save(state); } catch (_) {} }, 400);
+}
+const db = miniDb(state, flush);
 db.defaults({
   users: [],
   audit: [],
@@ -188,6 +188,7 @@ db.defaults({
   contacts: [],
   i18n: {},
 }).write();
+for (const k of Object.keys(state)) if (k.startsWith('i18n,')) { const l = k.slice(5); state.i18n = state.i18n || {}; state.i18n[l] = Object.assign({}, state.i18n[l] || {}, state[k]); delete state[k]; }
 console.log('[DB] users en memoria =', (db.get('users').value() || []).length);
 
 function addAudit(userEmail, action, detail) {
@@ -334,13 +335,13 @@ app.post('/api/auth/register', async (req, res) => {
   }
   if (typeof global.iphubAfterRegister === 'function') await global.iphubAfterRegister(user, req.body || {});
   // Forzar escritura inmediata a disco
-  try { fs.mkdirSync(path.dirname(dbFile), { recursive: true }); fs.writeFileSync(dbFile, JSON.stringify(state, null, 2)); } catch (e) { console.error('[DB] flush register:', e.message); }
+  try { fs.mkdirSync(path.dirname(dbFile), { recursive: true }); writeDbNow(); } catch (e) { console.error('[DB] flush register:', e.message); }
   const emailSent = await issueCode(user);
   // Si el correo no se pudo enviar, auto-verificar para no dejar al usuario trabado (SMTP roto / Render)
   const autoVerify = process.env.AUTO_VERIFY_ON_SMTP_FAIL !== '0';
   if (!emailSent && autoVerify) {
     db.get('users').find({ id: user.id }).assign({ verified: true, verifyHash: null, verifyExp: null }).write();
-    try { fs.writeFileSync(dbFile, JSON.stringify(state, null, 2)); } catch (_) {}
+    try { writeDbNow(); } catch (_) {}
     addAudit(em, 'Cuenta creada y auto-verificada (SMTP falló)', `Usuario: ${name}`);
     const token = jwt.sign({ sub: user.id, email: em }, JWT_SECRET, { expiresIn: '7d' });
     console.log('[AUTH] registro auto-verificado por fallo SMTP:', em);
@@ -370,7 +371,7 @@ app.post('/api/auth/verify', (req, res) => {
     return res.status(400).json({ error: 'Código incorrecto' });
   }
   db.get('users').find({ id: user.id }).assign({ verified: true, verifyHash: null }).write();
-  try { fs.writeFileSync(dbFile, JSON.stringify(state, null, 2)); } catch (_) {}
+  try { writeDbNow(); } catch (_) {}
   addAudit(user.email, 'Correo verificado', '-');
   const token = jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: publicUser(db.get('users').find({ id: user.id }).value()) });
@@ -392,7 +393,7 @@ app.post('/api/auth/login', async (req, res) => {
       owner = db.get('users').find({ id: owner.id }).value();
     }
     addAudit(email, 'Inicio de sesión', 'Dueño');
-    try { fs.writeFileSync(dbFile, JSON.stringify(state, null, 2)); } catch (_) {}
+    try { writeDbNow(); } catch (_) {}
     const token = jwt.sign({ sub: owner.id, email }, JWT_SECRET, { expiresIn: '7d' });
     return res.json({ token, user: publicUser(owner) });
   }
@@ -406,7 +407,7 @@ app.post('/api/auth/login', async (req, res) => {
     const emailSent = await issueCode(user);
     if (!emailSent && process.env.AUTO_VERIFY_ON_SMTP_FAIL !== '0') {
       db.get('users').find({ id: user.id }).assign({ verified: true, verifyHash: null }).write();
-      try { fs.writeFileSync(dbFile, JSON.stringify(state, null, 2)); } catch (_) {}
+      try { writeDbNow(); } catch (_) {}
       addAudit(user.email, 'Inicio de sesión (auto-verificado, SMTP falló)', '-');
       const token = jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
       return res.json({ token, user: publicUser(db.get('users').find({ id: user.id }).value()), autoVerified: true });
@@ -615,48 +616,49 @@ app.post('/api/tools/port-scan', requireAuth, async (req, res) => {
 // ======================================================================
 // HERRAMIENTA: Traceroute (spawnea el binario del sistema operativo)
 // ======================================================================
-app.post('/api/tools/traceroute', requireAuth, (req, res) => {
-  const { target } = req.body || {};
-  if (!target || !isValidTarget(target)) return res.status(400).json({ error: 'Destino inválido' });
-
+function execP(cmd, args, opt) { return new Promise(r => execFile(cmd, args, opt, (err, stdout) => r({ err, stdout: stdout || '' }))); }
+async function traceCore(target, hops, q) {
   const cmd = isWin ? 'tracert' : 'traceroute';
-  const args = isWin ? ['-d', '-h', '20', '-w', '1500', target] : ['-n', '-m', '20', '-w', '2', target];
-
-  execFile(cmd, args, { timeout: 45000, maxBuffer: 2 * 1024 * 1024 }, (err, stdout, stderr) => {
-    if (err && !stdout) {
-      return res.status(500).json({
-        error: `No se pudo ejecutar '${cmd}'. ¿Está instalado en este sistema? (${err.message})`,
-      });
-    }
-    addAudit(req.user.email, 'Traceroute ejecutado', `Destino: ${target}`);
-    res.json({ target, raw: stdout, tool: cmd });
-  });
-});
-
-// Tracepacket: traza de paquetes (misma base que traceroute, parseo de hops)
-app.post('/api/tools/tracepacket', requireAuth, (req, res) => {
-  const { target } = req.body || {};
-  if (!target || !isValidTarget(target)) return res.status(400).json({ error: 'Destino inválido' });
-  const cmd = isWin ? 'tracert' : 'traceroute';
-  const args = isWin ? ['-d', '-h', '30', '-w', '2000', target] : ['-n', '-q', '3', '-w', '2', target];
-  execFile(cmd, args, { timeout: 45000, maxBuffer: 2 * 1024 * 1024 }, (err, stdout, stderr) => {
-    if (err && !stdout) {
-      return res.status(500).json({ error: `No se pudo ejecutar tracepacket (${cmd}). ${err.message}` });
-    }
-    const raw = stdout || '';
-    const hops = [];
-    for (const line of raw.split(/\r?\n/)) {
-      const m = line.match(/^\s*(\d+)\s+(.+)$/);
+  const args = isWin ? ['-d', '-h', String(hops), '-w', '1500', target] : ['-n', '-m', String(hops), '-w', '2', ...(q ? ['-q', String(q)] : []), target];
+  const r = await execP(cmd, args, { timeout: 45000, maxBuffer: 2 * 1024 * 1024 });
+  if (r.stdout && !(r.err && r.err.code === 'ENOENT')) return { raw: r.stdout, tool: cmd };
+  // Render y otros hosts no traen traceroute ni permiten ICMP crudo: respaldo con un servicio mtr externo
+  try {
+    const resp = await fetch('https://api.hackertarget.com/mtr/?q=' + encodeURIComponent(target), { signal: AbortSignal.timeout(40000) });
+    const txt = await resp.text(), lines = [];
+    for (const l of txt.split('\n')) {
+      const m = /^\s*(\d+)\.\|--\s+(\S+)\s+([\d.]+)%\s+\d+\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(l);
       if (!m) continue;
-      const hop = m[1], rest = m[2].trim();
-      const rtts = [...rest.matchAll(/(\d+[.,]?\d*)\s*ms/gi)].map(x => x[1].replace(',', '.'));
-      while (rtts.length < 3) rtts.push(rtts.length ? rtts[0] : '—');
-      let host = rest.replace(/\d+[.,]?\d*\s*ms/gi, '').replace(/\[.*?\]/g, '').replace(/\s+/g, ' ').replace(/\*/g, '').trim() || '*';
-      hops.push({ hop, host, rtts: rtts.slice(0, 3) });
+      lines.push(m[2] === '???' ? `${String(m[1]).padStart(2)}  * * *` : `${String(m[1]).padStart(2)}  ${m[2]}  ${m[4]} ms  ${m[5]} ms  ${m[6]} ms`);
     }
-    addAudit(req.user.email, 'Tracepacket ejecutado', `Destino: ${target}`);
-    res.json({ target, raw, hops, tool: cmd });
-  });
+    if (lines.length) return { raw: `traceroute a ${target} (ejecutado con mtr desde un nodo externo)\n` + lines.join('\n'), tool: 'mtr' };
+  } catch (_) {}
+  return null;
+}
+const TRACE_FAIL = 'Este servidor no tiene traceroute y el servicio de respaldo no respondió. Reintentá en un minuto o usá el exe de IPHub, que hace la traza desde tu propia PC.';
+app.post('/api/tools/traceroute', requireAuth, async (req, res) => {
+  const { target } = req.body || {};
+  if (!target || !isValidTarget(target)) return res.status(400).json({ error: 'Destino inválido' });
+  const r = await traceCore(target, 20);
+  if (!r) return res.status(503).json({ error: TRACE_FAIL });
+  addAudit(req.user.email, 'Traceroute ejecutado', `Destino: ${target}`);
+  res.json({ target, raw: r.raw, tool: r.tool });
+});
+app.post('/api/tools/tracepacket', requireAuth, async (req, res) => {
+  const { target } = req.body || {};
+  if (!target || !isValidTarget(target)) return res.status(400).json({ error: 'Destino inválido' });
+  const r = await traceCore(target, 30, 3);
+  if (!r) return res.status(503).json({ error: TRACE_FAIL });
+  const hops = [];
+  for (const line of r.raw.split(/\r?\n/)) {
+    const m = line.match(/^\s*(\d+)\s+(.+)$/); if (!m) continue;
+    const rest = m[2].trim(), rtts = [...rest.matchAll(/(\d+[.,]?\d*)\s*ms/gi)].map(x => x[1].replace(',', '.'));
+    while (rtts.length < 3) rtts.push(rtts.length ? rtts[0] : '—');
+    const host = rest.replace(/\d+[.,]?\d*\s*ms/gi, '').replace(/\[.*?\]/g, '').replace(/\s+/g, ' ').replace(/\*/g, '').trim() || '*';
+    hops.push({ hop: m[1], host, rtts: rtts.slice(0, 3) });
+  }
+  addAudit(req.user.email, 'Tracepacket ejecutado', `Destino: ${target}`);
+  res.json({ target, raw: r.raw, hops, tool: r.tool });
 });
 
 // ======================================================================
@@ -712,21 +714,25 @@ app.post('/api/tools/dns-lookup', requireAuth, async (req, res) => {
 // ======================================================================
 // HERRAMIENTA: Tabla ARP real (capa 2, dispositivos de la LAN)
 // ======================================================================
-function getArpTable() {
-  return new Promise((resolve) => {
-    execFile('arp', ['-a'], { timeout: 8000 }, (err, stdout) => {
-      if (err && !stdout) return resolve([]);
-      const ipRe = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/;
-      const macRe = /([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}/;
-      const out = [];
-      for (const line of stdout.split('\n')) {
-        const ipm = ipRe.exec(line);
-        const macm = macRe.exec(line);
-        if (ipm && macm) out.push({ ip: ipm[1], mac: macm[0].toUpperCase().replace(/-/g, ':') });
-      }
-      resolve(out);
-    });
-  });
+function parseArpText(txt) {
+  const ipRe = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/, macRe = /([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}/, out = [], seen = new Set();
+  for (const line of String(txt).split('\n')) {
+    const ipm = ipRe.exec(line), macm = macRe.exec(line);
+    if (!ipm || !macm) continue;
+    const mac = macm[0].toUpperCase().replace(/-/g, ':');
+    if (mac === '00:00:00:00:00:00' || /FAILED|INCOMPLETE/i.test(line) || seen.has(ipm[1])) continue;
+    seen.add(ipm[1]); out.push({ ip: ipm[1], mac });
+  }
+  return out;
+}
+function getArpTable() { // 1) arp -a  2) /proc/net/arp (Linux sin net-tools, p.ej. Render)  3) ip neigh
+  const run = (c, a) => new Promise(r => execFile(c, a, { timeout: 8000 }, (e, so) => r(so || '')));
+  return (async () => {
+    let t = parseArpText(await run('arp', ['-a'])); if (t.length) return t;
+    try { t = parseArpText(fs.readFileSync('/proc/net/arp', 'utf8')); if (t.length) return t; } catch (_) {}
+    if (!isWin) { t = parseArpText(await run('ip', ['neigh'])); if (t.length) return t; }
+    return [];
+  })();
 }
 
 app.get('/api/tools/arp-table', requireAuth, async (req, res) => {
@@ -1139,6 +1145,7 @@ app.post('/api/tools/subnet-calc', requireAuth, (req, res) => {
 
 // ---------- Cambio de correo con doble verificación (correo viejo y nuevo) ----------
 const rc = () => String(crypto.randomInt(100000, 1000000));
+const mailFast = async (...a) => { const r = await Promise.race([sendMail(...a), new Promise(ok => setTimeout(() => ok(null), 8000))]); return r === null ? true : r; };
 app.post('/api/account/email/start', requireAuth, async (req, res) => {
   const ne = String((req.body || {}).newEmail || '').toLowerCase().trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(ne)) return res.status(400).json({ error: 'Correo nuevo inválido' });
@@ -1149,7 +1156,7 @@ app.post('/api/account/email/start', requireAuth, async (req, res) => {
   const prev = req.user.ec; if (prev && prev.at && Date.now() - prev.at < 30000) return res.status(429).json({ error: 'Esperá unos segundos antes de pedir otro código' });
   const c = rc();
   db.get('users').find({ id: req.user.id }).assign({ ec: { ne, oldHash: sha(c), stage: 'old', at: Date.now(), exp: Date.now() + 15 * 60 * 1000, tries: 0 } }).write();
-  const sent = await sendMail(req.user.email, `${c} confirma el cambio de correo en IPHub`, `Código para autorizar el cambio de correo: ${c}\nVence en 15 minutos. Si no fuiste vos, cambiá tu contraseña.`);
+  const sent = await mailFast(req.user.email, `${c} confirma el cambio de correo en IPHub`, `Código para autorizar el cambio de correo: ${c}\nVence en 15 minutos. Si no fuiste vos, cambiá tu contraseña.`);
   res.json({ ok: true, emailSent: sent });
 });
 app.post('/api/account/email/confirm', requireAuth, async (req, res) => {
@@ -1160,7 +1167,7 @@ app.post('/api/account/email/confirm', requireAuth, async (req, res) => {
   if (ec.stage === 'old') {
     if (h !== ec.oldHash) { u.assign({ ec: { ...ec, tries: ec.tries + 1 } }).write(); return res.status(400).json({ error: 'Código incorrecto' }); }
     const c = rc(); u.assign({ ec: { ...ec, stage: 'new', newHash: sha(c), tries: 0 } }).write();
-    const sent = await sendMail(ec.ne, `${c} verifica tu nuevo correo en IPHub`, `Código para verificar este correo como tu nuevo correo de IPHub: ${c}`);
+    const sent = await mailFast(ec.ne, `${c} verifica tu nuevo correo en IPHub`, `Código para verificar este correo como tu nuevo correo de IPHub: ${c}`);
     return res.json({ next: 'new', emailSent: sent });
   }
   if (h !== ec.newHash) { u.assign({ ec: { ...ec, tries: ec.tries + 1 } }).write(); return res.status(400).json({ error: 'Código incorrecto' }); }
@@ -1584,17 +1591,19 @@ function runBundle(lang) {
   if (!BUNDLE_JOBS.has(lang)) {
     BUNDLE_JOBS.set(lang, (async () => {
       const cache = () => (db.get('i18n').value() || {})[lang] || {};
+      if (!Object.keys(cache()).length) { try { const rr = await require('./remote-store').loadLang(lang); if (rr) db.set(['i18n', lang], rr); } catch (_) {} }
       const all = uiStrings(), c = cache(), need = all.filter(x => !Object.prototype.hasOwnProperty.call(c, x));
       if (need.length) {
         const parts = []; for (let i = 0; i < need.length; i += 120) parts.push(need.slice(i, i + 120));
         let k = 0, total = 0;
-        await Promise.all(Array.from({ length: Math.min(3, parts.length) }, async () => {
+        await Promise.all(Array.from({ length: Math.min(5, parts.length) }, async () => {
           while (k < parts.length) {
             const got = await translateMissing(lang, parts[k++]); total += Object.keys(got).length;
             if (Object.keys(got).length) db.set(['i18n', lang], Object.assign({}, cache(), got)).write();
           }
         }));
         console.log(`[i18n] ${lang}: ${total}/${need.length} textos nuevos traducidos`);
+        try { require('./remote-store').saveLang(lang, cache()); } catch (_) {}
       }
       const c2 = cache(), map = {}; for (const x of all) if (c2[x]) map[x] = c2[x];
       return { map, total: all.length, done: Object.keys(map).length };
@@ -1677,7 +1686,7 @@ async function socialLogin(req, res, provider, profile) {
     addAudit(em, 'Cuenta creada', `Con ${provider}`);
   }
   addAudit(user.email, 'Inicio de sesión', `Con ${provider} · IP origen: ${req.ip}`);
-  try { fs.writeFileSync(dbFile, JSON.stringify(state, null, 2)); } catch (_) {}
+  try { writeDbNow(); } catch (_) {}
   const token = jwt.sign({ sub: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
   res.json({ token, user: publicUser(user) });
 }
@@ -1757,7 +1766,7 @@ app.get('/download/agent', (req, res) => {
 try { require('./server-studio')(app, { db, requireAuth, addAudit, aiChat }); } catch (e) { console.error('server-studio:', e); }
 try { require('./server-hub')(app, { db, requireAuth, addAudit }); } catch (e) { console.error('server-hub:', e); }
 try { require('./server-profiles')(app, { db, bcrypt, crypto, requireAuth, addAudit, sendMail, SUPPORT_TO }); } catch (e) { console.error('profiles:', e); }
-try { require('./server-org')(app, { db, bcrypt, jwt, crypto, requireAuth, addAudit, JWT_SECRET }); } catch (e) { console.error('server-org:', e); }
+try { require('./server-org')(app, { db, bcrypt, jwt, crypto, requireAuth, addAudit, JWT_SECRET, sendMail }); } catch (e) { console.error('server-org:', e); }
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -1765,6 +1774,9 @@ app.get('*', (req, res) => {
 
 if (typeof global.iphubEnsureOwner === 'function') global.iphubEnsureOwner().catch(e => console.error(e));
 if (process.env.RENDER_EXTERNAL_URL) setInterval(() => { fetch(process.env.RENDER_EXTERNAL_URL + '/').catch(() => {}); }, 10 * 60 * 1000); // evita que Render Free se duerma
+process.on('uncaughtException', e => console.error('[uncaught]', e && e.stack || e));
+process.on('unhandledRejection', e => console.error('[unhandled]', e && e.stack || e));
+app.use((err, req, res, next) => { console.error('[express]', err && err.message); if (res.headersSent) return next(err); res.status(500).json({ error: 'Error interno del servidor' }); });
 process.on('SIGTERM', async () => { try { await require('./remote-store').save(state, true); } catch (_) {} process.exit(0); });
 app.listen(PORT, '0.0.0.0', () => {
   const { user: smtpU, pass: smtpP } = mailCfg();

@@ -171,3 +171,9 @@ y se pasa al siguiente. Necesita salida a internet (translate.googleapis.com / a
 ## Subir a GitHub
 
 El `.exe` NO va en el repositorio (es pesado): subilo en **Releases**. `node_modules`, `dist`, `.env` y la base de datos ya están en `.gitignore`.
+
+## v1 · cambios recientes
+- ARP: lee `arp -a`, `/proc/net/arp` e `ip neigh` (Render/Linux). Traceroute: usa `traceroute` y, si no existe, un mtr externo.
+- Guardado de la DB agrupado (antes bloqueaba el servidor → 502). Caché de idiomas reparada (+ persistida en Upstash).
+- Mapa de topología nuevo (`public/topo-pro.js`), capa visual `public/pro.css` + `public/pro.js`.
+- Exe: usa la dirección configurable de la página, reintentos si Render está dormido.

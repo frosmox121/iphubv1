@@ -52,6 +52,11 @@ function saveAccountLocal(u) {
   const a = getAccs().filter(x => x.email !== u.email);
   a.unshift({ email: u.email, name: u.name || String(u.email).split('@')[0], token: TOKEN, provider: u.provider || 'credentials' });
   setAccs(a.slice(0, 6));
+  try { // foto de perfil miniatura (96px) guardada aparte para no llenar localStorage
+    const k = 'iphub_av_' + u.email.toLowerCase();
+    if (!u.avatar) localStorage.removeItem(k);
+    else { const im = new Image(); im.onload = () => { try { const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d'), s = Math.min(im.width, im.height); x.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, 96, 96); localStorage.setItem(k, c.toDataURL('image/jpeg', .82)); } catch (_) {} }; im.src = u.avatar; }
+  } catch (_) {}
 }
 (function accountSwitcher() {
   const btn = document.getElementById('acct-switch'), menu = document.getElementById('acct-menu');
@@ -68,7 +73,7 @@ function saveAccountLocal(u) {
     const accs = getAccs();
     menu.innerHTML = accs.map(a => {
       const cur = ME && a.email === ME.email, pv = ICO[a.provider] ? a.provider : '';
-      return `<button type="button" class="am-item${cur ? ' cur' : ''}" data-email="${esc(a.email)}"><span class="am-av" data-no-i18n>${esc(ini(a.name || a.email))}</span>
+      return `<button type="button" class="am-item${cur ? ' cur' : ''}" data-email="${esc(a.email)}"><span class="am-av" data-no-i18n>${(() => { const av = (cur && ME && ME.avatar) || localStorage.getItem('iphub_av_' + String(a.email).toLowerCase()); return av ? `<img src="${esc(av)}" alt="">` : esc(ini(a.name || a.email)); })()}</span>
         <span class="am-txt"><strong data-no-i18n>${esc(a.name || a.email.split('@')[0])}</strong><small data-no-i18n>${esc(a.email)}</small>${pv ? `<em class="am-prov am-${pv}">${ICO[pv]}<span>${LBL[pv]}</span></em>` : ''}</span>
         ${cur ? '<svg class="am-ck" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' : ''}</button>`;
     }).join('') + '<div class="am-sep"></div><button type="button" class="am-add" data-add="1"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>Agregar otra cuenta</span></button>';
