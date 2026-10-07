@@ -4,9 +4,9 @@
  */
 module.exports = function register(app, ctx) {
   const { db, bcrypt, jwt, crypto, requireAuth, addAudit, JWT_SECRET, sendMail } = ctx;
-  const PLBL = { dashboard: 'Dashboard', topology: 'Topología', workspace: 'Workspace', tools: 'Herramientas', code: 'Código', audit: 'Auditoría', learn: 'Aprender', ranking: 'Ranking', support: 'Soporte', manual: 'Manual', account: 'Mi Cuenta', empresa: 'Empresa' };
-  const OWNER_EMAIL = String(process.env.OWNER_EMAIL || 'iphuboficial@gmail.com').toLowerCase();
-  const PERMS = ['dashboard', 'topology', 'workspace', 'tools', 'code', 'audit', 'learn', 'ranking', 'support', 'manual', 'account'];
+  const PLBL = { dashboard: 'Dashboard', topology: 'Topología', tools: 'Herramientas', audit: 'Auditoría', learn: 'Aprender', ranking: 'Ranking', support: 'Soporte' };
+  const OWNER_EMAIL = 'iphuboficial@gmail.com';
+  const PERMS = ['dashboard', 'topology', 'tools', 'audit', 'learn', 'ranking', 'support'];
 
   function ensureOrg() {
     if (!db.get('org').value()) {
@@ -31,7 +31,7 @@ module.exports = function register(app, ctx) {
 
   function roleOf(u) {
     if (!u) return null;
-    if (isOwner(u)) return { id: 'owner', name: 'Dueño', perms: PERMS.concat(['empresa', 'code']) };
+    if (isOwner(u)) return { id: 'owner', name: 'Dueño', perms: PERMS.concat(['empresa']) };
     const o = org();
     const m = (o.members || []).find(x => String(x.email).toLowerCase() === String(u.email).toLowerCase());
     if (!m) return null;
@@ -39,13 +39,12 @@ module.exports = function register(app, ctx) {
   }
 
   global.iphubPublicExtra = u => {
-    const own = isOwner(u);
     const role = roleOf(u);
     const o = org();
     return {
-      isOwner: own,
+      isOwner: isOwner(u),
       companyName: o.companyName || '',
-      role: role ? { id: role.id, name: role.name, perms: own ? PERMS.concat(['empresa', 'code']) : (role.perms || []) } : (own ? { id: 'owner', name: 'Dueño', perms: PERMS.concat(['empresa', 'code']) } : null),
+      role: role ? { id: role.id, name: role.name, perms: role.perms || [] } : null,
     };
   };
 

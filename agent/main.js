@@ -13,29 +13,28 @@ function apiCall(base, method, urlPath, body, token) {
     let u; try { u = new URL(urlPath, base); } catch (e) { return reject(e); }
     const lib = u.protocol === 'https:' ? https : http;
     const data = body ? Buffer.from(JSON.stringify(body)) : null;
-    const req = lib.request({ method, hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + u.search, headers: { 'Content-Type': 'application/json', 'x-iphub-agent': '1', Connection: 'close', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(data ? { 'Content-Length': data.length } : {}) } }, res => {
+    const req = lib.request({ method, hostname: u.hostname, port: u.port, path: u.pathname + u.search, headers: { 'Content-Type': 'application/json', 'x-iphub-agent': '1', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(data ? { 'Content-Length': data.length } : {}) } }, res => {
       const chunks = []; res.on('data', c => chunks.push(c)); res.on('end', () => { let j = {}; try { j = JSON.parse(Buffer.concat(chunks).toString() || '{}'); } catch (_) {} if (res.statusCode >= 400) reject(new Error(j.error || ('HTTP ' + res.statusCode))); else resolve(j); });
     });
-    // Timeout corto: falla rápido en vez de esperar 70s
-    req.setTimeout(8000, () => req.destroy(new Error('Sin respuesta del servidor (8s). Revisá la URL o tu red.')));
+    req.setTimeout(70000, () => req.destroy(new Error('El servidor tardó demasiado en responder (puede estar despertando). Probá de nuevo.')));
     req.on('error', reject); if (data) req.write(data); req.end();
   });
 }
+const CANDS = ['https://iphub.onrender.com', 'https://iphuboficial.onrender.com'];
 const normBase = b => { b = String(b || '').trim().replace(/\/+$/, ''); if (!b) return SITE; if (!/^https?:\/\//i.test(b)) b = 'https://' + b; return b; };
 const curBase = () => normBase(readCloud().base || SITE);
-async function apiRetry(base, method, p, body, token, tries = 2) {
+async function apiRetry(base, method, p, body, token, tries = 3) { // Render Free devuelve 502/503 o corta la conexión mientras despierta
   let last;
   for (let i = 0; i < tries; i++) {
     try { return await apiCall(base, method, p, body, token); }
     catch (e) {
       last = e; const m = String(e.message || '');
-      // Solo reintento rápido ante error de red puntual
-      if (!/ECONNRESET|socket hang up|HTTP 502|HTTP 503/i.test(m) || i === tries - 1) break;
-      await new Promise(r => setTimeout(r, 400));
+      if (!/HTTP 50[234]|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|tardó demasiado/i.test(m) || i === tries - 1) break;
+      await new Promise(r => setTimeout(r, 4000 * (i + 1)));
     }
   }
   const m = String(last && last.message || last);
-  if (/ENOTFOUND|ECONNREFUSED/.test(m)) throw new Error('No se encontró la página (' + base + '). Revisá la dirección.');
+  if (/ENOTFOUND|ECONNREFUSED/.test(m)) throw new Error('No se encontró la página (' + base + '). Revisá la dirección y tu conexión a internet.');
   throw last;
 }
 let pushT = null;
@@ -44,7 +43,7 @@ function schedulePush() {
   clearTimeout(pushT);
   pushT = setTimeout(async () => {
     try { const s = core.summary(); await apiCall(c.base, 'POST', '/api/agent/snapshot', { ...s, host: require('os').hostname(), devices: s.devices }, c.token); } catch (_) {}
-  }, 600);
+  }, 1500);
 }
 
 if (!app.requestSingleInstanceLock()) { app.quit(); } else {
@@ -75,14 +74,13 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
           }
           case 'cloudStatus': { const c = readCloud(); return { ...c, base: normBase(c.base || SITE) }; }
           case 'cloudLogin': {
-            const base = curBase();
-            let d;
-            try {
-              d = await apiRetry(base, 'POST', '/api/auth/login', { email: String(a.email || '').trim(), password: a.password }, null, 2);
-            } catch (e) {
-              throw new Error(e.message || 'No se pudo entrar');
+            const bases = [...new Set([curBase(), ...CANDS])]; let d, base, last;
+            for (const b of bases) {
+              try { d = await apiRetry(b, 'POST', '/api/auth/login', { email: String(a.email || '').trim(), password: a.password }, null, b === bases[0] ? 3 : 1); base = b; break; }
+              catch (e) { last = e; if (!/No se encontró la página|ENOTFOUND/.test(String(e.message))) throw e; }
             }
-            if (!d || !d.token) throw new Error((d && d.needsVerification) ? 'Verificá tu correo en la página antes de conectar el exe.' : ((d && d.error) || 'No se pudo entrar'));
+            if (!d) throw last;
+            if (!d.token) throw new Error(d.needsVerification ? 'Tenés que verificar tu correo en la página antes de conectar el exe.' : (d.error || 'No se pudo entrar'));
             writeCloud({ base, token: d.token, user: d.user }); schedulePush(); return readCloud();
           }
           case 'cloudLink': {
