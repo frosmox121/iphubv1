@@ -20,6 +20,7 @@ function apiCall(base, method, urlPath, body, token) {
     req.on('error', reject); if (data) req.write(data); req.end();
   });
 }
+const CANDS = ['https://iphub.onrender.com', 'https://iphuboficial.onrender.com'];
 const normBase = b => { b = String(b || '').trim().replace(/\/+$/, ''); if (!b) return SITE; if (!/^https?:\/\//i.test(b)) b = 'https://' + b; return b; };
 const curBase = () => normBase(readCloud().base || SITE);
 async function apiRetry(base, method, p, body, token, tries = 3) { // Render Free devuelve 502/503 o corta la conexión mientras despierta
@@ -73,8 +74,12 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
           }
           case 'cloudStatus': { const c = readCloud(); return { ...c, base: normBase(c.base || SITE) }; }
           case 'cloudLogin': {
-            const base = curBase();
-            const d = await apiRetry(base, 'POST', '/api/auth/login', { email: String(a.email || '').trim(), password: a.password });
+            const bases = [...new Set([curBase(), ...CANDS])]; let d, base, last;
+            for (const b of bases) {
+              try { d = await apiRetry(b, 'POST', '/api/auth/login', { email: String(a.email || '').trim(), password: a.password }, null, b === bases[0] ? 3 : 1); base = b; break; }
+              catch (e) { last = e; if (!/No se encontró la página|ENOTFOUND/.test(String(e.message))) throw e; }
+            }
+            if (!d) throw last;
             if (!d.token) throw new Error(d.needsVerification ? 'Tenés que verificar tu correo en la página antes de conectar el exe.' : (d.error || 'No se pudo entrar'));
             writeCloud({ base, token: d.token, user: d.user }); schedulePush(); return readCloud();
           }

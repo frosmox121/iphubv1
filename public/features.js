@@ -676,7 +676,7 @@ addEventListener('popstate', () => { try { applyRoute(); } catch (_) {} });
   g('em-confirm').addEventListener('click', async e => {
     const code = g('em-code').value.trim();
     if (!/^\d{6}$/.test(code)) return toast('El código tiene 6 dígitos', true);
-    e.target.disabled = true;
+    e.target.disabled = true; const _t = e.target.textContent; e.target.textContent = 'Verificando…';
     try {
       const d = await api('/api/account/email/confirm', { method: 'POST', body: { code } });
       if (d.next === 'new') {
@@ -690,7 +690,7 @@ addEventListener('popstate', () => { try { applyRoute(); } catch (_) {} });
         cur(); reset(); g('em-new').value = ''; toast('Correo actualizado a ' + ME.email); refreshAudit();
       }
     } catch (ex) { toast(ex.message, true); }
-    e.target.disabled = false;
+    e.target.disabled = false; e.target.textContent = _t;
   });
   g('em-code').addEventListener('keydown', e => { if (e.key === 'Enter') g('em-confirm').click(); });
   g('em-cancel').addEventListener('click', () => { reset(); toast('Cambio de correo cancelado'); });

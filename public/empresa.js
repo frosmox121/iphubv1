@@ -32,7 +32,7 @@
   window.showSection = function (id) {
     const role = ME && ME.role;
     if (id === 'empresa' && !(ME && ME.isOwner)) id = 'dashboard';
-    if (role && !ME.isOwner && id !== 'account' && id !== 'empresa' && !(role.perms || []).includes(id)) {
+    if (role && !ME.isOwner && id !== 'account' && id !== 'empresa' && id !== 'legal' && !(role.perms || []).includes(id)) {
       if (typeof toast === 'function') toast('Tu rol no incluye esa sección');
       id = (role.perms || [])[0] || 'account';
     }

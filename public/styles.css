@@ -424,7 +424,7 @@ input[type=password]::-ms-reveal,input[type=password]::-ms-clear{display:none}
 
 .nav-item[hidden]{display:none!important}
 
-.main{overflow-y:auto;max-height:100vh}
+.main{overflow-y:auto;max-height:100vh;max-height:100dvh;-webkit-overflow-scrolling:touch}
 .topo-card{overflow:visible}
 .topo-card canvas{height:420px;touch-action:pan-y}
 .qmark{margin-left:.4rem;width:18px;height:18px;border-radius:50%;border:1px solid #64748b;color:#94a3b8;background:transparent;font-size:.75rem;cursor:pointer;vertical-align:middle}

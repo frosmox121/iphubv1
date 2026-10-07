@@ -116,6 +116,7 @@
     if (a === 'full') { box.classList.toggle('full'); document.body.classList.toggle('tmap-lock', box.classList.contains('full')); b.textContent = box.classList.contains('full') ? '✕' : '⛶'; setTimeout(() => { resize(); M.fitted = false; fit(); }, 60); return; }
     zoomAt(M.w / 2, M.h / 2, a === 'in' ? 1.25 : .8);
   });
+  setInterval(() => { const sec = document.getElementById('topology'); if (box.classList.contains('full') && sec && !sec.classList.contains('active')) { box.classList.remove('full'); document.body.classList.remove('tmap-lock'); } }, 500);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && box.classList.contains('full')) box.querySelector('[data-tz=full]').click(); });
   if (window.ResizeObserver) new ResizeObserver(resize).observe(box); window.addEventListener('resize', resize);
 

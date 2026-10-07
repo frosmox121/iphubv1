@@ -95,7 +95,7 @@ table tr{transition:background .2s}table tbody tr:hover{background:rgba(34,211,2
 #topology{overflow:visible}
 #topology .table-wrap,#topology .data-table,#agent-view{max-width:100%;overflow-x:auto}
 .tmap{position:relative;height:clamp(440px,68vh,780px);background:radial-gradient(ellipse at 50% 40%,#0d1830,#060b18 75%);overflow:hidden;border-radius:0}
-.tmap canvas{width:100%;height:100%;display:block;touch-action:pan-y;cursor:grab}
+.tmap canvas{width:100%;height:100%;display:block;touch-action:pan-y pinch-zoom;cursor:grab}
 .tmap.full{position:fixed;inset:0;z-index:5000;height:100vh;border-radius:0}.tmap.full canvas{touch-action:none}
 body.tmap-lock{overflow:hidden}
 .tmap-ctl{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px;z-index:2}
@@ -112,3 +112,6 @@ body.tmap-lock{overflow:hidden}
 @media(max-width:1000px){.lab-ide{grid-template-columns:1fr}.lab-side,.lab-props{height:auto;min-height:0;max-height:260px}.tmap{height:clamp(380px,60vh,560px)}}
 
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.rv{opacity:1;transform:none}}
+
+.tmap:not(.full){overscroll-behavior:auto}.lab-side,.lab-props{overscroll-behavior:auto}
+@media(max-width:1000px){.lab-ide{overflow:visible!important}.lab-side,.lab-props{height:auto!important}}

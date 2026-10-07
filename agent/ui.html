@@ -263,7 +263,7 @@ function drawer() {
   const ta = $('nt2'); ta.onchange = () => F('note', d.key, ta.value);
 }
 
-function toast(m) { const e = $('toast'); e.textContent = m; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 1800); }
+function toast(m) { const e = $('toast'); e.textContent = m; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 5000); }
 function setState(s) { if (s && s.devices) { S = s; render(); } }
 function exportData(fmt) {
   const rows = S.devices.filter(d => !d.ignored && !d.deleted);
@@ -424,19 +424,20 @@ async function cloudPaint(c) {
   c = c || await F('cloudStatus');
   const base = document.getElementById('cloud-base'); if (base && c && c.base && document.activeElement !== base) base.value = c.base;
   const msg = document.getElementById('cloud-msg');
-  if (!msg) return;
+  if (!msg) return; msg.style.color = '';
   if (c && c.user) msg.textContent = 'Conectado como ' + (c.user.name || c.user.email) + '. La página muestra esta red al abrir Topología.';
   else if (c && c.pending) msg.textContent = 'Esperando que confirmes en el navegador…';
   else msg.textContent = 'Iniciá sesión con la misma cuenta. Google y Discord abren la página para confirmar.';
 }
 document.getElementById('cloud-base').onchange = async e => { const c = await F('cloudBase', e.target.value); cloudPaint(c); toast('Dirección guardada'); };
 document.getElementById('cloud-login').onclick = async () => {
-  const b = document.getElementById('cloud-login'); b.disabled = true; const old = b.textContent; b.textContent = 'Conectando…'; toast('Conectando con la página (si estaba dormida puede tardar ~1 min)…');
+  const b = document.getElementById('cloud-login'), msg = document.getElementById('cloud-msg'); b.disabled = true; const old = b.textContent; b.textContent = 'Conectando…';
+  msg.style.color = ''; msg.textContent = 'Conectando con la página… (si estaba dormida puede tardar hasta ~1 min)';
   try {
     const c = await F('cloudLogin', { email: document.getElementById('cloud-email').value, password: document.getElementById('cloud-pass').value });
-    if (!c || c.error || !c.user) { toast((c && c.error) || 'No se pudo entrar'); return; }
+    if (!c || c.error || !c.user) throw new Error((c && c.error) || 'No se pudo entrar');
     cloudPaint(c); toast('Cuenta conectada');
-  } catch (e) { toast(e.message || 'No se pudo entrar'); }
+  } catch (e) { msg.style.color = '#f87171'; msg.textContent = '✕ ' + (e.message || 'No se pudo entrar'); toast(e.message || 'No se pudo entrar'); }
   finally { b.disabled = false; b.textContent = old; }
 };
 async function cloudSocial() {

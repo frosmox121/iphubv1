@@ -617,25 +617,47 @@ app.post('/api/tools/port-scan', requireAuth, async (req, res) => {
 // HERRAMIENTA: Traceroute (spawnea el binario del sistema operativo)
 // ======================================================================
 function execP(cmd, args, opt) { return new Promise(r => execFile(cmd, args, opt, (err, stdout) => r({ err, stdout: stdout || '' }))); }
+let HAS_TRACE = null; // null = sin probar, false = el sistema no trae traceroute
+const fmtHop = (n, host, t) => host ? `${String(n).padStart(2)}  ${host}  ${t.join('  ')}` : `${String(n).padStart(2)}  * * *`;
+async function traceGlobalping(target) {
+  const r = await fetch('https://api.globalping.io/v1/measurements', { method: 'POST', headers: { 'content-type': 'application/json', 'user-agent': 'IPHub' }, body: JSON.stringify({ type: 'traceroute', target, limit: 1 }), signal: AbortSignal.timeout(10000) });
+  if (!r.ok) throw new Error('globalping ' + r.status);
+  const { id } = await r.json();
+  for (let i = 0; i < 45; i++) {
+    await sleep(i < 4 ? 500 : 1000);
+    const g = await fetch('https://api.globalping.io/v1/measurements/' + id, { headers: { 'user-agent': 'IPHub' }, signal: AbortSignal.timeout(8000) });
+    if (!g.ok) continue;
+    const j = await g.json(); if (j.status === 'in-progress') continue;
+    const hops = (j.results && j.results[0] && j.results[0].result && j.results[0].result.hops) || [];
+    if (!hops.length) throw new Error('globalping vacío');
+    const lines = hops.map((h, k) => { const t = (h.timings || []).map(x => x && x.rtt != null ? Number(x.rtt).toFixed(2) + ' ms' : '*'); while (t.length < 3) t.push('*'); return fmtHop(k + 1, h.resolvedAddress || h.resolvedHostname, t); });
+    return { raw: `traceroute a ${target} (ejecutado desde un nodo externo)\n` + lines.join('\n'), tool: 'globalping' };
+  }
+  throw new Error('globalping timeout');
+}
+async function traceHackertarget(target) {
+  const resp = await fetch('https://api.hackertarget.com/mtr/?q=' + encodeURIComponent(target), { signal: AbortSignal.timeout(35000) });
+  const lines = [];
+  for (const l of (await resp.text()).split('\n')) {
+    const m = /^\s*(\d+)\.\|--\s+(\S+)\s+([\d.]+)%\s+\d+\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(l);
+    if (m) lines.push(m[2] === '???' ? fmtHop(m[1], null) : fmtHop(m[1], m[2], [m[4] + ' ms', m[5] + ' ms', m[6] + ' ms']));
+  }
+  if (!lines.length) throw new Error('hackertarget vacío');
+  return { raw: `traceroute a ${target} (ejecutado con mtr desde un nodo externo)\n` + lines.join('\n'), tool: 'mtr' };
+}
 async function traceCore(target, hops, q) {
-  const cmd = isWin ? 'tracert' : 'traceroute';
-  const args = isWin ? ['-d', '-h', String(hops), '-w', '1500', target] : ['-n', '-m', String(hops), '-w', '2', ...(q ? ['-q', String(q)] : []), target];
-  const r = await execP(cmd, args, { timeout: 45000, maxBuffer: 2 * 1024 * 1024 });
-  if (r.stdout && !(r.err && r.err.code === 'ENOENT')) return { raw: r.stdout, tool: cmd };
-  // Render y otros hosts no traen traceroute ni permiten ICMP crudo: respaldo con un servicio mtr externo
-  try {
-    const resp = await fetch('https://api.hackertarget.com/mtr/?q=' + encodeURIComponent(target), { signal: AbortSignal.timeout(40000) });
-    const txt = await resp.text(), lines = [];
-    for (const l of txt.split('\n')) {
-      const m = /^\s*(\d+)\.\|--\s+(\S+)\s+([\d.]+)%\s+\d+\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(l);
-      if (!m) continue;
-      lines.push(m[2] === '???' ? `${String(m[1]).padStart(2)}  * * *` : `${String(m[1]).padStart(2)}  ${m[2]}  ${m[4]} ms  ${m[5]} ms  ${m[6]} ms`);
-    }
-    if (lines.length) return { raw: `traceroute a ${target} (ejecutado con mtr desde un nodo externo)\n` + lines.join('\n'), tool: 'mtr' };
-  } catch (_) {}
+  if (HAS_TRACE !== false) {
+    const cmd = isWin ? 'tracert' : 'traceroute';
+    const args = isWin ? ['-d', '-h', String(hops), '-w', '1500', target] : ['-n', '-m', String(hops), '-w', '2', ...(q ? ['-q', String(q)] : []), target];
+    const r = await execP(cmd, args, { timeout: 45000, maxBuffer: 2 * 1024 * 1024 });
+    if (r.err && r.err.code === 'ENOENT') HAS_TRACE = false;
+    else { HAS_TRACE = true; if (r.stdout) return { raw: r.stdout, tool: cmd }; }
+  }
+  // Render y similares no traen traceroute ni ICMP crudo: se consultan dos servicios externos a la vez y gana el primero que responde
+  try { return await Promise.any([traceGlobalping(target), traceHackertarget(target)]); } catch (e) { console.log('[trace] respaldo falló:', (e.errors || [e]).map(x => x.message).join(' | ')); }
   return null;
 }
-const TRACE_FAIL = 'Este servidor no tiene traceroute y el servicio de respaldo no respondió. Reintentá en un minuto o usá el exe de IPHub, que hace la traza desde tu propia PC.';
+const TRACE_FAIL = 'No se pudo completar la traza ahora mismo (los servicios externos no respondieron). Reintentá en unos segundos.';
 app.post('/api/tools/traceroute', requireAuth, async (req, res) => {
   const { target } = req.body || {};
   if (!target || !isValidTarget(target)) return res.status(400).json({ error: 'Destino inválido' });
@@ -1145,7 +1167,7 @@ app.post('/api/tools/subnet-calc', requireAuth, (req, res) => {
 
 // ---------- Cambio de correo con doble verificación (correo viejo y nuevo) ----------
 const rc = () => String(crypto.randomInt(100000, 1000000));
-const mailFast = async (...a) => { const r = await Promise.race([sendMail(...a), new Promise(ok => setTimeout(() => ok(null), 8000))]); return r === null ? true : r; };
+const mailFast = async (...a) => { const r = await Promise.race([sendMail(...a), new Promise(ok => setTimeout(() => ok(null), 2500))]); return r === null ? true : r; };
 app.post('/api/account/email/start', requireAuth, async (req, res) => {
   const ne = String((req.body || {}).newEmail || '').toLowerCase().trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(ne)) return res.status(400).json({ error: 'Correo nuevo inválido' });
