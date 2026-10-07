@@ -1,0 +1,4058 @@
+# PROMPT MAESTRO — IMPLEMENTACIÓN COMPLETA DEL TRACKING STUDIO IDE PESADO
+
+## ROL
+
+Actúa como un **arquitecto de software senior, ingeniero full-stack, ingeniero de sistemas distribuidos, especialista GIS, IoT, logística, DevSecOps y aplicaciones desktop de alto rendimiento**.
+
+Debes implementar dentro de la aplicación existente un nuevo módulo llamado:
+
+# TRACKING STUDIO
+
+### Heavy Logistics & Package Tracking IDE
+
+Este módulo será un **IDE pesado de logística, trazabilidad, telemetría IoT, simulación de cadena de suministro y análisis de integraciones logísticas**, ejecutándose localmente y utilizando los recursos de CPU, GPU, RAM y almacenamiento del equipo del usuario.
+
+---
+
+# 0. REGLA FUNDAMENTAL
+
+**NO reconstruyas, reemplaces ni rompas el Virtual Lab existente.**
+
+El sistema existente de laboratorio virtualizado debe permanecer funcionando exactamente con sus capacidades actuales.
+
+Tracking Studio es un:
+
+> **NUEVO MÓDULO PESADO, INDEPENDIENTE PERO CONECTADO AL VIRTUAL LAB.**
+
+La arquitectura final debe ser:
+
+```text
+                    APLICACIÓN LOCAL
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   ┌──────────────────────┐      ┌────────────────────────┐  │
+│   │   TRACKING STUDIO    │      │      VIRTUAL LAB       │  │
+│   │                      │ gRPC │                        │  │
+│   │ Logistics / GIS /    │◄────►│ Routers / Switches /   │  │
+│   │ IoT / Simulation     │ IPC  │ Hosts / Firewalls /    │  │
+│   │ / Analytics          │      │ Gateways / Servers     │  │
+│   └──────────┬───────────┘      └────────────┬───────────┘  │
+│              │                               │              │
+└──────────────┼───────────────────────────────┼──────────────┘
+               │                               │
+               ▼                               ▼
+        ┌──────────────────────────────────────────┐
+        │             PLATAFORMA WEB               │
+        │ Dashboards / Reports / Collaboration     │
+        └──────────────────────────────────────────┘
+```
+
+La interconexión debe permitir que un dispositivo IoT virtual creado en Tracking Studio pueda asociarse a un `Host`, `Gateway` o dispositivo equivalente del Virtual Lab.
+
+La comunicación debe estar abstraída detrás de un **Bridge Connector**.
+
+Preferentemente:
+
+```text
+Tracking Studio
+      │
+      ▼
+Tracking-VirtualLab Bridge
+      │
+      ├── gRPC
+      ├── IPC local
+      └── WebSocket fallback
+      │
+      ▼
+Virtual Lab
+```
+
+La especificación original establece precisamente este desacoplamiento entre el motor logístico y el laboratorio de red.
+
+---
+
+# 1. OBJETIVO GENERAL
+
+Construir un entorno profesional para:
+
+* Crear envíos.
+* Crear paquetes.
+* Crear contenedores.
+* Crear pallets.
+* Crear flotas.
+* Crear vehículos.
+* Crear hubs logísticos.
+* Crear almacenes.
+* Crear rutas.
+* Crear geofences.
+* Crear sensores IoT.
+* Simular GPS.
+* Simular RFID.
+* Simular BLE.
+* Simular temperatura.
+* Simular humedad.
+* Simular luz.
+* Simular impactos.
+* Procesar telemetría masiva.
+* Visualizar rutas sobre mapas.
+* Ejecutar simulaciones.
+* Ejecutar stress tests.
+* Reproducir telemetría histórica.
+* Crear snapshots.
+* Crear branches de escenarios.
+* Comparar escenarios.
+* Detectar anomalías.
+* Analizar cadena de custodia.
+* Analizar integraciones TMS/WMS/ERP.
+* Analizar código.
+* Detectar secretos expuestos.
+* Detectar problemas de webhooks.
+* Simular fallas de infraestructura.
+* Conectar sensores al Virtual Lab.
+* Visualizar simultáneamente la ruta física y la ruta digital de los datos.
+* Generar informes.
+* Publicar resultados hacia la plataforma web.
+
+---
+
+# 2. PRINCIPIO DE DISEÑO
+
+Tracking Studio debe sentirse como un:
+
+> **IDE profesional para ingeniería logística**
+
+No debe parecer simplemente un dashboard de tracking.
+
+Debe tener conceptos propios de un IDE:
+
+* Workspace.
+* Projects.
+* Files.
+* Tabs.
+* Panels.
+* Inspector.
+* Console.
+* Event timeline.
+* Simulation runner.
+* Logs.
+* Debugger.
+* Scenario manager.
+* Snapshot manager.
+* Code editor.
+* Query explorer.
+* Graph explorer.
+* Map editor.
+* Device explorer.
+* Resource monitor.
+
+La interfaz debe priorizar productividad técnica.
+
+---
+
+# 3. ESTRUCTURA DE LA APLICACIÓN
+
+Crear dentro de la App Local una nueva sección:
+
+```text
+APP
+│
+├── Virtual Lab
+│
+└── Tracking Studio
+    │
+    ├── Dashboard
+    ├── Shipments
+    ├── Live Tracking
+    ├── Logistics Map
+    ├── Fleet
+    ├── IoT Devices
+    ├── Hubs
+    ├── Routes
+    ├── Geofences
+    ├── Telemetry
+    ├── Simulations
+    ├── Scenarios
+    ├── Snapshots
+    ├── Incidents
+    ├── Alerts
+    ├── Chain of Custody
+    ├── Carrier Integrations
+    ├── TMS/WMS/ERP
+    ├── Code Intelligence
+    ├── Security
+    ├── Network Trace
+    ├── Reports
+    ├── Projects
+    └── Settings
+```
+
+---
+
+# 4. WORKSPACE DEL TRACKING STUDIO
+
+Al entrar a Tracking Studio debe existir un workspace similar a un IDE.
+
+Layout:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ TRACKING STUDIO                              ● LAB / LIVE   │
+├─────────────┬───────────────────────────────┬───────────────┤
+│             │                               │               │
+│ PROJECT     │       MAIN WORKSPACE          │   INSPECTOR   │
+│ EXPLORER    │                               │               │
+│             │                               │               │
+│ Shipments   │       MAP / EDITOR /          │ Selected      │
+│ Routes      │       CODE / TELEMETRY        │ Object        │
+│ Devices     │                               │               │
+│ Scenarios   │                               │ Properties    │
+│ Snapshots   │                               │ Metrics       │
+│             │                               │               │
+├─────────────┴───────────────────────────────┴───────────────┤
+│ CONSOLE / EVENTS / TELEMETRY / NETWORK TRACE / SIMULATION   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+La interfaz debe ser:
+
+* Dark-first.
+* Profesional.
+* Densa pero legible.
+* Modular.
+* Redimensionable.
+* Con paneles acoplables.
+* Con tabs.
+* Con shortcuts.
+* Con búsqueda global.
+* Con command palette.
+* Con virtualización para listas grandes.
+
+---
+
+# 5. MODOS DE OPERACIÓN
+
+El usuario debe poder seleccionar explícitamente:
+
+```text
+REAL
+SIMULATED
+REPLAY
+HYBRID
+```
+
+### REAL
+
+Datos reales autorizados.
+
+### SIMULATED
+
+Todo generado localmente.
+
+### REPLAY
+
+Reproducción de datos históricos.
+
+### HYBRID
+
+Datos reales + Virtual Lab + componentes simulados.
+
+Mostrar siempre un indicador visual del modo activo.
+
+Nunca permitir confundir datos reales con datos simulados.
+
+La especificación requiere separar explícitamente `REAL`, `VIRTUAL/LAB` y `REPLAY`.
+
+---
+
+# 6. PROJECT SYSTEM
+
+Crear proyectos de Tracking Studio.
+
+Ejemplo:
+
+```text
+Project:
+European Cold Chain 2026
+```
+
+Contenido:
+
+```text
+/project
+    /shipments
+    /routes
+    /devices
+    /hubs
+    /geofences
+    /scenarios
+    /snapshots
+    /simulations
+    /telemetry
+    /integrations
+    /reports
+    /incidents
+```
+
+Cada proyecto debe poder guardarse, abrirse, duplicarse y exportarse.
+
+---
+
+# 7. SHIPMENT ENGINE
+
+Crear entidad:
+
+```text
+Shipment
+```
+
+Campos mínimos:
+
+```text
+id
+trackingNumber
+barcode
+status
+origin
+destination
+currentLocation
+plannedRoute
+actualRoute
+carrier
+serviceLevel
+priority
+weight
+volume
+dimensions
+declaredValue
+riskCategory
+temperatureRequired
+createdAt
+updatedAt
+```
+
+Estados:
+
+```text
+LABEL_CREATED
+PICKED_UP
+IN_TRANSIT
+ARRIVED_AT_FACILITY
+CUSTOMS_CLEARANCE
+OUT_FOR_DELIVERY
+DELIVERED
+EXCEPTION
+RETURNED
+CANCELLED
+```
+
+Cada cambio debe generar un `TrackingEvent`.
+
+---
+
+# 8. CONSIGNMENT
+
+Crear:
+
+```text
+Consignment
+```
+
+Debe permitir agrupar:
+
+```text
+Consignment
+    ├── Container
+    ├── Pallet
+    ├── Shipment
+    ├── Shipment
+    └── Shipment
+```
+
+Permitir mover paquetes entre consignments.
+
+Registrar siempre historial de cambios.
+
+---
+
+# 9. TRACKING EVENT ENGINE
+
+Crear motor append-only para eventos.
+
+Cada evento:
+
+```text
+TrackingEvent
+```
+
+debe incluir:
+
+```text
+id
+shipmentId
+timestamp
+eventType
+latitude
+longitude
+source
+confidence
+deviceId
+nodeId
+networkHostId
+payload
+hash
+previousEventHash
+```
+
+Tipos de fuente:
+
+```text
+PHYSICAL_SCAN
+RFID
+IOT
+GPS
+CARRIER_API
+WEBHOOK
+ESTIMATED
+SIMULATED
+MANUAL
+REPLAY
+```
+
+El usuario debe poder inspeccionar el evento raw.
+
+---
+
+# 10. TELEMETRY ENGINE
+
+Implementar motor para:
+
+* GPS.
+* Temperature.
+* Humidity.
+* Light.
+* Accelerometer.
+* Gyroscope.
+* Battery.
+* Signal strength.
+* RFID.
+* BLE.
+* Cellular.
+* Satellite.
+
+Ejemplo:
+
+```json
+{
+  "deviceId": "tracker-001",
+  "timestamp": "...",
+  "gps": {
+    "lat": 0,
+    "lon": 0,
+    "altitude": 0,
+    "speed": 0
+  },
+  "temperature": 4.7,
+  "humidity": 61,
+  "light": 0,
+  "impactG": 0.2,
+  "battery": 87,
+  "signal": -72
+}
+```
+
+---
+
+# 11. IOT DEVICE LAB
+
+Crear un explorador:
+
+```text
+IoT Devices
+```
+
+Cada dispositivo debe mostrar:
+
+* ID.
+* Tipo.
+* IMEI.
+* MAC.
+* UUID.
+* Firmware.
+* Battery.
+* Memory buffer.
+* Protocol.
+* Carrier.
+* Gateway.
+* Shipment asociado.
+* Host Virtual Lab asociado.
+* Último ping.
+* Estado.
+* Última ubicación.
+
+La ficha técnica debe contemplar IMEI, MAC, UUID BLE, EPC RFID, firmware, batería, buffer y conectividad.
+
+---
+
+# 12. SENSOR EMULATION ENGINE
+
+Permitir crear sensores virtuales.
+
+Ejemplo:
+
+```text
+Create Sensor
+--------------------
+Type: GPS
+Interval: 2 sec
+Noise: 3%
+Battery drain: 0.2%/hour
+Signal loss: Random
+Network: Cellular
+Virtual Host: host-42
+```
+
+Soportar:
+
+```text
+Constant
+Random
+Gaussian
+Sinusoidal
+Historical Replay
+Route Based
+Weather Based
+Failure Injection
+```
+
+---
+
+# 13. MASS TELEMETRY
+
+El motor debe estar diseñado para cargas pesadas.
+
+Objetivo:
+
+```text
+100.000+ telemetry events/sec
+```
+
+No bloquear el frontend.
+
+Usar:
+
+* Worker threads.
+* Async processing.
+* Batching.
+* Streaming.
+* Backpressure.
+* Ring buffers cuando corresponda.
+* Indexed storage.
+* DuckDB o equivalente local.
+* Embedded analytical engine cuando sea necesario.
+
+El objetivo de procesamiento local de 100.000 eventos/segundo forma parte de la especificación técnica base.
+
+---
+
+# 14. RESOURCE MANAGER
+
+Crear:
+
+```text
+Tracking Studio Resource Monitor
+```
+
+Mostrar:
+
+```text
+CPU
+RAM
+GPU
+Workers
+Events/sec
+Queue depth
+Storage
+Network
+Simulation load
+```
+
+Permitir límites:
+
+```text
+Max CPU
+Max RAM
+Max Workers
+Max Storage
+Max Events/sec
+Simulation Timeout
+```
+
+Nunca permitir que una simulación bloquee completamente el equipo.
+
+---
+
+# 15. GIS LOGISTICS MAP
+
+Crear un mapa profesional.
+
+Debe soportar:
+
+* Markers.
+* Routes.
+* Polylines.
+* Geofences.
+* Warehouses.
+* Ports.
+* Airports.
+* Vehicles.
+* Trucks.
+* Ships.
+* Aircraft.
+* Packages.
+* IoT devices.
+* Hubs.
+
+Capacidades:
+
+```text
+Zoom
+Pan
+Search
+Layers
+Clustering
+Heatmap
+Timeline playback
+Animated routes
+Selection
+Multi-selection
+Filtering
+```
+
+---
+
+# 16. LOGISTICS TOPOLOGY EDITOR
+
+Crear un editor visual.
+
+Elementos:
+
+```text
+Factory
+Warehouse
+Hub
+Port
+Airport
+Customs
+Locker
+Customer
+Vehicle
+Container
+Pallet
+Shipment
+IoT Device
+Gateway
+```
+
+Permitir:
+
+* Drag & drop.
+* Connect.
+* Delete.
+* Duplicate.
+* Group.
+* Inspect.
+* Lock.
+* Hide.
+* Rename.
+
+---
+
+# 17. ROUTE ENGINE
+
+Crear rutas:
+
+```text
+Road
+Rail
+Sea
+Air
+Intermodal
+Last Mile
+```
+
+Cada ruta debe tener:
+
+```text
+Origin
+Destination
+Waypoints
+Distance
+ETA
+Estimated Cost
+Carrier
+Transport Mode
+Risk
+Status
+```
+
+Permitir comparar:
+
+```text
+Planned Route
+vs
+Actual Route
+```
+
+---
+
+# 18. GEOFENCE ENGINE
+
+Permitir crear:
+
+```text
+Circle
+Polygon
+Corridor
+Radius
+Restricted Zone
+Cold Chain Zone
+Custom Zone
+```
+
+Eventos:
+
+```text
+ENTER
+EXIT
+DWELL
+SPEED_EXCEEDED
+TEMPERATURE_EXCEEDED
+```
+
+Ejemplo:
+
+```text
+IF temperature > 8°C
+AND shipment.category == COLD_CHAIN
+THEN
+    create alert
+    mark shipment as exception
+    recommend alternate hub
+```
+
+---
+
+# 19. ENVIRONMENTAL SIMULATION
+
+Simular:
+
+```text
+Temperature
+Humidity
+Light
+Impact
+Vibration
+Pressure
+Weather
+Signal
+Battery
+```
+
+Crear modelos:
+
+```text
+Constant
+Random
+Historical
+Route-based
+Weather-based
+Failure-based
+```
+
+---
+
+# 20. COLD CHAIN ENGINE
+
+Cada envío de cadena de frío debe poder definir:
+
+```text
+Min Temperature
+Max Temperature
+Target Temperature
+Maximum Exposure Time
+Humidity Range
+```
+
+Si se excede:
+
+```text
+Temperature Excursion
+```
+
+Crear:
+
+* Alert.
+* Exception.
+* Timeline event.
+* Incident opcional.
+* Risk increase.
+
+---
+
+# 21. PACKAGE ASSET SHEET
+
+Al seleccionar un paquete mostrar una vista completa:
+
+```text
+PACKAGE
+────────────────────────
+Tracking ID
+Barcode
+QR
+RFID
+Sensor UUID
+
+ORIGIN
+DESTINATION
+
+WEIGHT
+VOLUME
+DIMENSIONS
+
+CURRENT LOCATION
+CURRENT STATUS
+
+CARRIER
+VEHICLE
+OPERATOR
+
+TEMPERATURE
+HUMIDITY
+BATTERY
+
+NETWORK HOST
+GATEWAY
+IP
+
+CHAIN OF CUSTODY
+```
+
+---
+
+# 22. CHAIN OF CUSTODY
+
+Registrar:
+
+```text
+Created by
+Picked up by
+Transferred by
+Stored by
+Loaded by
+Transported by
+Delivered by
+```
+
+Cada operación debe generar:
+
+```text
+timestamp
+operator
+location
+event
+signature/hash
+evidence
+```
+
+---
+
+# 23. DELIVERY PROOF
+
+Soportar:
+
+```text
+Digital Signature
+OTP
+Photo
+Timestamp
+GPS
+Operator
+Device
+```
+
+Entidad:
+
+```text
+DeliveryProof
+```
+
+---
+
+# 24. CARRIER INTEGRATIONS
+
+Crear administrador de transportistas.
+
+Ejemplos:
+
+```text
+DHL
+FedEx
+UPS
+USPS
+Correos
+Custom Carrier
+```
+
+No asumir que estas integraciones están activas.
+
+Crear arquitectura mediante adapters:
+
+```text
+CarrierAdapter
+    ├── REST
+    ├── GraphQL
+    ├── SOAP
+    ├── Webhook
+    ├── EDI
+    └── Custom API
+```
+
+---
+
+# 25. WEBHOOK LAB
+
+Crear simulador de webhooks.
+
+Permitir:
+
+```text
+Generate
+Replay
+Inspect
+Delay
+Drop
+Duplicate
+Modify
+Retry
+```
+
+Siempre dentro de sandbox cuando se trate de simulación.
+
+Mostrar:
+
+```text
+Request
+Headers
+Payload
+Response
+Latency
+Status
+Retries
+Signature
+```
+
+---
+
+# 26. RAW PAYLOAD EDITOR
+
+Crear editor tipo IDE para:
+
+```text
+JSON
+XML
+EDIFACT
+ANSI X12
+MQTT
+Protobuf
+CoAP
+CSV
+```
+
+Funciones:
+
+* Syntax highlighting.
+* Formatting.
+* Validation.
+* Search.
+* Diff.
+* Copy.
+* Replay.
+* Send to simulator.
+
+---
+
+# 27. REPLAY ENGINE
+
+Importar:
+
+```text
+GPX
+NMEA
+PCAP
+CSV
+JSON
+Telemetry Logs
+```
+
+Permitir:
+
+```text
+Play
+Pause
+Stop
+Speed 0.25x
+Speed 1x
+Speed 2x
+Speed 10x
+Speed 100x
+```
+
+Mostrar simultáneamente:
+
+```text
+Map
+Timeline
+Telemetry
+Network
+Events
+```
+
+---
+
+# 28. SNAPSHOT ENGINE
+
+Crear:
+
+```text
+Tracking Snapshot
+```
+
+Debe capturar:
+
+* Shipments.
+* Locations.
+* Telemetry.
+* Routes.
+* Devices.
+* Alerts.
+* Network associations.
+* Simulation state.
+
+Funciones:
+
+```text
+Create
+Restore
+Duplicate
+Compare
+Delete
+Export
+Branch
+```
+
+---
+
+# 29. SCENARIO BRANCHING
+
+Permitir:
+
+```text
+Scenario A
+Normal Operations
+
+Scenario B
+Storm Diversion
+
+Scenario C
+Cellular Failure
+
+Scenario D
+Carrier Failure
+```
+
+Cada branch debe tener su propio estado.
+
+Nunca sobrescribir automáticamente el escenario padre.
+
+---
+
+# 30. SIMULATION ENGINE
+
+Crear un Simulation Runner profesional.
+
+Configuración:
+
+```text
+Simulation name
+Duration
+Shipment count
+Telemetry frequency
+Workers
+Network conditions
+Weather
+Carrier behavior
+Failure injection
+Seed
+```
+
+Mostrar:
+
+```text
+Progress
+Events/sec
+CPU
+RAM
+Queue
+Failures
+Warnings
+Completion
+```
+
+---
+
+# 31. STRESS TESTING
+
+Crear perfiles:
+
+```text
+10.000 shipments
+50.000 shipments
+100.000 shipments
+500.000 shipments
+Custom
+```
+
+Variables:
+
+```text
+Telemetry frequency
+Webhook frequency
+Concurrent devices
+Route count
+Event rate
+API rate
+```
+
+Resultados:
+
+```text
+Events/sec
+Average latency
+P95
+P99
+Dropped events
+Queue depth
+CPU
+RAM
+Storage
+Database latency
+```
+
+---
+
+# 32. FAILURE SIMULATION
+
+Permitir fallas controladas:
+
+```text
+Gateway Offline
+GPS Loss
+Cellular Loss
+Satellite Loss
+Carrier API Offline
+Webhook Timeout
+Database Slowdown
+Sensor Battery Low
+Temperature Failure
+Hub Closure
+Route Closure
+Border Closure
+Vehicle Breakdown
+```
+
+Todo debe ejecutarse en el laboratorio aislado.
+
+---
+
+# 33. VIRTUAL LAB BRIDGE
+
+Este es uno de los componentes más importantes.
+
+Crear:
+
+```text
+TrackingVirtualLabBridge
+```
+
+Debe permitir:
+
+```text
+listVirtualHosts()
+listGateways()
+listNetworks()
+listFirewalls()
+getNetworkState()
+attachDeviceToHost()
+attachDeviceToGateway()
+sendTelemetry()
+receiveTelemetry()
+subscribeNetworkEvents()
+createNetworkTrace()
+```
+
+No acoplar directamente Tracking Studio a implementaciones internas del Virtual Lab.
+
+Utilizar interfaces.
+
+---
+
+# 34. MAPEO TRACKER → HOST VIRTUAL
+
+Ejemplo:
+
+```text
+Tracker GPS
+    ↓
+IoT Device
+    ↓
+Virtual Host
+    ↓
+Cellular Gateway
+    ↓
+Virtual Network
+    ↓
+Firewall
+    ↓
+MQTT Broker
+    ↓
+Tracking API
+    ↓
+Tracking Studio
+```
+
+Mostrar esta relación visualmente.
+
+---
+
+# 35. NETWORK TRACE
+
+Crear vista:
+
+```text
+Physical Route
++
+Digital Route
+```
+
+Ejemplo:
+
+```text
+PHYSICAL
+
+Buenos Aires
+     ↓
+Warehouse
+     ↓
+Truck
+     ↓
+Port
+     ↓
+Ship
+
+
+DIGITAL
+
+IoT Sensor
+     ↓
+Gateway
+     ↓
+Firewall
+     ↓
+MQTT Broker
+     ↓
+Tracking API
+     ↓
+Database
+```
+
+Permitir seleccionar cualquier punto y ver:
+
+* Latency.
+* Packets.
+* Errors.
+* Dropped messages.
+* Network state.
+* Associated shipment.
+
+---
+
+# 36. VIRTUAL NETWORK FAILURE → LOGISTICS EFFECT
+
+Cuando el Virtual Lab informe:
+
+```text
+Gateway Down
+```
+
+Tracking Studio debe poder representar:
+
+```text
+Sensor offline
+↓
+Telemetry buffer increases
+↓
+Events queued
+↓
+ETA confidence decreases
+↓
+Alert created
+```
+
+Cuando vuelve la conectividad:
+
+```text
+Connection restored
+↓
+Buffered events
+↓
+Replay
+↓
+Synchronization
+↓
+State reconciliation
+```
+
+---
+
+# 37. CODE INTELLIGENCE
+
+Crear un módulo de análisis de código.
+
+Soportar inicialmente:
+
+```text
+JavaScript
+TypeScript
+Python
+Java
+Go
+```
+
+Analizar:
+
+```text
+Webhooks
+API Clients
+Telemetry Parsers
+Authentication
+HMAC Validation
+Error Handling
+Retries
+Queues
+Database Writes
+Secrets
+Dependencies
+```
+
+---
+
+# 38. CODE QUERY EXPLORER
+
+Crear consultas conceptuales:
+
+```text
+Find webhook handlers without signature validation
+
+Find API integrations using deprecated endpoints
+
+Find functions that modify shipment status
+
+Find telemetry parsers without validation
+
+Find integrations containing secrets
+```
+
+Mostrar resultados con:
+
+```text
+File
+Function
+Line
+Risk
+Explanation
+Recommendation
+```
+
+---
+
+# 39. SECRET DETECTION
+
+Detectar potencialmente:
+
+```text
+API Keys
+JWT
+Tokens
+Passwords
+Private Keys
+Connection Strings
+Cloud Credentials
+```
+
+Nunca mostrar secretos completos.
+
+Mostrar:
+
+```text
+****ABCD
+```
+
+y permitir:
+
+```text
+Rotate
+Revoke
+Ignore
+Mark False Positive
+```
+
+---
+
+# 40. DEPENDENCY SECURITY
+
+Analizar dependencias.
+
+Mostrar:
+
+```text
+Package
+Version
+Latest
+Severity
+CVE
+Affected Integration
+Recommendation
+```
+
+---
+
+# 41. CODE GRAPH
+
+Crear grafo:
+
+```text
+Webhook
+   ↓
+Parser
+   ↓
+Validation
+   ↓
+Queue
+   ↓
+Processor
+   ↓
+Database
+   ↓
+Notification
+```
+
+Permitir hacer click en cada nodo para abrir el código correspondiente.
+
+---
+
+# 42. LOGISTICS INCIDENT CENTER
+
+Crear:
+
+```text
+Incident
+```
+
+Campos:
+
+```text
+id
+title
+severity
+priority
+status
+createdAt
+owner
+affectedShipments
+affectedDevices
+affectedNodes
+networkTrace
+telemetryEvidence
+codeChanges
+rootCause
+resolution
+```
+
+Workflow:
+
+```text
+DETECTED
+    ↓
+INVESTIGATING
+    ↓
+CONTAINED
+    ↓
+REMEDIATING
+    ↓
+RESOLVED
+    ↓
+CLOSED
+```
+
+---
+
+# 43. ALERT ENGINE
+
+Tipos:
+
+```text
+Temperature Excursion
+Geofence Breach
+Duplicate Scan
+Lost Connectivity
+Battery Critical
+Route Deviation
+ETA Risk
+Carrier Failure
+Webhook Failure
+Telemetry Anomaly
+Security Issue
+```
+
+Cada alerta:
+
+```text
+Severity
+Timestamp
+Entity
+Cause
+Evidence
+Recommended action
+```
+
+---
+
+# 44. SUPPLY CHAIN RISK SCORE
+
+Crear score:
+
+```text
+0 - 100
+```
+
+Aplicable a:
+
+```text
+Shipment
+Route
+Hub
+Carrier
+Device
+Integration
+```
+
+Factores:
+
+```text
+Historical failures
+Connectivity
+Weather
+Route risk
+Carrier reliability
+Sensor health
+Software security
+Redundancy
+Temperature risk
+```
+
+Mostrar siempre por qué se obtuvo el score.
+
+---
+
+# 45. AI ASSISTANT
+
+Crear un asistente interno para:
+
+```text
+Explain shipment anomaly
+Explain incident
+Explain route deviation
+Summarize simulation
+Find root cause
+Recommend alternate route
+Explain telemetry
+Explain network failure
+Analyze code integration
+Generate report
+```
+
+La IA no debe ejecutar acciones reales sin confirmación explícita.
+
+---
+
+# 46. DASHBOARD
+
+Crear dashboard con:
+
+```text
+Active Shipments
+In Transit
+Delivered
+Exceptions
+OTIF
+Active Alerts
+Cold Chain Violations
+Sensor Health
+Carrier Health
+Events/sec
+Network Health
+Simulation Status
+```
+
+Gráficos:
+
+* Shipments by status.
+* Shipments by region.
+* Exceptions.
+* Temperature.
+* Telemetry volume.
+* Carrier performance.
+* Route performance.
+
+---
+
+# 47. ENTERPRISE / MULTI-TENANT
+
+Integrar con el sistema organizacional existente.
+
+Entidades:
+
+```text
+Organization
+Department
+User
+Role
+Permission
+```
+
+Roles sugeridos:
+
+```text
+Logistics Manager
+Fleet Manager
+Security Analyst
+Cold Chain Analyst
+Auditor
+TMS Developer
+Operations
+Administrator
+```
+
+Los datos deben quedar aislados por organización.
+
+---
+
+# 48. AUDIT LOG
+
+Registrar todas las acciones sensibles:
+
+```text
+Shipment modification
+Route modification
+Geofence modification
+Sensor configuration
+Simulation execution
+Snapshot restore
+Export
+Integration change
+Credential rotation
+Incident modification
+```
+
+Campos:
+
+```text
+actor
+timestamp
+action
+entity
+before
+after
+ip/device
+result
+```
+
+---
+
+# 49. PRIVACY
+
+Los datos sensibles deben poder ocultarse:
+
+```text
+Name
+Address
+Phone
+Declared Value
+Customer Information
+```
+
+Implementar:
+
+```text
+Masking
+Redaction
+Role-based access
+Export filtering
+```
+
+---
+
+# 50. IMPORT / EXPORT
+
+Soportar:
+
+```text
+JSON
+CSV
+XML
+GPX
+KML
+GeoJSON
+PDF
+HTML
+```
+
+Exportaciones deben poder configurarse:
+
+```text
+Raw data
+Anonymized
+Executive
+Technical
+Audit
+Incident
+Simulation
+```
+
+---
+
+# 51. REPORT GENERATOR
+
+Crear reportes profesionales:
+
+```text
+Shipment Report
+Route Report
+Carrier Report
+Incident Report
+Cold Chain Report
+Simulation Report
+Security Report
+Network Trace Report
+```
+
+---
+
+# 52. COLLABORATION
+
+Permitir compartir:
+
+```text
+Project
+Scenario
+Snapshot
+Route
+Incident
+Report
+Map
+Code Graph
+```
+
+Permisos:
+
+```text
+Viewer
+Commenter
+Editor
+Administrator
+```
+
+Nunca compartir PII automáticamente.
+
+---
+
+# 53. GIT INTEGRATION
+
+Cuando corresponda, permitir vincular incidentes con:
+
+```text
+GitHub
+GitLab
+Bitbucket
+```
+
+Ejemplo:
+
+```text
+Incident
+    ↓
+Root Cause
+    ↓
+Code Change
+    ↓
+Branch
+    ↓
+Commit
+    ↓
+Pull Request
+```
+
+No realizar commits reales sin autorización del usuario.
+
+---
+
+# 54. SUBSCRIPTIONS / LIMITS
+
+Mantener compatibilidad con planes:
+
+```text
+Free
+Individual
+Professional
+Business
+Enterprise
+```
+
+Los límites pueden aplicarse a:
+
+```text
+Active shipments
+IoT devices
+Events/sec
+Snapshots
+Storage
+Simulations
+Projects
+```
+
+---
+
+# 55. SEGURIDAD
+
+Implementar:
+
+```text
+MFA
+Passkeys
+OAuth/SSO
+RBAC
+Encryption
+Secure IPC
+Authenticated gRPC
+Audit logs
+Secret masking
+Credential isolation
+```
+
+Las credenciales reales nunca deben almacenarse en texto plano.
+
+---
+
+# 56. TRACKING LAB
+
+Todo aquello que sea:
+
+```text
+Simulation
+Replay
+Stress Test
+Webhook Test
+Telemetry Injection
+Failure Injection
+Fraud Simulation
+```
+
+debe ejecutarse en un entorno aislado.
+
+Nunca enviar accidentalmente tráfico simulado a producción.
+
+Mostrar siempre:
+
+```text
+🔴 REAL
+🟡 HYBRID
+🔵 SIMULATED
+🟣 REPLAY
+```
+
+---
+
+# 57. MODELO DE DATOS
+
+Implementar como mínimo:
+
+```text
+Shipment
+Consignment
+TrackingEvent
+IoTTrackerDevice
+TelemetryRead
+LogisticNode
+LogisticRoute
+Waypoint
+Geofence
+CarrierIntegration
+DeliveryProof
+LogisticsException
+TrackingSnapshot
+LogisticSimulationRun
+Incident
+Alert
+Scenario
+NetworkTrace
+CodeAnalysis
+```
+
+Relaciones principales:
+
+```text
+Organization
+    ├── Shipments
+    ├── Consignments
+    ├── Devices
+    ├── Nodes
+    ├── Routes
+    └── Projects
+
+Consignment
+    └── Shipments
+
+Shipment
+    ├── TrackingEvents
+    ├── TelemetryReads
+    ├── DeliveryProof
+    ├── Exceptions
+    └── IoTDevice
+
+IoTDevice
+    └── VirtualHost
+
+VirtualHost
+    └── VirtualLab
+
+Incident
+    ├── Shipments
+    ├── Alerts
+    ├── NetworkTrace
+    └── CodeAnalysis
+```
+
+El modelo conceptual de la especificación incluye precisamente `Shipment`, `Consignment`, `TrackingEvent`, `IoTTrackerDevice`, `TelemetryRead`, `LogisticNode`, `Geofence`, `CarrierIntegration`, `DeliveryProof`, `LogisticsException`, `TrackingSnapshot` y `LogisticSimulationRun`.
+
+---
+
+# 58. PERFORMANCE
+
+La aplicación debe utilizar:
+
+```text
+Worker Threads
+Async queues
+Batch processing
+Virtualized lists
+Incremental rendering
+GPU rendering
+Caching
+Streaming
+Backpressure
+Lazy loading
+```
+
+Nunca cargar cientos de miles de eventos simultáneamente en componentes DOM normales.
+
+Para tablas masivas utilizar virtualización.
+
+Para mapas utilizar clustering y rendering optimizado.
+
+---
+
+# 59. OFFLINE-FIRST
+
+Tracking Studio debe poder funcionar sin conexión externa cuando el proyecto sea local.
+
+Offline debe funcionar:
+
+```text
+Simulation
+Replay
+Maps disponibles localmente
+Telemetry generation
+Snapshots
+Scenario branching
+Stress testing
+Code analysis
+Reports
+```
+
+La sincronización con la Web debe ser opcional.
+
+---
+
+# 60. DATA LINEAGE
+
+Cada evento debe conservar:
+
+```text
+Source
+Timestamp
+Original timestamp
+Hash
+Confidence
+Physical location
+Virtual network node
+Device
+Transformation history
+```
+
+Flujo:
+
+```text
+REAL SENSOR
+    ↓
+INGESTION
+    ↓
+NORMALIZATION
+    ↓
+VIRTUAL MODEL
+    ↓
+SIMULATION
+    ↓
+RESULT
+    ↓
+AUDIT EVIDENCE
+```
+
+Nunca sobrescribir silenciosamente el dato original.
+
+---
+
+# 61. REAL VS VIRTUAL
+
+Diferenciar siempre:
+
+```text
+REAL DATA
+SIMULATED DATA
+INFERRED DATA
+REPLAY DATA
+MANUAL DATA
+```
+
+Usar badges visibles.
+
+---
+
+# 62. SETTINGS
+
+Crear configuración específica:
+
+```text
+Tracking Studio Settings
+```
+
+Categorías:
+
+```text
+Performance
+Telemetry
+Maps
+Simulation
+Virtual Lab
+Storage
+Security
+Privacy
+Integrations
+Notifications
+AI
+Exports
+```
+
+---
+
+# 63. COMMAND PALETTE
+
+Crear:
+
+```text
+Ctrl + K
+```
+
+Ejemplos:
+
+```text
+Create Shipment
+Create Route
+Create Device
+Run Simulation
+Open Map
+Open Telemetry
+Create Snapshot
+Connect Virtual Lab
+Start Replay
+Open Incident
+Search Shipment
+Search Device
+Export Report
+```
+
+---
+
+# 64. GLOBAL SEARCH
+
+Buscar simultáneamente:
+
+```text
+Shipment
+Tracking ID
+Device
+Route
+Hub
+Incident
+Telemetry
+Scenario
+Snapshot
+Code
+```
+
+Mostrar resultados agrupados.
+
+---
+
+# 65. NOTIFICATIONS
+
+Crear sistema de notificaciones:
+
+```text
+Simulation completed
+Temperature exceeded
+Shipment delayed
+Gateway disconnected
+Carrier unavailable
+Snapshot created
+Incident assigned
+Security issue detected
+```
+
+---
+
+# 66. DEMO / SAMPLE DATA
+
+El sistema debe incluir un proyecto demo.
+
+Nombre:
+
+```text
+Global Cold Chain Demo
+```
+
+Debe incluir:
+
+```text
+500 shipments
+10 hubs
+25 vehicles
+50 IoT devices
+10 routes
+5 geofences
+Cold-chain shipments
+Simulated carrier
+Virtual Lab connection
+```
+
+Al abrir el demo, el usuario debe poder ver inmediatamente el potencial de Tracking Studio.
+
+---
+
+# 67. SAMPLE SCENARIO
+
+Crear escenario:
+
+```text
+Cold Chain Failure
+```
+
+Flujo:
+
+```text
+Shipment starts
+↓
+Truck travels
+↓
+Temperature rises
+↓
+Sensor reports anomaly
+↓
+Alert created
+↓
+Geofence reached
+↓
+Virtual gateway fails
+↓
+Telemetry buffering starts
+↓
+Network restored
+↓
+Telemetry replay
+↓
+Incident created
+↓
+Root cause analysis
+↓
+Report generated
+```
+
+---
+
+# 68. UI/UX
+
+La interfaz debe sentirse comparable a:
+
+```text
+VS Code
+JetBrains IDE
+Network monitoring console
+GIS workstation
+Mission control
+```
+
+pero con identidad visual propia.
+
+Evitar:
+
+* Diseño genérico de dashboard.
+* Exceso de cards.
+* Espacios vacíos innecesarios.
+* Botones gigantes.
+* Animaciones innecesarias.
+* Interfaz infantil.
+* Información duplicada.
+
+Priorizar:
+
+* Información técnica.
+* Densidad.
+* Jerarquía.
+* Contexto.
+* Atajos.
+* Inspector.
+* Timeline.
+* Visualización espacial.
+
+---
+
+# 69. ERROR HANDLING
+
+Todos los workers deben tener:
+
+```text
+Retry
+Timeout
+Cancellation
+Error boundary
+Logging
+Recovery
+```
+
+Una simulación fallida no debe tumbar toda la aplicación.
+
+---
+
+# 70. OBSERVABILITY
+
+Crear logs internos:
+
+```text
+Application
+Telemetry
+Simulation
+Bridge
+VirtualLab
+Database
+Network
+Security
+AI
+```
+
+Agregar niveles:
+
+```text
+DEBUG
+INFO
+WARN
+ERROR
+CRITICAL
+```
+
+---
+
+# 71. BRIDGE STATUS
+
+Mostrar en tiempo real:
+
+```text
+Virtual Lab:
+CONNECTED
+
+Transport:
+gRPC
+
+Latency:
+2.4 ms
+
+Virtual Hosts:
+124
+
+Gateways:
+8
+
+Networks:
+12
+
+Telemetry:
+18.4k events/sec
+```
+
+Si se desconecta:
+
+```text
+VIRTUAL LAB OFFLINE
+```
+
+Tracking Studio debe continuar funcionando de forma autónoma cuando sea posible.
+
+---
+
+# 72. NO DEPENDENCIA OBLIGATORIA DEL VIRTUAL LAB
+
+Esto es importante:
+
+Tracking Studio debe poder funcionar por sí solo.
+
+Debe ser posible:
+
+```text
+Open Tracking Studio
+Create Project
+Create Shipments
+Create Routes
+Create Sensors
+Run Simulation
+```
+
+sin que Virtual Lab esté abierto.
+
+Cuando Virtual Lab esté disponible:
+
+```text
+Connect
+```
+
+y habilitar las funciones de integración.
+
+---
+
+# 73. ARQUITECTURA DE CÓDIGO
+
+No crear un único archivo gigantesco.
+
+Separar por dominios:
+
+```text
+tracking/
+    shipments/
+    telemetry/
+    devices/
+    routes/
+    geofences/
+    simulations/
+    snapshots/
+    scenarios/
+    incidents/
+    alerts/
+    integrations/
+    security/
+    code-intelligence/
+    reports/
+    bridge/
+    storage/
+```
+
+Separar:
+
+```text
+UI
+Domain
+Services
+Workers
+Storage
+IPC
+Adapters
+Infrastructure
+```
+
+---
+
+# 74. API INTERNA
+
+Definir servicios claros:
+
+```text
+ShipmentService
+TelemetryService
+DeviceService
+RouteService
+GeofenceService
+SimulationService
+SnapshotService
+ScenarioService
+IncidentService
+AlertService
+CarrierService
+CodeAnalysisService
+ReportService
+VirtualLabBridge
+```
+
+---
+
+# 75. EVENT BUS
+
+Crear event bus interno:
+
+```text
+shipment.created
+shipment.updated
+shipment.location_changed
+telemetry.received
+telemetry.anomaly
+device.connected
+device.disconnected
+geofence.enter
+geofence.exit
+alert.created
+incident.created
+simulation.started
+simulation.completed
+snapshot.created
+virtuallab.connected
+virtuallab.disconnected
+```
+
+---
+
+# 76. TESTING
+
+Crear:
+
+```text
+Unit Tests
+Integration Tests
+Simulation Tests
+Bridge Tests
+Performance Tests
+UI Tests
+Security Tests
+Data Integrity Tests
+```
+
+Especialmente probar:
+
+```text
+100k events/sec
+Large shipment datasets
+Virtual Lab disconnect
+Network failure
+Snapshot restore
+Scenario branching
+Telemetry replay
+```
+
+---
+
+# 77. MIGRACIONES
+
+Si existe Prisma/ORM/base de datos actual:
+
+* No destruir modelos existentes.
+* Crear modelos nuevos.
+* Mantener compatibilidad.
+* Crear migraciones limpias.
+* Mantener relaciones con entidades existentes únicamente cuando corresponda.
+
+No duplicar:
+
+```text
+User
+Organization
+Project
+Host
+Network
+```
+
+si ya existen.
+
+Reutilizar las entidades existentes cuando sean compatibles.
+
+---
+
+# 78. INTEGRACIÓN CON ENTIDADES EXISTENTES
+
+Antes de crear una entidad:
+
+```text
+Host
+Network
+Organization
+User
+Project
+Incident
+Alert
+```
+
+buscar si ya existe.
+
+Si existe:
+
+> reutilizarla.
+
+Si no existe:
+
+> crearla.
+
+Nunca crear dos versiones incompatibles de la misma entidad.
+
+---
+
+# 79. MIGRACIÓN SEGURA
+
+Implementar:
+
+```text
+Backward compatibility
+Data validation
+Migration preview
+Rollback strategy
+```
+
+---
+
+# 80. RESULTADO FINAL ESPERADO
+
+El usuario debe terminar con una aplicación donde pueda hacer:
+
+```text
+1. Abrir Tracking Studio.
+2. Crear un proyecto.
+3. Crear una cadena logística.
+4. Crear hubs.
+5. Crear rutas.
+6. Crear vehículos.
+7. Crear paquetes.
+8. Crear sensores IoT.
+9. Asociar sensores a paquetes.
+10. Crear telemetría.
+11. Visualizar todo en GIS.
+12. Ejecutar simulación.
+13. Generar miles/millones de eventos.
+14. Crear una falla.
+15. Ver la anomalía.
+16. Conectar el sensor al Virtual Lab.
+17. Ver el tráfico digital.
+18. Simular pérdida de conectividad.
+19. Ver buffering.
+20. Recuperar conectividad.
+21. Reproducir eventos.
+22. Crear snapshot.
+23. Crear branch.
+24. Comparar resultados.
+25. Crear incidente.
+26. Analizar causa raíz.
+27. Analizar código.
+28. Generar reporte.
+29. Exportarlo.
+30. Publicarlo en la Web.
+```
+
+---
+
+# 81. PRIORIDAD DE IMPLEMENTACIÓN
+
+Implementar en este orden:
+
+## FASE 1
+
+```text
+Tracking Studio shell
+Workspace
+Navigation
+Project system
+Shipment model
+TrackingEvent
+Telemetry
+Basic map
+```
+
+## FASE 2
+
+```text
+IoT devices
+Routes
+Geofences
+GIS editor
+Timeline
+Live tracking
+```
+
+## FASE 3
+
+```text
+Simulation engine
+Replay
+Snapshots
+Scenarios
+Stress testing
+```
+
+## FASE 4
+
+```text
+Virtual Lab Bridge
+gRPC/IPC
+Host mapping
+Gateway mapping
+Network Trace
+```
+
+## FASE 5
+
+```text
+Carrier integrations
+Webhook simulator
+TMS/WMS/ERP
+Code Intelligence
+Secret detection
+Dependency analysis
+```
+
+## FASE 6
+
+```text
+Incidents
+Alerts
+Risk engine
+Reports
+Collaboration
+AI
+Web synchronization
+```
+
+---
+
+# 82. REGLA DE IMPLEMENTACIÓN
+
+No limitarse a crear componentes visuales.
+
+Cada módulo debe tener:
+
+```text
+UI
++
+State
++
+Domain logic
++
+Persistence
++
+Validation
++
+Error handling
+```
+
+Cuando una funcionalidad requiera backend:
+
+```text
+implement backend
++
+API
++
+database
++
+frontend
+```
+
+Cuando requiera procesamiento pesado:
+
+```text
+implement worker
++
+queue
++
+progress reporting
++
+cancellation
+```
+
+Cuando requiera Virtual Lab:
+
+```text
+implement interface
++
+bridge
++
+connection state
++
+fallback
+```
+
+---
+
+# 83. REGLA SOBRE FUNCIONALIDADES NO DISPONIBLES
+
+Si una integración externa todavía no puede ejecutarse realmente:
+
+NO crear un botón falso que aparente funcionar.
+
+Implementar:
+
+```text
+Adapter interface
+Mock provider
+Simulation provider
+Clear connection status
+```
+
+Ejemplo:
+
+```text
+DHL
+├── Production Adapter
+├── Sandbox Adapter
+└── Mock Adapter
+```
+
+---
+
+# 84. REGLA SOBRE DATOS REALES
+
+Nunca:
+
+* modificar producción automáticamente;
+* enviar webhooks simulados a terceros;
+* utilizar API keys reales dentro de simulaciones;
+* mezclar datos simulados con datos productivos sin marcarlos;
+* sobrescribir históricos reales.
+
+Toda acción potencialmente peligrosa debe pedir confirmación explícita.
+
+---
+
+# 85. REGLA SOBRE SEGURIDAD
+
+Las funcionalidades de:
+
+```text
+Telemetry injection
+GPS spoofing
+Webhook modification
+Label cloning
+Network disruption
+```
+
+son exclusivamente para:
+
+```text
+Local Lab
+Sandbox
+Authorized Simulation
+```
+
+Nunca deben ejecutarse automáticamente contra sistemas externos.
+
+---
+
+# 86. REGLA SOBRE RENDIMIENTO
+
+No implementar una solución superficial que solo funcione con 100 paquetes.
+
+La arquitectura debe estar preparada para:
+
+```text
+100
+1.000
+10.000
+100.000
+500.000+
+```
+
+entidades/eventos.
+
+Usar virtualización, streaming, workers y procesamiento incremental.
+
+---
+
+# 87. REGLA SOBRE EL VIRTUAL LAB
+
+El Virtual Lab debe considerarse:
+
+```text
+INFRASTRUCTURE PROVIDER
+```
+
+y Tracking Studio:
+
+```text
+LOGISTICS INTELLIGENCE CLIENT
+```
+
+Tracking Studio solicita:
+
+```text
+Hosts
+Networks
+Gateways
+Connectivity
+Network traces
+Snapshots
+Events
+```
+
+El Virtual Lab responde.
+
+No mezclar la lógica de ambos dominios.
+
+---
+
+# 88. REGLA FINAL DE ARQUITECTURA
+
+El sistema completo debe terminar conceptualmente así:
+
+```text
+                    PLATFORM
+                       │
+             ┌─────────┴─────────┐
+             │                   │
+          WEB APP            LOCAL APP
+             │                   │
+             │        ┌──────────┴──────────┐
+             │        │                     │
+             │   VIRTUAL LAB         TRACKING STUDIO
+             │        │                     │
+             │        │                     │
+             │        └─────── BRIDGE ─────┘
+             │
+             └──────── synchronization ────────┘
+```
+
+---
+
+# 89. PRINCIPIO FINAL
+
+El producto final debe convertirse en una suite profesional que combine:
+
+```text
+NETWORK INTELLIGENCE
+        +
+VIRTUAL SECURITY LAB
+        +
+LOGISTICS TRACKING
+        +
+IOT TELEMETRY
+        +
+GIS
+        +
+SUPPLY CHAIN SIMULATION
+        +
+DEVSECOPS
+        +
+INCIDENT RESPONSE
+        +
+AI
+```
+
+El objetivo no es crear simplemente una pantalla para ver paquetes.
+
+El objetivo es crear un:
+
+# **LOGISTICS ENGINEERING IDE**
+
+capaz de representar una operación logística real, convertirla en un modelo virtual, ejecutar simulaciones pesadas, analizar telemetría, conectar sensores con infraestructura de red virtualizada, estudiar fallas, evaluar seguridad, reproducir escenarios, comparar resultados y producir evidencia técnica.
+
+---
+
+# 90. INSTRUCCIÓN FINAL PARA LA IMPLEMENTACIÓN
+
+Antes de modificar código:
+
+1. Inspecciona la arquitectura actual.
+2. Identifica frontend.
+3. Identifica backend.
+4. Identifica ORM.
+5. Identifica base de datos.
+6. Identifica sistema de autenticación.
+7. Identifica entidades existentes.
+8. Identifica la implementación actual de Virtual Lab.
+9. Identifica cómo la App Local se comunica con el backend.
+10. Identifica el sistema actual de navegación.
+11. Identifica componentes reutilizables.
+12. Identifica estilos existentes.
+13. Identifica cómo se crean ventanas/paneles.
+14. Identifica cómo se manejan procesos pesados.
+15. Identifica cómo se manejan archivos.
+16. Identifica cómo se manejan proyectos.
+
+Después:
+
+### NO reemplaces la arquitectura existente.
+
+### NO borres funcionalidades existentes.
+
+### NO dupliques entidades existentes.
+
+### NO inventes APIs que ya existen.
+
+### NO rompas Virtual Lab.
+
+### NO hagas una demo superficial.
+
+### NO dejes botones sin funcionalidad sin indicarlo.
+
+### NO mezcles producción y simulación.
+
+Construye Tracking Studio **integrado con la aplicación existente**, respetando su arquitectura, estilos, autenticación, permisos, modelos y convenciones.
+
+Si una parte del sistema existente ya resuelve una necesidad, reutilízala.
+
+Si falta una pieza, créala de forma modular.
+
+Si una funcionalidad requiere procesamiento pesado, ejecutarla fuera del hilo principal.
+
+Si una funcionalidad necesita Virtual Lab, utilizar el Bridge.
+
+Si una funcionalidad puede funcionar sin Virtual Lab, debe funcionar independientemente.
+
+---
+
+# CRITERIO DE ÉXITO
+
+La implementación se considera correcta únicamente cuando:
+
+```text
+[✓] Tracking Studio existe dentro de la App
+[✓] Virtual Lab sigue funcionando
+[✓] Ambos están desacoplados
+[✓] Existe Bridge gRPC/IPC
+[✓] Existe Logistics Workspace
+[✓] Existe Shipment Engine
+[✓] Existe Telemetry Engine
+[✓] Existe IoT Device Lab
+[✓] Existe GIS Map
+[✓] Existe Route Engine
+[✓] Existe Geofence Engine
+[✓] Existe Simulation Engine
+[✓] Existe Replay Engine
+[✓] Existe Snapshot Engine
+[✓] Existe Scenario Branching
+[✓] Existe Stress Testing
+[✓] Existe Network Trace
+[✓] Existe Incident Center
+[✓] Existe Alert Engine
+[✓] Existe Supply Chain Risk
+[✓] Existe Code Intelligence
+[✓] Existe Secret Detection
+[✓] Existe Carrier Integration Layer
+[✓] Existe Webhook Simulator
+[✓] Existe Audit Log
+[✓] Existe RBAC
+[✓] Existe Privacy/PII masking
+[✓] Existe Import/Export
+[✓] Existe Reporting
+[✓] Existe Resource Monitor
+[✓] Existe Offline/Local Mode
+[✓] Existe Demo Project
+[✓] Existe aislamiento REAL/LAB/REPLAY
+[✓] Existe manejo de errores
+[✓] Existe persistencia
+[✓] Existe testing
+[✓] Existe documentación técnica
+```
+
+**No reduzcas el alcance de este prompt a un dashboard básico de tracking.**
+
+Tracking Studio debe implementarse como un **IDE pesado profesional**, independiente del Virtual Lab pero profundamente integrable con él.
+
+- El manual debe ser por funciones, no por secciones y debe especificar todo sobre la funcion/herramienta, api usada/funciones etc.. y detalles no tecnicos tambien como como usarla, entre otros, ademas debe aparecer de forma discreta con un simbolo de exclamacion en cada funcion en el cual si se hace hover aparece la explicacion resumida de la funcion, es por esa informacion tecnica  que pido que este en el manual, el manual debe estar con un index, buscador y ser totalmente amplio y claro con la informacion
+
+- La pestaña topologia debe quedar claro de que no funciona si no tenes la aplicacion y tenga en el mismo index un boton de descargar vistoso para que descargues la aplicacion, ademas la red que aparece al principio en el medio se ve solapada con el mensaje "sin dispositivos todavia conectá el exe con esta cuenta o corré "descubrir red""
+
+- agregar un espacio llamado workspace en el cual se pueda agregar cualquier funcion de la web y lo mismo en la aplicacion, ordenarla, cambiar su tamaño de su interfaz y agregar recursos externos como embebidos, entre otras.
+
+- Los usuarios deben poder cambiar la ia asistente (el modelo) por cualquier modelo conocido o propio a traves de api, y lo mismo con la ia de la seccion aprender, en caso de ser una empresa el administrador gestiona su ia y la de su empleados, ademas que la seccion aprender debe ser prompteable por un administrador de una empresa y si es perfil no businness por cualquier usuario.
+
+- algunos botones de la app no funciona como entrar con una cuenta, continuar con google o salir
+
+- el entorno virtualizado web en la seccion topologia seria solo un visualizador, por lo tanto no deberia tener funciones de testeo pesadas, en cambio todo lo funcional del entorno virtualizado deberia estar en la app y deberia ser un ide profesional, con todas las funciones correspondiente de uno y las dichas, las funciones dichas ahoras deben estar todas completas y funcional:
+
+ESPECIFICACIÓN DE AMPLIACIÓN DE LA PLATAFORMA 0. CONTEXTO GENERAL Y ALCANCE 
+
+La plataforma web y la aplicación ya existen y deben mantenerse como base del producto.
+
+Esta ampliación no debe reconstruir la plataforma desde cero. Debe incorporar nuevos módulos sobre la infraestructura existente de autenticación, perfiles, cuentas, usuarios, base de datos, permisos, frontend y servicios internos, reutilizando todo componente ya desarrollado que sea compatible.
+
+La evolución del producto debe dividirse en dos superficies principales:
+
+Web
+
+La web será la superficie general de administración, consulta, análisis, colaboración y visualización.
+
+Podrá utilizarse para:
+
+Dashboard. Administración de cuentas y organizaciones. Inventario. Redes y activos. Visualización de topologías. Resultados de análisis. Alertas. Incidentes. Código. Repositorios. Consultas. Informes. Auditoría. Foro empresarial. Configuración. Integraciones. Facturación. Consulta de escenarios y simulaciones. Visualización remota de laboratorios creados desde la aplicación. Gestión de proyectos. Importación y exportación de información. Revisión de resultados generados por la aplicación. 
+
+La web no debe estar completamente separada del laboratorio: debe poder mostrar su estado, resultados, snapshots, evidencias y visualizaciones cuando el usuario tenga los permisos correspondientes.
+
+Aplicación
+
+La aplicación será la superficie destinada a las operaciones pesadas, especialmente el laboratorio virtualizado.
+
+El laboratorio debe poder ejecutarse localmente sobre el equipo del usuario, utilizando los recursos disponibles de CPU, memoria, almacenamiento y red.
+
+La aplicación tendrá capacidad para realizar procesos que por su consumo de recursos o necesidad de aislamiento no resulta conveniente ejecutar directamente en la plataforma web.
+
+Entre ellos:
+
+Construcción del entorno virtualizado. Importación de redes reales autorizadas. Clonado de aplicaciones locales. Emulación de hosts. Emulación de servicios. Recreación de puertos y protocolos. Recreación de configuraciones. Recreación de topologías. Simulación de tráfico. Stress testing dentro del laboratorio. Simulación de propagación. Simulación de fallos. Snapshots. Restauración. Ejecución de escenarios. Análisis local de configuraciones y código. Procesamiento de grandes cantidades de datos. Ejecución de workers locales para tareas pesadas. 
+
+La aplicación debe poder funcionar tanto conectada a la plataforma como en modo laboratorio local, manteniendo posteriormente sincronización de proyectos, resultados, evidencias y configuraciones cuando corresponda.
+
+La distinción fundamental será:
+
+Web = administrar, consultar, analizar, colaborar y visualizar.
+
+App = construir y ejecutar el laboratorio virtualizado pesado.
+
+1. MÓDULO USUARIOS — NETWORK INTELLIGENCE Y LABORATORIO VIRTUALIZADO 1.1 Objetivo 
+
+Crear dentro de la aplicación un laboratorio virtual de red capaz de representar una infraestructura de forma visual, modificable, reproducible y analizable.
+
+El objetivo no es simplemente mostrar un mapa de IP.
+
+El sistema debe poder construir una representación técnica de una infraestructura completa y permitir que el usuario experimente con ella sin modificar directamente la infraestructura original.
+
+El laboratorio debe poder representar:
+
+Redes. Subredes. IPv4. IPv6. Hosts. Servidores. Computadoras. Routers. Switches. Firewalls. Gateways. Balanceadores. Access points. Dispositivos IoT. Máquinas virtuales. Contenedores. Servicios. Puertos. Protocolos. Versiones. Sistemas operativos. Rutas. VLAN. NAT. VPN. Reglas. Dependencias. Tráfico. Latencia. Ancho de banda. Eventos. Vulnerabilidades. Relaciones entre activos. 
+
+El entorno debe poder crearse completamente de manera manual o generarse a partir de información real obtenida del entorno local del usuario mediante mecanismos autorizados.
+
+2. IMPORTACIÓN DE UNA INFRAESTRUCTURA REAL AL LABORATORIO 2.1 Descubrimiento autorizado 
+
+La aplicación debe permitir al usuario iniciar un proceso de descubrimiento de la infraestructura local que explícitamente haya autorizado.
+
+El sistema debe poder utilizar, según las capacidades disponibles y los permisos concedidos:
+
+Información de interfaces de red. Tablas ARP. Información DHCP cuando esté disponible. DNS local. Rutas. Interfaces. Puertos. Servicios detectables. Información de sistema operativo. Información de software. Metadata de dispositivos. Información proporcionada por APIs administrativas. SNMP cuando esté habilitado y autorizado. LLDP/CDP cuando estén disponibles. Información de administración de routers. Información de administración de switches. APIs de dispositivos. Información obtenida por agentes instalados. Información proporcionada manualmente por el usuario. 
+
+La aplicación debe distinguir claramente entre:
+
+dato descubierto
+
+dato confirmado
+
+dato inferido
+
+dato introducido manualmente
+
+dato simulado
+
+Esto evita presentar una inferencia como si fuera un dato confirmado.
+
+3. RECONSTRUCCIÓN VIRTUAL DE LA RED REAL 
+
+El sistema debe poder utilizar la información descubierta para construir automáticamente una representación virtual de la infraestructura.
+
+Por ejemplo:
+
+Una red local real puede tener:
+
+Router → Switch → PC → Servidor → Aplicación.
+
+El laboratorio debe poder convertir esa estructura en:
+
+Router virtual → Switch virtual → Host virtual → Servidor virtual → Servicio virtual.
+
+La reconstrucción debe conservar, en la medida técnicamente posible:
+
+Direcciones IP. Subredes. Gateways. Interfaces. Puertos. Servicios. Protocolos. Versiones. Relaciones. Rutas. VLAN. Reglas conocidas. Dependencias. Topología. Configuración relevante. Características de hardware observables. Características de red observables. 
+
+Cuando un componente no pueda ser virtualizado exactamente, debe crearse un modelo virtual equivalente, conservando los datos conocidos y marcando explícitamente las características que son simuladas.
+
+4. CLONACIÓN DE UNA WEB O APLICACIÓN LOCAL 
+
+Una de las capacidades principales del laboratorio será poder tomar una aplicación web local perteneciente al usuario y convertirla en una copia aislada dentro del entorno virtualizado.
+
+La aplicación debe poder detectar y, cuando sea técnicamente posible:
+
+Código fuente. Estructura del proyecto. Framework. Runtime. Lenguaje. Versión del lenguaje. Dependencias. Versiones de dependencias. Variables de configuración. Rutas. Endpoints. Puertos. Servicios auxiliares. Base de datos. Esquema de base de datos. Migraciones. Archivos estáticos. Recursos. Configuración del servidor. Configuración del frontend. Configuración del backend. Relaciones entre servicios. Procesos utilizados. Dependencias externas. APIs consumidas. Certificados locales cuando correspondan. 
+
+Cuando el usuario indique que una aplicación local debe ser clonada, el sistema deberá intentar construir una instancia virtual equivalente.
+
+El resultado debe ser una copia aislada del entorno, no una modificación del sistema original.
+
+La copia debe poder incluir:
+
+Frontend. Backend. API. Base de datos de prueba. Variables de configuración sanitizadas. Servicios auxiliares. Puertos. Rutas. Dependencias. Versiones. Estructura de archivos. Configuración necesaria para ejecutarse. 
+
+Los secretos originales no deberán copiarse automáticamente al laboratorio.
+
+Cuando resulte necesario para reproducir el funcionamiento, deben utilizarse:
+
+Variables sustitutas. Credenciales de laboratorio. Tokens simulados. Datos ficticios. Secretos temporales del entorno virtual. 
+
+La aplicación debe indicar claramente qué elementos fueron clonados, cuáles fueron sustituidos y cuáles no pudieron reproducirse.
+
+5. FIDELIDAD DEL ENTORNO VIRTUALIZADO 
+
+El laboratorio debe intentar alcanzar el mayor nivel de equivalencia técnica posible.
+
+Debe poder reproducir, cuando sea posible:
+
+Topología. IP. Subred. Gateway. Rutas. Puertos. Servicios. Versiones. Protocolos. Configuración. Dependencias. Reglas. Latencia. Ancho de banda. Limitaciones de interfaces. Comportamiento esperado de los servicios. 
+
+Cada elemento debe disponer de un indicador de fidelidad.
+
+Ejemplo:
+
+95 % de fidelidad
+
+El sistema sabe que la configuración, topología y servicios coinciden casi completamente.
+
+72 % de fidelidad
+
+Algunas características fueron inferidas o simuladas.
+
+38 % de fidelidad
+
+El dispositivo posee solamente un modelo parcial por falta de información.
+
+Esto permitirá evitar que el usuario confunda una simulación con una copia física perfecta.
+
+6. INFORMACIÓN DE ROUTERS, SWITCHES Y DISPOSITIVOS DE RED 
+
+Cuando el dispositivo permita obtener información de administración, el laboratorio debe intentar identificar:
+
+Fabricante. Modelo. Firmware. Versión. Interfaces. Velocidad negociada. Velocidad máxima conocida. Dúplex. Estado de interfaz. VLAN. Trunks. Rutas. Gateway. MAC. IP. Servicios administrativos. Protocolos. Configuración relevante. Capacidad conocida. Metadata disponible. 
+
+La plataforma debe intentar determinar la versión real solamente cuando exista información suficiente para respaldarla.
+
+Una IP por sí sola no garantiza que pueda conocerse el modelo exacto o la versión de firmware de un dispositivo.
+
+Por ello, cada dato deberá clasificarse como:
+
+Confirmado. Obtenido por protocolo. Obtenido por API. Proporcionado por agente. Inferido. Desconocido. 
+
+También debe poder conservarse la velocidad observada o negociada de una interfaz, así como otras propiedades de red disponibles.
+
+7. ENTORNO VIRTUALIZADO DE ALTO NIVEL 
+
+El laboratorio debe considerarse una infraestructura completa y potencialmente pesada.
+
+Debe contemplar:
+
+Máquinas virtuales. Contenedores. Redes virtuales. Switches virtuales. Interfaces virtuales. NAT virtual. Routing virtual. Firewalls virtuales. Discos virtuales. Snapshots. Redes aisladas. Segmentos. Servicios virtuales. 
+
+El usuario debe poder configurar los recursos máximos utilizados por el laboratorio:
+
+CPU. RAM. Almacenamiento. Número de máquinas virtuales. Cantidad de interfaces. Ancho de banda. Número de procesos. Número de simulaciones simultáneas. 
+
+Los procesos pesados deben ejecutarse en workers locales de la aplicación y nunca bloquear la interfaz principal.
+
+8. TOPOLOGÍA VIRTUAL 
+
+El usuario debe poder:
+
+Crear un proyecto de red. Crear redes. Crear subredes. Definir CIDR. Definir gateways. Crear hosts. Crear servidores. Crear estaciones de trabajo. Crear routers virtuales. Crear switches virtuales. Crear firewalls. Crear balanceadores. Crear dispositivos IoT virtuales. Crear servicios. Crear puertos. Definir protocolos. Definir versiones. Definir sistemas operativos. Definir hostname. Definir MAC simulada. Crear VLAN. Crear NAT. Crear VPN simulada. Crear rutas. Crear reglas de firewall simuladas. Crear segmentos. Crear DMZ. Crear zonas de confianza. Crear zonas aisladas. 
+
+La topología debe ser totalmente modificable dentro del laboratorio.
+
+El usuario debe poder cambiar:
+
+IP. Máscara. Gateway. Rutas. Conexiones. Puertos. Servicios. Versiones. Reglas. VLAN. Segmentación. 
+
+Cada modificación debe almacenarse como un cambio del escenario.
+
+9. SNAPSHOTS Y VERSIONADO DEL LABORATORIO 
+
+El laboratorio debe utilizar snapshots.
+
+Debe poder:
+
+Crear snapshot. Restaurar snapshot. Comparar snapshots. Duplicar snapshot. Renombrar snapshot. Eliminar snapshot. Crear rama experimental. Volver a una configuración anterior. Comparar configuraciones. 
+
+Debe ser posible crear escenarios:
+
+Red original
+
+Red modificada
+
+Red segmentada
+
+Red después del incidente
+
+Red después de la remediación
+
+El usuario debe poder comparar visualmente las diferencias.
+
+10. INFORMACIÓN DE HOSTS 
+
+Cada host debe disponer de una ficha detallada.
+
+Debe contener, cuando corresponda:
+
+IP. IPv6. Hostname. MAC. Fabricante. Sistema operativo. Versión. Arquitectura. Servicios. Puertos. Protocolos. Software. Versiones. Dependencias. Certificados. Vulnerabilidades relacionadas. Criticidad. Propietario. Departamento. Ambiente. Ubicación lógica. Relaciones. Historial. Último análisis. Origen de los datos. Nivel de confianza de los datos. 
+
+El usuario debe poder etiquetar activos y establecer prioridades.
+
+11. PUERTOS, SERVICIOS Y VERSIONES 
+
+El laboratorio debe disponer de un inventario completo de:
+
+Puertos abiertos. Puertos cerrados. Puertos filtrados. Servicios. Protocolos. Versiones. Interfaces. Certificados. Endpoints. Dependencias. 
+
+Debe permitir:
+
+Comparar versiones. Detectar servicios obsoletos. Detectar cambios. Detectar puertos inesperados. Detectar servicios nuevos. Comparar contra una línea base. Crear alertas. Relacionar un servicio con un host. Relacionar un servicio con una aplicación. Relacionar un servicio con una vulnerabilidad. 
+
+Debe existir un historial temporal.
+
+Ejemplo:
+
+Servidor X
+
+01/10 → puerto 8080.
+
+04/10 → aparece puerto 8443.
+
+07/10 → servicio actualizado.
+
+El sistema debe poder mostrar ese cambio.
+
+12. TRAZAS Y RUTAS VIRTUALIZADAS 
+
+El laboratorio debe permitir crear una traza virtual entre dos nodos.
+
+Debe mostrar:
+
+Origen. Destino. Saltos. Routers. Segmentos. Latencia estimada. Pérdida simulada. Interfaces. Rutas alternativas. Puntos de fallo. 
+
+El usuario debe poder modificar:
+
+Gateway. Rutas. Conexiones. Estado de dispositivos. Reglas de firewall. Segmentación. 
+
+Después puede volver a ejecutar la traza para comparar resultados.
+
+Debe poder verse el recorrido virtual de un paquete:
+
+Origen → interfaz → router → switch → firewall → servidor → destino
+
+Cada simulación debe generar un registro.
+
+13. SIMULACIÓN DE FALLAS 
+
+El laboratorio debe permitir simular:
+
+Caída de host. Caída de router. Caída de switch. Caída de enlace. Caída de servicio. Puerto bloqueado. Gateway incorrecto. Ruta incorrecta. Firewall bloqueando tráfico. Firewall permitiendo tráfico. Pérdida de paquetes. Latencia elevada. Jitter. Saturación. Corte de segmento. Pérdida de DNS. Pérdida de DHCP. Cambio de gateway. Cambio de ruta. 
+
+El sistema debe mostrar el efecto sobre el resto de la topología.
+
+14. STRESS TESTING CONTROLADO 
+
+Las pruebas de estrés deben ejecutarse principalmente dentro del laboratorio virtualizado.
+
+El usuario debe poder definir:
+
+Origen. Destino. Protocolo. Puerto. Duración. Cantidad máxima de paquetes. Concurrencia. Ancho de banda. CPU máxima. Memoria máxima. Conexiones máximas. 
+
+Debe poder simular:
+
+Tráfico creciente. Picos. Tráfico sostenido. Latencia. Jitter. Pérdida. Saturación. Caída. Recuperación. 
+
+El sistema debe calcular:
+
+Capacidad estimada. Punto de degradación. Punto de fallo. Latencia. Pérdida. Consumo. Throughput. Tiempo de recuperación. 
+
+Las pruebas que puedan generar una cantidad significativa de tráfico deben permanecer aisladas del entorno real por defecto.
+
+El laboratorio debe tener límites obligatorios y mecanismos de detención automática.
+
+15. SIMULACIÓN DE PROPAGACIÓN TIPO GUSANO 
+
+La plataforma debe representar la propagación como un modelo matemático/virtual.
+
+No debe ejecutarse malware real dentro de la infraestructura del usuario.
+
+Debe existir un objeto conceptual:
+
+Propagation Event
+
+El usuario podrá seleccionar:
+
+Nodo inicial. Servicios vulnerables hipotéticos. Reglas de propagación. Segmentos. Conectividad. Controles existentes. 
+
+El sistema debe calcular virtualmente:
+
+Nodos alcanzables. Orden de propagación. Tiempo estimado. Segmentos afectados. Barreras existentes. Puntos críticos. Sistemas aislados. Posibles caminos alternativos. 
+
+Debe ser posible comparar:
+
+Sin segmentación
+
+contra
+
+Con segmentación
+
+o:
+
+Firewall deshabilitado
+
+contra
+
+Firewall habilitado
+
+o:
+
+Servicio vulnerable
+
+contra
+
+Servicio actualizado
+
+El resultado debe estar orientado al análisis defensivo.
+
+16. MAPA DE SUPERFICIE DE ATAQUE 
+
+La aplicación debe construir automáticamente una representación de la superficie de exposición del laboratorio.
+
+Debe poder visualizar:
+
+Hosts. Servicios. Puertos. APIs. Versiones. Vulnerabilidades. Rutas. Segmentos. Exposición. Relaciones. 
+
+Debe existir una vista por:
+
+Host. Red. Subred. Servicio. Puerto. Aplicación. Protocolo. Vulnerabilidad. 
+
+El usuario podrá seleccionar un nodo y analizar qué elementos dependen de él.
+
+17. ESCENARIOS 
+
+Debe ser posible guardar escenarios completos.
+
+Ejemplos:
+
+Estado actual. Antes de una migración. Después de una migración. Incidente. Mantenimiento. Recuperación. Segmentación. Crecimiento. Nueva aplicación. Nueva subred. Cambio de router. 
+
+Cada escenario puede tener:
+
+Nombre. Descripción. Autor. Fecha. Snapshot. Configuración. Resultados. Evidencias. Comentarios. Score. Estado. 
+
+Debe poder compararse cualquier escenario con otro.
+
+18. MODO WEB PARA EL LABORATORIO 
+
+Aunque el entorno pesado sea exclusivo de la aplicación, la web debe poder acceder a la parte administrativa y analítica.
+
+La web podrá:
+
+Listar laboratorios. Mostrar topologías. Mostrar snapshots. Mostrar resultados. Mostrar métricas. Mostrar riesgos. Mostrar simulaciones finalizadas. Mostrar informes. Mostrar historial. Compartir escenarios. Comentar resultados. Descargar evidencias. Exportar informes. 
+
+La web no debe asumir que posee los mismos recursos locales que la aplicación.
+
+Cuando una operación requiera el laboratorio físico/virtual pesado, la web deberá indicar que la ejecución corresponde a la aplicación.
+
+19. MÓDULO EMPRESAS — SEGURIDAD DE ACTIVOS 
+
+La plataforma empresarial debe funcionar como un centro de seguridad, inventario, análisis y auditoría.
+
+Debe permitir:
+
+Organizaciones. Departamentos. Equipos. Administradores. Analistas. Desarrolladores. Auditores. Lectores. Roles personalizados. 
+
+Debe existir separación estricta entre organizaciones.
+
+20. INVENTARIO EMPRESARIAL 
+
+Debe permitir registrar:
+
+Computadoras. Notebooks. Servidores. VMs. Contenedores. Routers. Switches. Firewalls. Dispositivos IoT. Aplicaciones. Dominios. Subdominios autorizados. APIs. Certificados. Servicios. Puertos. Dependencias. Proveedores. Integraciones. 
+
+Cada activo debe disponer de:
+
+Propietario. Departamento. Criticidad. Ambiente. Estado. Fecha de alta. Último análisis. Riesgo. Historial. 21. SECRET & API KEY EXPOSURE MONITOR 
+
+La plataforma empresarial debe detectar posibles secretos expuestos dentro de recursos autorizados.
+
+Debe poder analizar:
+
+Repositorios. Commits. Archivos. Configuraciones. Logs autorizados. Artefactos. Variables de entorno registradas mediante agentes empresariales. 
+
+Debe detectar patrones compatibles con:
+
+API keys. Tokens. Passwords. Secretos de aplicaciones. Credenciales de servicios. 
+
+No debe almacenarse el secreto completo como comportamiento predeterminado.
+
+Debe utilizarse un fingerprint irreversible siempre que sea suficiente.
+
+Debe registrar:
+
+Primer avistamiento. Último avistamiento. Servicio asociado. Aplicación. Repositorio. Propietario. Equipo. Proveedor. Ambiente. Scopes. Criticidad. Estado. 
+
+Debe detectar:
+
+Secretos antiguos. Secretos aparentemente activos. Secretos aparentemente revocados. Secretos duplicados. Secretos compartidos. Permisos excesivos. Uso inesperado. 
+
+Debe poder integrarse con sistemas de gestión de secretos y permitir generar tareas de:
+
+Rotación. Revocación. Reducción de scopes. Eliminación. 
+
+Toda acción sensible debe requerir los permisos correspondientes y generar auditoría.
+
+22. MAPA DE FLUJO DE INFORMACIÓN 
+
+La empresa debe poder conocer qué aplicaciones se comunican con qué servicios.
+
+Debe registrar:
+
+Aplicación origen. Servicio origen. Dominio destino. Servicio destino. Proveedor. Protocolo. Puerto. Endpoint. Frecuencia. Tipo de información. Sensibilidad. Ambiente. 
+
+Debe detectar:
+
+Destinos nuevos. Destinos desconocidos. Destinos no autorizados. Cambios de comportamiento. 
+
+Debe soportar:
+
+Allowlist. Excepciones. Expiración de excepciones. Aprobaciones. Auditoría. 
+
+El resultado debe representarse como un grafo de flujo.
+
+23. INFORMACIÓN PRIVADA 
+
+La plataforma debe manejar información empresarial sensible mediante clasificación y controles.
+
+Categorías:
+
+Pública. Interna. Confidencial. Secreta. Datos personales. Financiera. Credenciales. Tokens. 
+
+Debe incluir:
+
+Masking. Redacción automática. Ocultamiento de tokens. Ocultamiento de contraseñas. Ocultamiento de información personal. Permisos por sensibilidad. Registro de acceso. Motivo de acceso. Expiración de permisos temporales. 24. SIMULACIÓN DE PHISHING EMPRESARIAL 
+
+Debe existir un sistema de concientización y simulación controlado.
+
+La función debe permitir:
+
+Crear campañas. Crear grupos. Seleccionar participantes autorizados. Elegir plantillas. Personalizar mensajes. Utilizar dominios de laboratorio/controlados. Definir período. Registrar entrega. Registrar apertura cuando sea apropiado. Registrar clic. Registrar interacción. 
+
+No debe capturarse ni conservarse la contraseña real introducida por el empleado.
+
+La página de destino debe poder mostrar inmediatamente contenido educativo.
+
+Debe medirse:
+
+Porcentaje de interacción. Porcentaje de reporte. Tiempo de reporte. Evolución. Riesgo por departamento. 
+
+Debe existir:
+
+Aprobación previa. Auditoría. Historial. Restricciones. Exclusiones. Informes. 25. ENDPOINTS EMPRESARIALES Y SIMULACIONES 
+
+Los dispositivos empresariales autorizados podrán asociarse a la plataforma.
+
+El sistema debe poder representar:
+
+Endpoint. Servidor. VM. Segmento. Aplicación. 
+
+Las pruebas deben centrarse en:
+
+Conectividad. Segmentación. Exposición. Configuración. Simulación de propagación. Capacidad de detección. Aislamiento. 
+
+Las simulaciones deben utilizar modelos virtuales y eventos controlados cuando no sea necesario ejecutar una acción real.
+
+26. MÓDULO DE CÓDIGO, COMMITS Y REPOSITORIOS 
+
+La plataforma debe incluir una capa de Code Intelligence.
+
+Debe permitir integrar:
+
+GitHub. GitLab. Bitbucket. Repositorios privados. Repositorios autohospedados. 
+
+Las integraciones deben utilizar permisos mínimos y permitir revocación.
+
+27. ANÁLISIS DE COMMITS 
+
+Debe permitir:
+
+Buscar commits. Filtrar por autor. Fecha. Branch. Archivo. Función. Clase. Módulo. Issue. Tag. 
+
+Debe permitir:
+
+Comparar commits. Comparar branches. Mostrar diff. Archivos modificados. Líneas modificadas. Funciones afectadas. Clases afectadas. Dependencias afectadas. APIs afectadas. Tests afectados. Cambios de configuración. Posibles regresiones. Cambios críticos. 28. ANÁLISIS DE FUNCIONES 
+
+Cada función debe poder analizarse individualmente.
+
+Debe mostrar:
+
+Firma. Archivo. Clase. Módulo. Autores. Historial. Funciones llamadas. Funciones que la llaman. Dependencias. Parámetros. Retornos. Excepciones. Variables. Acceso a base de datos. Acceso a archivos. Acceso a red. Acceso a APIs. Acceso a secretos. Tests relacionados. Cobertura disponible. Complejidad. Tamaño. Número de llamadas. Frecuencia de cambios. Responsables. 29. CODE QUERY EXPLORER 
+
+La vista tipo SQL debe convertirse en un sistema de consultas sobre el modelo de código.
+
+Debe ser posible consultar:
+
+Funciones. Clases. Módulos. Archivos. Commits. Dependencias. APIs. Endpoints. Vulnerabilidades. Tablas. Relaciones. Autores. 
+
+Debe permitir:
+
+Filtros. Ordenamiento. Agrupamiento. Conteos. Relaciones. Consultas guardadas. Consultas compartidas. Exportaciones. 
+
+Ejemplos:
+
+Funciones modificadas durante un período.
+
+Funciones que llaman a un servicio determinado.
+
+Funciones que acceden a una tabla específica.
+
+Funciones que utilizan una dependencia vulnerable.
+
+Archivos sin tests.
+
+Código con múltiples propietarios.
+
+Código relacionado con una vulnerabilidad.
+
+30. GRAFOS DE CÓDIGO 
+
+Debe existir representación gráfica de:
+
+Llamadas. Dependencias. Módulos. Clases. Servicios. APIs. Base de datos. Flujo de información. 
+
+Debe poder:
+
+Expandir. Contraer. Filtrar. Buscar. Resaltar. Navegar al código. 
+
+Debe resaltar:
+
+Nodos críticos. Dependencias vulnerables. Ciclos. Alta complejidad. Puntos únicos de fallo. Dependencias externas. 31. SHARED VIEWS 
+
+El sistema debe poder generar vistas compartibles de:
+
+Query. Grafo. Commit. Finding. Incident. Informe. 
+
+Las vistas deben soportar:
+
+Solo lectura. Edición controlada. Expiración. Contraseña. Restricción por organización. Restricción por grupo. Revocación. 
+
+Los secretos y datos sensibles deben ocultarse automáticamente.
+
+32. PUBLICACIÓN HACIA GIT 
+
+Una investigación podrá transformarse en un artefacto asociado al repositorio.
+
+Puede incluir:
+
+Referencia del commit. Autor. Fecha. Severidad. Evidencia. Recomendaciones. Consulta. Snapshot. Discusión. 
+
+Podrá:
+
+Crear branch. Crear commit. Crear Pull Request. Crear issue. Asociar issue existente. 
+
+Antes de publicar debe existir un preview y una etapa de sanitización.
+
+El sistema debe bloquear la inclusión accidental de:
+
+Passwords. Tokens. API keys. Credenciales. Información privada. 33. FORO EMPRESARIAL 
+
+Debe existir un foro interno por organización.
+
+Categorías:
+
+Seguridad. Infraestructura. Backend. Frontend. Bases de datos. APIs. Rendimiento. Incidentes. Revisiones. 
+
+Las publicaciones podrán asociarse con:
+
+Repositorio. Commit. Función. Issue. Finding. Incident. Query. Grafo. Informe. 
+
+Debe existir:
+
+Comentarios. Respuestas. Menciones. Votación interna. Resolución. Prioridad. Severidad. Auditoría. 34. CAPA DE SUSCRIPCIONES 
+
+Planes posibles:
+
+Free. Individual. Professional. Business. Enterprise. Enterprise Advanced. 
+
+Los límites deben poder aplicarse sobre:
+
+Usuarios. Cuentas. Proyectos. Redes. Hosts. Activos. Análisis. Laboratorios. Simulaciones. Snapshots. Repositorios. Almacenamiento. Historial. Organizaciones. 
+
+Debe soportarse:
+
+Add-ons. Prueba. Upgrade. Downgrade. Facturación. Historial de facturas. Medición de uso. 
+
+Las funciones de laboratorio pesado deberán poder estar limitadas por recursos y plan.
+
+35. SEGURIDAD DE LA PROPIA PLATAFORMA 
+
+Debe existir:
+
+MFA. Passkeys. SSO. OAuth. Gestión de sesiones. Revocación de sesiones. Gestión de dispositivos. Rate limiting. Protección contra automatización abusiva. Protección contra enumeración. Validación de permisos en backend. Separación de roles. Auditoría. Logs. Retención configurable. 
+
+La ocultación de una función en el frontend nunca debe considerarse un mecanismo de seguridad.
+
+36. AUDITORÍA 
+
+Debe registrarse:
+
+Inicio de sesión. Cierre de sesión. Acceso a recursos. Ejecución de análisis. Modificación de red. Creación de laboratorio. Creación de snapshot. Modificación de permisos. Acceso a información sensible. Exportaciones. Creación de simulaciones. Publicaciones. Cambios de integración. Revocaciones. 
+
+Cada evento debe tener:
+
+Usuario. Organización. Timestamp. IP. Dispositivo. Sesión. Acción. Resultado. Recurso. Severidad. 37. SISTEMA DE ALERTAS 
+
+Debe poder alertarse por:
+
+Nuevo host. Nuevo puerto. Nuevo servicio. Cambio de versión. Vulnerabilidad. API desconocida. Destino desconocido. Posible secreto expuesto. Credencial potencialmente comprometida. Acceso inusual. Cambio de permisos. Nuevo repositorio. Cambio de integración. Análisis fallido. Simulación fallida. Dependencia vulnerable. Configuración insegura. Uso excesivo de recursos. Cambio respecto del baseline. 38. CENTRO DE INCIDENTES 
+
+Debe poder crearse un incidente a partir de una alerta o manualmente.
+
+Cada incidente debe disponer de:
+
+ID. Título. Descripción. Prioridad. Severidad. Estado. Responsable. Timeline. Activos. Usuarios afectados. Commits relacionados. Findings. Alertas. Simulaciones. Evidencias. Comentarios. Acciones. Detección. Contención. Resolución. Causa raíz. Informe final. 39. DASHBOARD GENERAL 
+
+El dashboard debe ser configurable.
+
+Puede mostrar:
+
+Riesgo general. Riesgos críticos. Activos críticos. Hosts nuevos. Puertos nuevos. Vulnerabilidades. APIs. Secretos. Claves pendientes de rotación. Integraciones. Incidentes. Simulaciones. Phishing. Repositorios. Commits. Dependencias. Cambios críticos. Actividad. 
+
+En el caso del usuario individual, debe priorizar:
+
+Laboratorios. Redes. Hosts. Cambios. Riesgos. Simulaciones. Escenarios. Resultados. 40. MOTOR DE RIESGO 
+
+Los objetos importantes deben tener puntuación de riesgo.
+
+Debe existir score para:
+
+Host. Puerto. Servicio. Versión. API. Secreto. Repositorio. Dependencia. Configuración. Usuario. Dispositivo. Segmento. Exposición. Propagación simulada. Organización. 
+
+Los factores pueden incluir:
+
+Severidad. Exposición. Criticidad. Antigüedad. Probabilidad. Dependencias. Alcance. Controles existentes. Estado. Contexto. 
+
+El score debe ser explicable.
+
+El usuario debe poder abrir el resultado y conocer por qué un activo recibió determinada puntuación.
+
+41. INTELIGENCIA ARTIFICIAL Y AUTOMATIZACIÓN 
+
+La IA podrá:
+
+Resumir incidentes. Resumir commits. Explicar funciones. Explicar vulnerabilidades. Explicar rutas. Explicar dependencias. Detectar anomalías. Agrupar alertas. Detectar cambios importantes. Crear recomendaciones. Generar informes. Crear explicaciones técnicas o simplificadas. Detectar potenciales falsos positivos. Sugerir prioridades. Relacionar incidentes. Relacionar commits e incidentes. Relacionar APIs con activos. Relacionar vulnerabilidades con versiones. 
+
+La IA no deberá:
+
+Saltarse permisos. Revelar secretos. Ejecutar acciones destructivas automáticamente. Convertir una simulación en una acción real. Ejecutar propagación real fuera del alcance autorizado. 42. MODELO DE DATOS CONCEPTUAL 
+
+Entidades principales:
+
+Profile
+Account
+Organization
+Member
+Role
+Permission
+Project
+Network
+Subnet
+Host
+Asset
+Device
+Interface
+Service
+Port
+Protocol
+Route
+VLAN
+FirewallRule
+Scan
+Simulation
+SimulationRun
+Laboratory
+LaboratoryNode
+LaboratoryNetwork
+Snapshot
+Scenario
+Finding
+Vulnerability
+Secret
+ApiCredential
+ApiService
+DataFlow
+Employee
+Endpoint
+PhishingCampaign
+PhishingEvent
+Repository
+RepositoryConnection
+Commit
+Branch
+PullRequest
+File
+Function
+Class
+Module
+Dependency
+CodeQuery
+CodeGraph
+SharedView
+Forum
+ForumPost
+Comment
+Incident
+Alert
+AuditEvent
+Subscription
+Usage
+Export
+Integration
+
+43. RELACIONES PRINCIPALES 
+
+Una Organization puede contener múltiples Projects.
+
+Un Project puede contener múltiples Network.
+
+Una Network puede contener múltiples Subnet.
+
+Una Subnet puede contener múltiples Host.
+
+Un Host puede tener múltiples Interface.
+
+Un Host puede tener múltiples Service.
+
+Un Service puede utilizar múltiples Port.
+
+Un Host puede pertenecer a un Asset.
+
+Un Device puede tener múltiples Interface.
+
+Un Project puede tener múltiples Laboratory.
+
+Un Laboratory contiene nodos virtuales y redes virtuales.
+
+Un Laboratory puede tener múltiples Snapshot.
+
+Un Scenario puede basarse en un Snapshot.
+
+Una Simulation pertenece a un Project o Laboratory.
+
+Una Simulation puede tener múltiples SimulationRun.
+
+Una Organization puede tener múltiples Repository.
+
+Un Repository contiene múltiples Commit.
+
+Un Commit puede modificar múltiples File.
+
+Un File puede contener múltiples Function y Class.
+
+Una Function puede llamar a múltiples Function.
+
+Una Function puede utilizar múltiples Dependency.
+
+Un Incident puede relacionarse con:
+
+Alert. Asset. Host. Finding. Vulnerability. Commit. Simulation. Scenario. 
+
+Una SharedView puede representar:
+
+CodeQuery. CodeGraph. Commit. Finding. Incident. Scenario. LaboratoryResult. 44. ARQUITECTURA 
+
+La ampliación debe permanecer desacoplada.
+
+Backend 
+
+Separación lógica entre:
+
+Autenticación. Autorización. Perfiles. Organizaciones. Inventario. Networks. Assets. Scans. Simulations. Laboratories. Code Intelligence. Integrations. Alerts. Incidents. Audit. Billing. 
+
+Las validaciones de permisos deben realizarse en backend.
+
+Aplicación 
+
+La aplicación debe incorporar componentes locales para:
+
+Laboratorio. Virtualización. Workers. Procesamiento. Snapshots. Importación. Reconstrucción de redes. Clonado de aplicaciones. Simulación. 
+
+Debe poder administrar los recursos locales utilizados.
+
+Web 
+
+La web debe funcionar como:
+
+Panel. Dashboard. Administración. Visualización. Colaboración. Consulta. Reporting. 45. WORKERS Y PROCESAMIENTO PESADO 
+
+Todo proceso pesado debe ejecutarse de forma asíncrona.
+
+Ejemplos:
+
+Creación del laboratorio. Importación de infraestructura. Clonado de aplicaciones. Análisis de código. Generación de grafos. Reconstrucción de topologías. Cálculo de riesgos. Generación de informes. Creación de snapshots. Análisis masivos. 
+
+La interfaz debe mostrar:
+
+Pendiente. Ejecutando. Progreso. Finalizado. Fallido. Cancelado. 46. MODO LABORATORIO 
+
+Todo laboratorio debe tener aislamiento.
+
+Debe permitir:
+
+Crear red virtual. Crear hosts virtuales. Crear servicios. Clonar aplicaciones. Crear snapshots. Ejecutar simulaciones. Establecer límites. Restaurar. Clonar. Eliminar. Compartir. Exportar. 
+
+Debe ser imposible interpretar automáticamente un escenario virtual como autorización para modificar el sistema real.
+
+Cada laboratorio debe identificarse claramente como:
+
+REAL
+
+COPIA
+
+SIMULADO
+
+o
+
+HÍBRIDO
+
+47. MODELO REAL → COPIA → SIMULACIÓN → EVIDENCIA 
+
+La arquitectura debe mantener una separación explícita entre:
+
+Infraestructura real
+
+↓
+
+Datos recopilados
+
+↓
+
+Modelo virtual
+
+↓
+
+Snapshot
+
+↓
+
+Simulación
+
+↓
+
+Resultado
+
+↓
+
+Evidencia
+
+↓
+
+Recomendación
+
+↓
+
+Remediación
+
+Esto es especialmente importante cuando el laboratorio se crea a partir de una red real o una aplicación web local.
+
+Una modificación realizada dentro del laboratorio no debe modificar automáticamente la infraestructura real.
+
+48. EXPORTACIÓN 
+
+Debe permitirse exportar:
+
+JSON. CSV. PDF. HTML. Informes. Topologías. Snapshots. Resultados. Escenarios. Code Queries. Code Graphs. Auditoría. 
+
+Las exportaciones deben respetar los permisos del usuario y el nivel de sensibilidad de los datos.
+
+49. COLABORACIÓN 
+
+Debe ser posible compartir:
+
+Proyectos. Topologías. Escenarios. Informes. Incidentes. Consultas. Grafos. Resultados. 
+
+Los permisos deben poder ser:
+
+Solo lectura. Comentario. Edición. Administración. 
+
+Debe existir expiración y revocación de acceso.
+
+50. INTEGRIDAD DEL LABORATORIO 
+
+Cada laboratorio debe conservar información sobre:
+
+Fuente original. Fecha de importación. Fecha de última sincronización. Datos confirmados. Datos inferidos. Datos simulados. Datos modificados. Versión del modelo. Snapshot utilizado. Cambios realizados. 
+
+Cuando se vuelva a analizar la red real, debe poder compararse contra el laboratorio existente.
+
+Esto permitirá detectar:
+
+Nuevo dispositivo. Dispositivo eliminado. IP modificada. Puerto nuevo. Servicio nuevo. Cambio de versión. Cambio de topología. Cambio de gateway. Cambio de ruta. Cambio de velocidad. Cambio de configuración. 51. SINCRONIZACIÓN ENTRE REAL Y VIRTUAL 
+
+El laboratorio no debe ser una copia estática obligatoriamente.
+
+Debe poder actualizarse desde la infraestructura autorizada.
+
+La aplicación debe ofrecer:
+
+Actualizar laboratorio desde realidad
+
+y generar una comparación:
+
+Laboratorio anterior vs infraestructura actual
+
+El usuario debe decidir qué cambios importar.
+
+No deben sobrescribirse automáticamente las modificaciones experimentales hechas en el laboratorio sin una acción explícita.
+
+52. SEGURIDAD DEL LABORATORIO 
+
+La aplicación debe aplicar:
+
+Aislamiento. Límites de recursos. Límites de red. Límites de CPU. Límites de memoria. Límites de almacenamiento. Timeout. Cancelación. Snapshots. Recuperación. Logs. Auditoría. 
+
+Las simulaciones de propagación deben permanecer virtuales.
+
+Los escenarios de estrés deben utilizar límites estrictos.
+
+La aplicación debe impedir que una configuración de laboratorio se confunda accidentalmente con una autorización para actuar contra una red real.
+
+53. CRITERIO DE DESARROLLO 
+
+No modificar las funcionalidades actuales salvo cuando sea necesario para integrar los nuevos módulos.
+
+Las funciones nuevas deberán desarrollarse como módulos independientes y reutilizables.
+
+La arquitectura debe evitar dependencias innecesarias entre:
+
+Usuario. Empresa. Laboratorio. Código. Repositorio. Incidente. Auditoría. 
+
+La aplicación debe concentrar las tareas pesadas en el entorno local.
+
+La web debe actuar como superficie de gestión y análisis.
+
+Los datos empresariales deben permanecer aislados por organización.
+
+Los permisos deberán validarse siempre en backend.
+
+Los secretos deberán tratarse como información de máxima sensibilidad.
+
+Toda acción sensible deberá ser auditable.
+
+Todo proceso pesado deberá ser asíncrono.
+
+Todo laboratorio deberá estar aislado.
+
+Toda simulación deberá tener límites.
+
+Toda información importada deberá mantener su origen.
+
+Toda inferencia deberá diferenciarse de un dato confirmado.
+
+54. RESULTADO ESPERADO 
+
+La evolución de la plataforma debe convertirla en una combinación de:
+
+Network Intelligence + Attack Surface Management + Virtual Security Laboratory + Security Simulation + API/Secret Monitoring + DevSecOps + Code Intelligence + Enterprise Collaboration
+
+El usuario individual debe disponer de una aplicación capaz de construir un laboratorio virtual avanzado de su infraestructura, incluyendo redes, hosts, servicios, puertos, versiones, rutas y comportamiento.
+
+La aplicación debe poder tomar una infraestructura local autorizada y generar una representación virtual modificable de la misma, llegando cuando sea técnicamente posible a reproducir aplicaciones web locales, código, configuraciones, servicios, puertos, dependencias y características de red.
+
+Cuando exista información suficiente, también debe poder representar características de routers, switches y demás dispositivos, incluyendo versiones, interfaces, velocidades y capacidades observables.
+
+La web debe permitir administrar estos proyectos, consultar información, visualizar resultados y colaborar sobre los análisis sin tener que ejecutar localmente toda la infraestructura virtualizada.
+
+La empresa debe disponer de un centro de seguridad capaz de administrar activos, APIs, secretos, empleados, endpoints, flujos de información, incidentes, simulaciones, auditoría y concientización.
+
+El equipo de desarrollo debe disponer de una capa de análisis que permita navegar desde:
+
+Incidente → Finding → Activo → Servicio → Aplicación → API → Commit → Archivo → Función → Dependencia
+
+La plataforma debe priorizar:
+
+detectar → representar → investigar → simular → comparar → documentar → corregir
+
+antes que ejecutar acciones irreversibles.
+
+55. PRIORIDAD DE IMPLEMENTACIÓN Fase 1 — Base de plataforma Organizaciones. Roles. Permisos. Auditoría. Proyectos. Assets. Networks. Hosts. Services. Ports. Dashboard. Fase 2 — Network Intelligence Topología. Descubrimiento autorizado. Inventario de versiones. Rutas. Comparaciones. Escenarios. Risk scoring. Historial. Fase 3 — Aplicación / Virtual Lab Motor de laboratorio. Redes virtuales. Hosts virtuales. Snapshots. Clonado de infraestructura. Clonado de aplicaciones locales. Servicios virtuales. Topologías modificables. Simulación de tráfico. Stress testing controlado. Simulación de propagación. Simulación de fallas. Fase 4 — Enterprise Security Endpoints. APIs. Secret monitoring. Data-flow mapping. Alertas. Incidentes. Phishing simulado. Reportes. Fase 5 — DevSecOps GitHub. GitLab. Bitbucket. Repositorios privados. Commits. Functions. Classes. Dependencies. Code Query. Code Graph. Shared Views. Fase 6 — Colaboración Foro. Incidentes compartidos. Queries compartidas. Informes. Commit/Issue. Automatizaciones. IA. Fase 7 — Escalabilidad Multi-tenant. Workers. Jobs. Cache. Observabilidad. Rate limiting. Backups. Disaster recovery. Alta disponibilidad. Retención. Billing. Métricas de uso. 56. PRINCIPIO FINAL DE DISEÑO 
+
+La plataforma debe comportarse como un sistema de análisis y laboratorio profesional y no como una colección de herramientas independientes.
+
+El valor diferencial principal del producto debe ser la capacidad de pasar de una infraestructura real a una representación virtual detallada, trabajar sobre ella sin alterar la infraestructura original, generar escenarios alternativos y analizar qué ocurriría ante cambios de configuración, fallos, saturación, exposición o propagación.
+
+El flujo ideal debe ser:
+
+Infraestructura real autorizada
+
+→ Descubrimiento
+
+→ Inventario
+
+→ Reconstrucción
+
+→ Laboratorio virtual
+
+→ Snapshot
+
+→ Modificación
+
+→ Simulación
+
+→ Comparación
+
+→ Análisis de riesgo
+
+→ Informe
+
+→ Recomendación
+
+→ Remediación
+
+La información real, el modelo virtual y los resultados de simulación deben permanecer siempre separados y trazables.
+
+Ningún cambio realizado en el laboratorio debe convertirse automáticamente en un cambio sobre la infraestructura real.
+
+La plataforma debe mantener como principio fundamental que el usuario pueda entender y experimentar con su infraestructura con el mayor nivel de detalle posible, dentro de un entorno controlado, reproducible, auditable y aislado.
+
+Usuarios:
+
+Entorno virtualizado del mapeo ip modificable en la app con pruebas de traza y de estres como gusanos (seguridad en los puertos y version), sobrecarga de paquetes etc...
+
+ 
+
+- No utilizar ningun emoji, todas los iconos/imagenes no deben utilizar emoticonos.
+* * El mapa de red/topologia tiene que mostrar todos los dispositivos que puede llegar, no solo los de la misma subred/red y en lo posible por default separalos por su red/subred
+
+* * Tambien tiene que estar implementador en la aplicacion un entorno ide pesado de trackeo de paquetes
+
+soluciona errores actuales, revisa toda la app y pagina por las dudas de nuevo todo todo y si encuentras algo q va a tirar bug o error solucionalo instantaneamente
