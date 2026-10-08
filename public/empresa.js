@@ -243,12 +243,13 @@
   }
 
   async function confirmLink() {
-    const code = new URLSearchParams(location.search).get('conectar');
+    const code = window.__LINK_CODE || new URLSearchParams(location.search).get('conectar');
     if (!code || !TOKEN || confirmLink.done) return;
     confirmLink.done = true;
     try {
       await api('/api/agent/link/confirm', { method: 'POST', body: { code } });
       if (typeof toast === 'function') toast('Exe conectado a esta cuenta');
+      try { sessionStorage.removeItem('iphub_link'); } catch (_) {} window.__LINK_CODE = '';
       if (window.__linkOk) window.__linkOk();
       history.replaceState({}, '', '/topologia');
     } catch (err) { if (window.__linkErr) window.__linkErr(err.message); if (typeof toast === 'function') toast(err.message || 'No se pudo conectar el exe'); }

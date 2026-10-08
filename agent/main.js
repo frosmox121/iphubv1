@@ -2,12 +2,15 @@
 // IPHub Monitor (EXE): red local + sesión de la misma cuenta de la página.
 const { app, BrowserWindow, ipcMain, dialog, shell, Notification } = require('electron');
 const path = require('path'), fs = require('fs'), http = require('http'), https = require('https');
+const crypto = require('crypto'), { exec } = require('child_process');
 const core = require('./core');
 const icp = require('./intercept');
 const cap = require('./capture');
 const { getEngine } = require('./telemetry-engine');
 const teleEngine = getEngine();
 
+function logf() { return path.join(app.getPath('userData'), 'iphub-exe.log'); }
+function log(m) { try { fs.mkdirSync(path.dirname(logf()), { recursive: true }); fs.appendFileSync(logf(), new Date().toISOString() + ' ' + m + '\n'); } catch (_) {} }
 function cloudFile() { return path.join(app.getPath('userData'), 'iphub-cloud.json'); }
 const SITE = (process.env.IPHUB_URL || 'https://iphuboficial.onrender.com').replace(/\/$/, '');
 function readCloud() { try { return JSON.parse(fs.readFileSync(cloudFile(), 'utf8')); } catch (_) { return { base: SITE }; } }
@@ -58,41 +61,81 @@ function pickBase(force) {
   return picking;
 }
 
-// Login con el NAVEGADOR del sistema (igual que el login/registro normal de IPHub): Google (accounts.google.com),
-// Discord (authorize) o correo+contraseña. El exe genera un código, abre la página con ese código y la espera por long-poll (instantáneo).
-let linkSt = { id: 0, pending: false, error: '' };
+// Login con el NAVEGADOR del sistema (igual que el login/registro normal de IPHub).
+// 1) El exe crea un código aleatorio y abre el navegador AL INSTANTE (sin esperar a la red) en una página local 127.0.0.1
+//    que busca sola el dominio de IPHub que responde y te redirige ahí. 2) El exe espera por long-poll (instantáneo).
+let launcher = null, linkSt = { id: 0, pending: false, error: '', url: '' };
+function launcherHtml(bases, code, p) {
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>IPHub</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:system-ui,Segoe UI,sans-serif;background:#0a1628;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center}.b{max-width:460px;padding:2rem}.s{width:44px;height:44px;border:4px solid #1e293b;border-top-color:#06b6d4;border-radius:50%;animation:r 1s linear infinite;margin:0 auto 1.2rem}@keyframes r{to{transform:rotate(360deg)}}a{color:#06b6d4}button{background:#06b6d4;border:0;color:#04141f;font-weight:700;padding:.6rem 1.2rem;border-radius:8px;cursor:pointer;margin-top:1rem}</style></head><body><div class="b"><div class="s" id="s"></div><h2 id="t">Conectando con IPHub…</h2><p id="m" style="color:#94a3b8">Si el servidor estaba dormido puede tardar unos segundos. No cierres esta pestaña.</p></div><script>'
+    + 'var B=' + JSON.stringify(bases) + ',C=' + JSON.stringify(code) + ',P=' + JSON.stringify(p) + ',done=false,fails=0;'
+    + 'function go(b){if(done)return;done=true;location.replace(b+"/?conectar="+C+(P?"&p="+P:""));}'
+    + 'function run(){done=false;fails=0;B.forEach(function(b,i){setTimeout(function(){fetch(b+"/api/auth/config",{mode:"no-cors",cache:"no-store"}).then(function(){go(b)}).catch(function(){if(++fails>=B.length&&!done)fallback()})},i*300)})}'
+    + 'function fallback(){document.getElementById("s").style.display="none";document.getElementById("t").textContent="No se pudo contactar con IPHub";document.getElementById("m").innerHTML="Revisá tu conexión a internet y reintentá.<br>O abrí directamente: "+B.map(function(b){return \'<a href="\'+b+"/?conectar="+C+(P?"&p="+P:"")+\'">\'+b+"</a>"}).join(" · ")+\'<br><button onclick="location.reload()">Reintentar</button>\'}'
+    + 'run();setTimeout(function(){if(!done)go(B[0])},45000);'
+    + '</script></body></html>';
+}
+function ensureLauncher() {
+  return new Promise(res => {
+    if (launcher && launcher.port) return res(launcher.port);
+    try {
+      const srv = http.createServer((req, rsp) => {
+        try {
+          const u = new URL(req.url, 'http://127.0.0.1');
+          const code = String(u.searchParams.get('code') || '').replace(/[^a-f0-9]/gi, '').slice(0, 64), p = /^(google|discord)$/.test(u.searchParams.get('p') || '') ? u.searchParams.get('p') : '';
+          if (u.pathname === '/go' && code.length >= 24) { rsp.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }); return rsp.end(launcherHtml([...new Set([curBase(), ...CANDS])], code, p)); }
+        } catch (_) {}
+        rsp.writeHead(404); rsp.end();
+      });
+      srv.on('error', e => { log('launcher error ' + e.message); res(0); });
+      srv.listen(0, '127.0.0.1', () => { launcher = { srv, port: srv.address().port }; log('launcher en 127.0.0.1:' + launcher.port); res(launcher.port); });
+    } catch (e) { log('launcher fallo ' + e.message); res(0); }
+  });
+}
+async function openBrowser(url) {
+  try { await shell.openExternal(url); log('navegador abierto'); return true; }
+  catch (e) { log('shell.openExternal fallo: ' + e.message); }
+  if (process.platform === 'win32') { try { exec('start "" "' + url.replace(/"/g, '') + '"', { windowsHide: true }); log('abierto con start'); return true; } catch (e) { log('start fallo ' + e.message); } }
+  return false;
+}
 function startBrowserLogin(provider) {
-  const id = linkSt.id + 1; linkSt = { id, pending: true, error: '' };
+  const id = linkSt.id + 1, code = crypto.randomBytes(16).toString('hex');
+  const p = provider === 'discord' ? 'discord' : provider === 'google' ? 'google' : '';
+  linkSt = { id, pending: true, error: '', url: '' };
   const mine = () => linkSt.id === id;
+  log('login navegador provider=' + (p || 'normal') + ' id=' + id);
   (async () => {
     try {
-      const base = await pickBase();
-      if (!mine()) return;
-      const d = await apiRetry(base, 'POST', '/api/agent/link/start', {}, null, 3, 15000);
-      if (!d || !d.code) throw new Error('El servidor no devolvió un código de enlace');
-      if (!mine()) return;
-      const p = provider === 'discord' ? 'discord' : provider === 'google' ? 'google' : '';
-      shell.openExternal(base + '/?conectar=' + encodeURIComponent(d.code) + (p ? '&p=' + p : ''));
+      const port = await ensureLauncher();
+      const url = port ? 'http://127.0.0.1:' + port + '/go?code=' + code + (p ? '&p=' + p : '') : curBase() + '/?conectar=' + code + (p ? '&p=' + p : '');
+      if (mine()) linkSt.url = url;
+      const opened = await openBrowser(url);
+      if (!opened && mine()) linkSt.error = 'No se pudo abrir el navegador automáticamente. Copiá el enlace de abajo y pegalo en tu navegador.';
       const until = Date.now() + 10 * 60 * 1000;
       while (mine() && Date.now() < until) {
+        let base; try { base = await pickBase(); } catch (e) { await sleep(2000); continue; }
         const t0 = Date.now(); let r = null;
-        try { r = await apiCall(base, 'GET', '/api/agent/link/status?wait=20&code=' + encodeURIComponent(d.code), null, null, 30000); }
-        catch (e) { if (/vencido/i.test(String(e.message))) throw e; await sleep(1000); continue; }
+        try { r = await apiCall(base, 'GET', '/api/agent/link/status?wait=20&code=' + code, null, null, 30000); }
+        catch (e) { await sleep(1500); continue; }
         if (r && r.token) {
           const u = r.user || {}, isOwner = !!(u.isOwner || String(u.email || '').toLowerCase() === 'iphuboficial@gmail.com');
           writeCloud({ base, token: r.token, user: { name: u.name, email: u.email, isOwner, role: u.role || (isOwner ? 'owner' : undefined) } });
-          liveBase = base; liveAt = Date.now();
-          if (mine()) linkSt = { id, pending: false, error: '' };
+          liveBase = base; liveAt = Date.now(); log('login OK ' + (u.email || ''));
+          if (mine()) linkSt = { id, pending: false, error: '', url: '' };
           pushNow();
           const w = BrowserWindow.getAllWindows()[0]; if (w) { if (w.isMinimized()) w.restore(); w.show(); w.focus(); }
           return;
         }
-        if (Date.now() - t0 < 500) await sleep(700); // servidor viejo sin long-poll
+        if (Date.now() - t0 < 500) await sleep(700);
       }
-      if (mine()) throw new Error('Se agotó el tiempo para iniciar sesión en el navegador');
-    } catch (e) { if (mine()) linkSt = { id, pending: false, error: String(e && e.message || e) }; }
+      if (mine()) throw new Error('Se agotó el tiempo (10 min) para iniciar sesión en el navegador. Probá de nuevo.');
+    } catch (e) { log('login error ' + (e && e.message)); if (mine()) linkSt = { id, pending: false, error: String(e && e.message || e), url: '' }; }
   })();
   return { pending: true };
+}
+async function diagnose() {
+  const bases = [...new Set([curBase(), ...CANDS])], out = [];
+  await Promise.all(bases.map(async b => { const t0 = Date.now(); try { await apiCall(b, 'GET', '/api/auth/config', null, null, 20000); out.push({ base: b, ok: true, ms: Date.now() - t0 }); } catch (e) { out.push({ base: b, ok: false, ms: Date.now() - t0, error: String(e.message || e) }); } }));
+  return { saved: readCloud().base || null, version: app.getVersion(), platform: process.platform + ' ' + process.arch, electron: process.versions.electron, log: logf(), launcher: launcher && launcher.port || 0, bases: out };
 }
 let pushT = null, pushInfo = { ok: null, at: 0, error: '' };
 async function pushNow() {
@@ -128,6 +171,8 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
   const isLan = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) && /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(x.hostname); } catch (_) { return false; } };
 
   app.whenReady().then(() => {
+    log('exe iniciado v' + app.getVersion() + ' base=' + curBase());
+    ensureLauncher();
     ipcMain.handle('call', async (_e, action, a, b) => {
       try {
         switch (action) {
@@ -160,7 +205,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
             if (r.canceled || !r.filePath) return { canceled: true };
             fs.writeFileSync(r.filePath, '\ufeff' + a.content, 'utf8'); return { ok: true, path: r.filePath };
           }
-          case 'cloudStatus': { const c = readCloud(); return { ...c, base: normBase(c.base || SITE), push: pushInfo, pending: linkSt.pending, linkError: linkSt.error }; }
+          case 'cloudStatus': { const c = readCloud(); return { ...c, base: normBase(c.base || SITE), push: pushInfo, pending: linkSt.pending, linkError: linkSt.error, linkUrl: linkSt.url }; }
           case 'cloudLogin': {
             const base = await pickBase();
             const d = await apiRetry(base, 'POST', '/api/auth/login', { email: String(a.email || '').trim(), password: a.password }, null, 2, 15000);
@@ -170,7 +215,8 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
             pushNow(); return { ...readCloud(), push: pushInfo };
           }
           case 'cloudWeb': return startBrowserLogin(a && a.provider);
-          case 'cloudCancel': linkSt = { id: linkSt.id + 1, pending: false, error: '' }; return { ok: true };
+          case 'cloudCancel': linkSt = { id: linkSt.id + 1, pending: false, error: '', url: '' }; return { ok: true };
+          case 'cloudDiag': return await diagnose();
           case 'cloudLink': return { error: 'Iniciá sesión con tu correo y contraseña.' };
           case 'cloudPoll': {
             const c = readCloud();
@@ -178,7 +224,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
             if (d.token) { writeCloud({ base: c.base, token: d.token, user: d.user }); schedulePush(); }
             return d.token ? readCloud() : d;
           }
-          case 'cloudLogout': linkSt = { id: linkSt.id + 1, pending: false, error: '' }; writeCloud({ base: curBase() }); pushInfo = { ok: null, at: 0, error: '' }; return readCloud();
+          case 'cloudLogout': linkSt = { id: linkSt.id + 1, pending: false, error: '', url: '' }; writeCloud({ base: curBase() }); pushInfo = { ok: null, at: 0, error: '' }; return readCloud();
           case 'cloudBase': writeCloud({ ...readCloud(), base: normBase(a) }); return readCloud();
           // Tracking Studio — motor de telemetría (workers)
           case 'teleResources': return teleEngine.resources();

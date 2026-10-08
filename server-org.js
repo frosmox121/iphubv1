@@ -160,26 +160,30 @@ module.exports = function register(app, ctx) {
     res.json({ code, url: `${proto}://${host}/?conectar=${code}` });
   });
 
-  // Long-poll: si pasás ?wait=N (seg, máx 25) responde en cuanto el navegador confirma (conexión instantánea)
+  // Long-poll: si pasás ?wait=N (seg, máx 25) responde en cuanto el navegador confirma (conexión instantánea).
+  // Un código desconocido responde "pending" (el exe genera el código y el navegador lo crea al confirmar).
   app.get('/api/agent/link/status', async (req, res) => {
-    const code = String(req.query.code || '');
+    const code = String(req.query.code || '').replace(/[^a-f0-9]/gi, '');
     const wait = Math.min(25, Math.max(0, parseInt(req.query.wait || '0', 10) || 0)) * 1000;
-    const end = Date.now() + wait; let closed = false; req.on('close', () => { closed = true; });
+    const end = Date.now() + wait; let closed = false; res.on('close', () => { closed = true; });
     for (;;) {
       const links = db.get('agentLinks').value() || {};
       const row = links[code];
-      if (!row || row.exp < Date.now()) return res.status(404).json({ error: 'Código vencido. Generá otro desde el exe.' });
-      if (row.token) { delete links[code]; db.set('agentLinks', links).write(); return res.json({ token: row.token, user: row.user }); } // un solo uso
-      if (closed || Date.now() >= end) return res.json({ pending: true });
+      if (row && row.exp < Date.now()) return res.status(404).json({ error: 'Código vencido. Generá otro desde el exe.' });
+      if (row && row.token) { delete links[code]; db.set('agentLinks', links).write(); return res.json({ token: row.token, user: row.user }); } // un solo uso
+      if (closed) return;
+      if (Date.now() >= end) return res.json({ pending: true });
       await new Promise(r => setTimeout(r, 200));
     }
   });
 
   app.post('/api/agent/link/confirm', requireAuth, (req, res) => {
-    const code = String((req.body || {}).code || '');
-    const links = db.get('agentLinks').value() || {};
-    const row = links[code];
-    if (!row || row.exp < Date.now()) return res.status(404).json({ error: 'Código vencido' });
+    const code = String((req.body || {}).code || '').replace(/[^a-f0-9]/gi, '');
+    if (code.length < 8 || code.length > 64) return res.status(400).json({ error: 'Código inválido' });
+    const now = Date.now(), links = db.get('agentLinks').value() || {};
+    for (const k of Object.keys(links)) if (links[k].exp < now) delete links[k];
+    let row = links[code];
+    if (!row) { if (code.length < 24) return res.status(404).json({ error: 'Código vencido' }); row = { code, at: now, exp: now + 10 * 60 * 1000, token: null }; } // el exe genera el código (96 bits) y el navegador lo crea al confirmar
     const token = jwt.sign({ sub: req.user.id, agent: true }, JWT_SECRET, { expiresIn: '30d' });
     const extra = global.iphubPublicExtra(req.user);
     row.token = token;

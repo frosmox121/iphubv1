@@ -1,0 +1,7 @@
+LOGIN DEL EXE (Google / Discord / correo) - como funciona y que hacer si falla
+1) Boton Google/Discord/"Entrar en el navegador": el exe abre tu navegador AL INSTANTE, busca solo el dominio de IPHub que responde y muestra el login normal. Al confirmar, el exe se conecta en ~0,1 s.
+2) IMPORTANTE: hay que SUBIR este codigo a Render (el servidor tambien cambio) y REGENERAR el exe con BUILD-EXE.bat. Si usas un exe viejo contra un servidor viejo, no funciona.
+3) Boton "Diagnostico" del exe: muestra que dominios responden (ms) y donde esta el registro (iphub-exe.log en %APPDATA%\iphub-monitor).
+4) Si el navegador no se abre solo, el exe muestra el enlace para copiar y pegar.
+5) Para el evento: UptimeRobot haciendo ping a /api/auth/config cada 5 min (Render Free dormido = ~1 min de arranque), y abri el exe 5 min antes.
+6) Google: Authorized JavaScript origins con https://iphub.com.ar. Discord: Redirect https://iphub.com.ar/auth/discord.

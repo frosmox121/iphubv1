@@ -27,6 +27,8 @@
 (function social() {
   // ----- Conectar el exe: el exe abre /?conectar=CODIGO[&p=google|discord] en el navegador -----
   const LQ = new URLSearchParams(location.search), LINK = (LQ.get('conectar') || '').replace(/[^a-f0-9]/gi, '').slice(0, 64), LP = LQ.get('p') || '';
+  try { if (LINK) { sessionStorage.setItem('iphub_link', LINK); } } catch (_) {}
+  window.__LINK_CODE = LINK || (function () { try { return sessionStorage.getItem('iphub_link') || ''; } catch (_) { return ''; } })();
   let banner = null;
   const bn = (txt, cls) => {
     if (!banner) { banner = document.createElement('div'); banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;padding:.7rem 1rem;text-align:center;font:600 14px system-ui;color:#fff;background:#0891b2;box-shadow:0 2px 12px #0006'; document.body.appendChild(banner); }
@@ -34,7 +36,7 @@
   };
   window.__linkOk = () => bn('✓ Listo: el exe ya está conectado a tu cuenta. Podés cerrar esta pestaña y volver a la app.', 'ok');
   window.__linkErr = m => bn('No se pudo conectar el exe: ' + m, 'err');
-  if (LINK) addEventListener('DOMContentLoaded', () => bn('Conectando tu exe de IPHub… ' + (LP === 'google' ? 'tocá «Google» para continuar.' : LP === 'discord' ? 'te llevamos a Discord…' : 'iniciá sesión o registrate y se conecta solo.')));
+  if (window.__LINK_CODE) addEventListener('DOMContentLoaded', () => bn('Conectando tu exe de IPHub… ' + (LP === 'google' ? 'tocá «Google» para continuar.' : LP === 'discord' ? 'te llevamos a Discord…' : 'iniciá sesión o registrate y se conecta solo.')));
   // Vuelta de Discord en pantalla completa (sin popup): /auth/discord#access_token=...&state=CODIGO
   if (!window.opener && /access_token=/.test(location.hash) && /^\/auth\/discord/.test(location.pathname)) {
     const h = new URLSearchParams(location.hash.slice(1)), st = (h.get('state') || '').replace(/[^a-f0-9]/gi, '');

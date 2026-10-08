@@ -95,6 +95,7 @@ input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;bord
     <button class="btn sm g" id="cloud-google" type="button" data-i="cl_google"></button>
     <button class="btn sm g" id="cloud-discord" type="button" data-i="cl_discord"></button>
     <button class="btn sm g" id="cloud-browser" type="button">Entrar / registrarme en el navegador</button>
+    <button class="btn sm g" id="cloud-diag" type="button">Diagnóstico</button>
     <button class="btn sm g" id="cloud-cancel" type="button" style="display:none">Cancelar</button>
     <button class="btn sm ok" id="cloud-file" type="button" data-i="cl_file"></button>
   </div>
@@ -525,6 +526,7 @@ function linkWatch() {
     const c = await F('cloudStatus');
     if (c && c.user && !c.pending) { clearInterval(linkTimer); cancel.style.display = 'none'; await cloudPaint(c); toast('Sesión iniciada correctamente'); msg.textContent = 'Sesión iniciada correctamente · ' + (c.user.name || c.user.email); }
     else if (c && !c.pending) { clearInterval(linkTimer); cancel.style.display = 'none'; msg.style.color = '#f87171'; msg.textContent = c.linkError || 'No se pudo entrar'; }
+    else if (c && c.pending) { msg.style.color = c.linkError ? '#f59e0b' : ''; msg.textContent = (c.linkError ? c.linkError + ' ' : 'Se abrió tu navegador: completá el inicio de sesión ahí y esta ventana se conecta sola. ') + (c.linkUrl || ''); }
   }, 700);
 }
 async function cloudWeb(provider) {
@@ -533,6 +535,13 @@ async function cloudWeb(provider) {
   try { const r = await F('cloudWeb', { provider }); if (r && r.error) throw new Error(r.error); linkWatch(); }
   catch (e) { msg.style.color = '#f87171'; msg.textContent = e.message || 'No se pudo entrar'; toast(e.message || 'No se pudo entrar'); }
 }
+document.getElementById('cloud-diag').onclick = async () => {
+  const msg = document.getElementById('cloud-msg'); msg.style.color = ''; msg.textContent = 'Probando conexión…';
+  const d = await F('cloudDiag');
+  if (d && d.error) { msg.style.color = '#f87171'; msg.textContent = d.error; return; }
+  msg.style.whiteSpace = 'pre-wrap';
+  msg.textContent = 'IPHub exe v' + d.version + ' · ' + d.platform + '\n' + (d.bases || []).map(b => (b.ok ? '✔ ' : '✘ ') + b.base + ' · ' + b.ms + ' ms' + (b.ok ? '' : ' · ' + b.error)).join('\n') + '\nRegistro: ' + d.log;
+};
 document.getElementById('cloud-browser').onclick = () => cloudWeb('');
 document.getElementById('cloud-cancel').onclick = async () => { clearInterval(linkTimer); document.getElementById('cloud-cancel').style.display = 'none'; await F('cloudCancel'); cloudPaint(); };
 document.getElementById('cloud-google').onclick = () => cloudWeb('google');
