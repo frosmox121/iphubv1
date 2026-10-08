@@ -267,6 +267,8 @@ function longToIp(long) {
 
 // ---------- App ----------
 const app = express();
+// Si un handler async lanza error, responder 500 en vez de dejar la request colgada
+['get','post','put','patch','delete'].forEach(m => { const o = app[m].bind(app); app[m] = (p, ...h) => o(p, ...h.map(f => (typeof f === 'function' && f.constructor.name === 'AsyncFunction') ? (req, res, next) => f(req, res, next).catch(e => { console.error('[handler]', e); if (!res.headersSent) res.status(500).json({ error: 'Error interno, intentá de nuevo' }); }) : f)); });
 app.use(express.json({ limit: '12mb' }));
 
 // ---------- Interceptar: registro de TODAS las peticiones HTTP que llegan a la plataforma (solo lo ve el dueño) ----------
@@ -346,6 +348,7 @@ function requireAuth(req, res, next) {
     if (apiKey) {
       const user = db.get('users').find({ apiKey: String(apiKey) }).value();
       if (!user) return res.status(401).json({ error: 'Clave API inválida', code: 'BAD_API_KEY' });
+      try { if (global.iphubApiUse) global.iphubApiUse(user, req); } catch (_) {}
       req.user = user; return next();
     }
     return res.status(401).json({ error: 'No autenticado', code: 'NO_AUTH' });
@@ -1273,7 +1276,7 @@ app.post('/api/account/email/confirm', requireAuth, async (req, res) => {
   if (h !== ec.newHash) { u.assign({ ec: { ...ec, tries: ec.tries + 1 } }).write(); return res.status(400).json({ error: 'Código incorrecto' }); }
   if (db.get('users').find({ email: ec.ne }).value()) { u.assign({ ec: null }).write(); return res.status(409).json({ error: 'Ese correo ya está en uso' }); }
   const old = req.user.email;
-  for (const col of ['audit', 'feedback', 'contacts']) db.get(col).filter({ user: old }).each(x => { x.user = ec.ne; }).value();
+  for (const col of ['audit', 'feedback', 'contacts']) { for (const x of (db.get(col).filter({ user: old }).value() || [])) x.user = ec.ne; }
   u.assign({ email: ec.ne, ec: null }).write(); db.write();
   addAudit(ec.ne, 'Correo cambiado', `${old} → ${ec.ne}`);
   sendMail(old, 'Cambiaste el correo de tu cuenta de IPHub', `El correo de tu cuenta pasó de ${old} a ${ec.ne}. Si no fuiste vos, escribinos a ${SUPPORT_TO} de inmediato.`).catch(() => {});
@@ -1399,10 +1402,22 @@ async function aiChat(messages, { temperature = 0.6, max_tokens = 700, backgroun
 const parseJsonLoose = raw => { const t = String(raw || ''); const i = t.search(/[\[{]/), j = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']')); if (i < 0 || j < i) return null; try { return JSON.parse(t.slice(i, j + 1)); } catch (_) { return null; } };
 function langName(code) { try { return new Intl.DisplayNames(['en'], { type: 'language' }).of(String(code || 'es')) || 'Spanish'; } catch (_) { return 'Spanish'; } }
 
+// Reinicio único del ranking (v1)
+(function resetRankingOnce() {
+  try {
+    const st = db.get('users').value() || [];
+    const flag = st.find(u => u.__rankReset);
+    if (flag) return;
+    st.forEach(u => { u.level = 1; u.xp = 0; u.quizAt = 0; u.toolXpAt = 0; });
+    if (st[0]) st[0].__rankReset = true;
+    db.write();
+    console.log('[ranking] reiniciado para la v1');
+  } catch (e) { console.error('[ranking] reset', e.message); }
+})();
 // ---------- Puntaje / ranking ----------
 function totalXp(u) { let t = u.xp || 0; for (let l = 1; l < (u.level || 1); l++) t += xpForLevel(l); return t; }
 function rankedUsers() {
-  return db.get('users').value().filter(u => u.verified !== false)
+  return db.get('users').value().filter(u => u.verified !== false && !isOwnerUser(u))
     .map(u => ({ id: u.id, name: u.name || 'Usuario', avatar: u.avatar || null, level: u.level || 1, xp: u.xp || 0, country: u.country || '', score: totalXp(u) }))
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
     .map((u, i) => ({ ...u, rank: i + 1, need: xpForLevel(u.level) }));
@@ -1454,6 +1469,18 @@ const KB = [
   { k: /empresa|rol|roles|permiso|miembro|equipo/, t: 'EMPRESA (solo dueño): crear roles y asignarlos a miembros. Cada rol elige secciones (Dashboard, Topología, Workspace, Tracking Studio, Herramientas, Auditoría, Aprender, Ranking, Soporte, Manual) y permisos finos dentro de ellas (por herramienta, exportar auditoría, descubrir red, tickets, reseñas, embeds). El servidor aplica esos permisos.' },
   { k: /innovador|multiping|jitter|perdida de paquetes|http check|cabeceras|vlsm|comparar rutas|analizador de ruta/, t: 'HERRAMIENTAS INNOVADORAS (/herramientas/innovadoras): Analizador de ruta (traceroute con gráfico de RTT por salto y diagnóstico), Comparador de rutas (dónde divergen dos destinos), Multiping TCP (latencia, jitter y pérdida a varios destinos), HTTP Check (DNS/TTFB/total, TLS y cabeceras de seguridad con puntaje), Planificador VLSM y Conversor de IP (binario, hex, clase, PTR).' },
   { k: /exe|traceroute en el exe|restaurar|eliminados/, t: 'EXE: además de dispositivos de la red, incluye Traceroute y Tracepacket reales (tracert), filtro "Eliminados" con Restaurar y Restaurar todos, e inicio de sesión con la cuenta de la página.' },
+  { k: /globo de hosts|radial de hosts|todos los hosts|vista radial|vista globo/, t: "VISTAS DE HOSTS (Topología): 'Globo de hosts' ubica tu red en un globo 3D y reparte cada dispositivo en espiral; al acercar con la rueda se separan y aparecen los nombres. 'Radial de hosts' pone el gateway al centro y todos los dispositivos en anillos ordenados por tipo, con zoom, arrastre y panel de detalle. En la app de escritorio están completas; en la web son una vista resumida de lo que publica la app." },
+  { k: /analizador de paquetes|todos los protocolos|protocolo|wireshark|npcap|captura de paquetes|capturar paquetes/, t: "ANALIZADOR DE PAQUETES (app de escritorio, solo dueño): captura la placa de red y decodifica Ethernet, VLAN, ARP, IPv4/IPv6, TCP, UDP, ICMP/ICMPv6, IGMP, GRE, ESP/AH, SCTP, OSPF, EIGRP, VRRP, STP, LLDP, EAPOL, MPLS, DNS/mDNS/LLMNR, DHCP, HTTP, TLS con SNI, QUIC, SSH, FTP, SMTP, IMAP, SMB, RDP, SNMP, NTP, SIP, MQTT y muchos más; con Wireshark/tshark instalado disecciona todo lo que Wireshark conoce. Requiere Wireshark (Npcap) y ejecutar como administrador en Windows." },
+  { k: /entorno virtual|sandbox|mapa ip editable|estres controlado|traza simulada/, t: "ENTORNO VIRTUAL DE RED (Plan y Estudio, cuenta oficial): mapa IP editable donde agregás nodos, IP, latencia y enlaces; incluye traza simulada salto a salto y prueba de estrés controlada (simulada, hasta 100000 paquetes/s, sin tráfico real)." },
+  { k: /seguimiento de claves|claves api|api key de empleados|que servicios usa|uso de api/, t: "SEGUIMIENTO DE CLAVES API (cuenta oficial): muestra por persona cuántas llamadas hizo con su clave API, a qué servicios del sistema, desde qué IPs y cuándo fue la última; lista las claves emitidas mostrando solo los últimos 4 caracteres." },
+  { k: /phishing|simulacro|concientizacion|campana interna/, t: "SIMULACRO DE PHISHING (cuenta oficial): campañas internas con consentimiento. Cargás participantes, el asunto y el mensaje; cada uno recibe un enlace único que lleva a una página educativa (nunca pide ni guarda contraseñas). Medís enviados, aperturas y clics." },
+  { k: /commit|github|repositorio privado|foro empresarial|vista compartible|enlace compartible/, t: "COMMITS Y FORO EMPRESARIAL (cuenta oficial): hacés commit de una vista a GitHub (repos propios o privados) con un token de un solo uso que no se guarda, o generás un enlace de solo lectura /vista/código. El foro permite hilos y respuestas del equipo." },
+  { k: /plan y estudio|estudio modular|suscripcion|plan/, t: "PLAN Y ESTUDIO (/plan): catálogo de funciones. Para todos: Modo embebido (?embed=1) y Accesibilidad. Para la cuenta oficial: Estudio modular con IA (3 espacios de diseño), Entorno virtual de red, Seguimiento de claves API, Simulacro de phishing y Commits/foro empresarial." },
+  { k: /cambiar correo|cambio de correo|nuevo correo|cambiar email|cambiar mi mail/, t: "CAMBIAR CORREO (Mi cuenta): 1) ponés el correo nuevo y tu contraseña, 2) código al correo ACTUAL, 3) código al correo NUEVO, 4) listo. Cada código dura 15 minutos y tiene 5 intentos. La cuenta del dueño y las cuentas de Google/Discord sin contraseña no pueden cambiarlo desde ahí." },
+  { k: /login en el exe|iniciar sesion en la app|entrar en el exe|conectar el exe|exe no inicia|sesion del exe/, t: "LOGIN EN LA APP: tocá Entrar, Google o Discord en la tarjeta 'Cuenta de la página'. Se abre una ventana con la página real de IPHub; iniciás sesión como siempre y se cierra sola. Con eso la app publica tu red para Topología." },
+  { k: /ranking reiniciado|reinicio del ranking|dueno en el ranking|por que no aparece el dueno/, t: "RANKING v1: se reinició para la versión 1. La cuenta del dueño no participa porque solo administra la plataforma." },
+  { k: /v1|version 1|novedades|que hay de nuevo|que cambio/, t: "NOVEDADES v1: globo y radial con todos los hosts, analizador de paquetes con todos los protocolos, login del exe con la página real, nuevos módulos (Entorno virtual, Claves API, Phishing, Commits y foro), cambio de correo corregido, manual ampliado, nueva estética con animaciones y traducción completa, ranking reiniciado." },
+  { k: /estetica|animacion|tema|diseno|colores/, t: "DISEÑO v1: mismos colores (celeste y violeta sobre azul noche) con degradados, tarjetas de vidrio, animaciones de entrada y brillos suaves; respeta 'reducir movimiento' del sistema. Con Estudio modular (cuenta oficial) se puede personalizar." },
 ];
 const IPHUB_KB = KB.map(e => '- ' + e.t).join('\n') + '\n- Aviso: escanear redes ajenas sin permiso puede ser ilegal.';
 const deacc = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -1875,6 +1902,7 @@ app.get('/download/agent', (req, res) => {
 });
 
 try { require('./server-studio')(app, { db, requireAuth, addAudit, aiChat }); } catch (e) { console.error('server-studio:', e); }
+try { require('./server-mods')(app, { db, requireAuth, addAudit, sendMail, crypto }); } catch (e) { console.error('server-mods:', e); }
 try { require('./server-hub')(app, { db, requireAuth, addAudit }); } catch (e) { console.error('server-hub:', e); }
 try { require('./server-profiles')(app, { db, bcrypt, crypto, requireAuth, addAudit, sendMail, SUPPORT_TO }); } catch (e) { console.error('profiles:', e); }
 try { require('./server-org')(app, { db, bcrypt, jwt, crypto, requireAuth, addAudit, JWT_SECRET, sendMail }); } catch (e) { console.error('server-org:', e); }

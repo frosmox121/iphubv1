@@ -41,6 +41,43 @@ async function apiRetry(base, method, p, body, token, tries = 2) { // Render Fre
   if (/ENOTFOUND|ECONNREFUSED/.test(m)) throw new Error('No se encontró la página (' + base + '). Revisá la dirección y tu conexión a internet.');
   throw last;
 }
+
+// Login real: abre la página de IPHub dentro del exe (credenciales, Google y Discord funcionan igual que en el navegador)
+const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+let webWin = null;
+function webLogin() {
+  return new Promise((resolve, reject) => {
+    if (webWin && !webWin.isDestroyed()) { webWin.focus(); return reject(new Error('La ventana de inicio de sesión ya está abierta')); }
+    const base = curBase();
+    const w = new BrowserWindow({ width: 520, height: 780, parent: BrowserWindow.getAllWindows()[0], title: 'IPHub · Iniciar sesión', autoHideMenuBar: true, backgroundColor: '#0a1628',
+      webPreferences: { partition: 'persist:iphubweb', contextIsolation: true, nodeIntegration: false } });
+    webWin = w; w.webContents.setUserAgent(CHROME_UA);
+    let done = false, timer = null;
+    const finish = (err, val) => { if (done) return; done = true; clearInterval(timer); if (!w.isDestroyed()) w.destroy(); webWin = null; err ? reject(err) : resolve(val); };
+    // Google/Discord abren popups: se permiten dentro de la misma sesión
+    w.webContents.setWindowOpenHandler(() => ({ action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: true, parent: w, webPreferences: { partition: 'persist:iphubweb', contextIsolation: true, nodeIntegration: false } } }));
+    w.webContents.on('did-create-window', c => c.webContents.setUserAgent(CHROME_UA));
+    w.on('closed', () => finish(new Error('Cerraste la ventana sin iniciar sesión')));
+    w.webContents.on('did-fail-load', (_e, code, desc, url, main) => { if (main && code !== -3) finish(new Error('No se pudo abrir ' + base + ' (' + desc + '). Revisá tu conexión.')); });
+    w.loadURL(base + '/?from=exe').catch(() => {});
+    let busy = false, ticks = 0;
+    timer = setInterval(async () => {
+      if (done || busy || w.isDestroyed()) return; busy = true;
+      try {
+        if (++ticks > 600) return finish(new Error('Se agotó el tiempo para iniciar sesión'));
+        const token = await w.webContents.executeJavaScript("localStorage.getItem('iphub_token')", true);
+        if (token) {
+          const d = await apiRetry(base, 'GET', '/api/auth/me', null, token, 3);
+          if (d && d.user) {
+            const u = d.user, isOwner = !!(u.isOwner || String(u.email || '').toLowerCase() === 'iphuboficial@gmail.com');
+            writeCloud({ base, token, user: { name: u.name, email: u.email, isOwner, role: u.role || (isOwner ? 'owner' : undefined) } });
+            schedulePush(); return finish(null, readCloud());
+          }
+        }
+      } catch (_) {} finally { busy = false; }
+    }, 800);
+  });
+}
 let pushT = null;
 function schedulePush() {
   const c = readCloud(); if (!c.token || !c.base) return;
@@ -99,6 +136,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
             if (!d.token) throw new Error(d.needsVerification ? 'Tenés que verificar tu correo en la página antes de conectar el exe.' : (d.error || 'No se pudo entrar'));
             writeCloud({ base, token: d.token, user: d.user }); schedulePush(); return readCloud();
           }
+          case 'cloudWeb': return await webLogin();
           case 'cloudLink': {
             const base = curBase();
             const d = await apiRetry(base, 'POST', '/api/agent/link/start', {});

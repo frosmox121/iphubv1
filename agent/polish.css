@@ -1,0 +1,28 @@
+/* IPHub v1 · capa de pulido visual. Mismos colores (cian / violeta / navy), degradados y animaciones sobrias. */
+:root{--g-brand:linear-gradient(135deg,#22d3ee 0%,#818cf8 100%);--g-soft:linear-gradient(160deg,rgba(34,211,238,.10),rgba(129,140,248,.08) 55%,rgba(10,15,30,0) 100%);--ease:cubic-bezier(.22,1,.36,1)}
+html{scroll-behavior:smooth}
+body::before{content:"";position:fixed;inset:-20% -10% auto -10%;height:70vh;z-index:-1;pointer-events:none;background:radial-gradient(40% 50% at 20% 30%,rgba(34,211,238,.13),transparent 70%),radial-gradient(35% 45% at 80% 20%,rgba(129,140,248,.14),transparent 70%);filter:blur(30px);animation:aurora 22s ease-in-out infinite alternate}
+@keyframes aurora{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(4%,6%,0) scale(1.12)}}
+.section.active{animation:v1in .55s var(--ease) both}
+@keyframes v1in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.section-header h2,.section h2{background:var(--g-brand);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-.01em}
+.card.glass,.glass{background:linear-gradient(160deg,rgba(20,32,58,.78),rgba(10,16,32,.78));backdrop-filter:blur(14px) saturate(140%);border:1px solid rgba(94,234,212,.14);box-shadow:0 10px 40px -18px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.04);transition:transform .35s var(--ease),border-color .35s,box-shadow .35s}
+.card.glass:hover{transform:translateY(-3px);border-color:rgba(34,211,238,.38);box-shadow:0 18px 50px -18px rgba(34,211,238,.28),inset 0 1px 0 rgba(255,255,255,.06)}
+.btn{position:relative;overflow:hidden;transition:transform .25s var(--ease),box-shadow .25s,filter .25s}
+.btn:hover{transform:translateY(-2px)}.btn:active{transform:translateY(0) scale(.98)}
+.btn-primary::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);transform:translateX(-120%);transition:transform .7s var(--ease)}
+.btn-primary:hover::after{transform:translateX(120%)}.btn-primary:hover{box-shadow:0 8px 30px rgba(34,211,238,.38)}
+input,select,textarea{transition:border-color .25s,box-shadow .25s,background .25s}
+.tm-bar button{transition:all .3s var(--ease)}.tm-bar button.on{background:var(--g-brand)!important;color:#06121f!important;box-shadow:0 6px 22px rgba(34,211,238,.3)}
+.data-table tbody tr{transition:background .2s}.data-table tbody tr:hover{background:linear-gradient(90deg,rgba(34,211,238,.08),transparent)}
+.grid-2>.card,.stats-grid>*,.results-grid>*{animation:v1in .6s var(--ease) both}
+.grid-2>.card:nth-child(2){animation-delay:.08s}.grid-2>.card:nth-child(3){animation-delay:.16s}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:linear-gradient(#22d3ee55,#818cf855);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
+.v1-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--g-soft);border:1px solid rgba(129,140,248,.4);color:#c7d2fe}
+.v1-badge i{width:6px;height:6px;border-radius:50%;background:#fbbf24;animation:v1pulse 1.8s infinite}.v1-badge.on i{background:#34d399}
+@keyframes v1pulse{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.6)}50%{box-shadow:0 0 0 6px rgba(251,191,36,0)}}
+.v1-mod{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:1rem}
+.v1-mod .card h3{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.v1-mod .row{display:flex;gap:8px;flex-wrap:wrap;margin:.6rem 0}.v1-mod table{width:100%;border-collapse:collapse;font-size:12.5px}.v1-mod th,.v1-mod td{padding:7px 8px;border-bottom:1px solid rgba(148,163,184,.12);text-align:left}
+.v1-mod .out{font:12px ui-monospace,Consolas,monospace;background:rgba(5,10,20,.7);border:1px solid rgba(148,163,184,.14);border-radius:10px;padding:10px;max-height:220px;overflow:auto;white-space:pre-wrap}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

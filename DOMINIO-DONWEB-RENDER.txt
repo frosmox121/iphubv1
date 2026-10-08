@@ -1,0 +1,38 @@
+CÓMO USAR TU DOMINIO DE DONWEB EN RENDER
+=========================================
+(Tu dominio queda registrado en DonWeb; solo cambia a dónde apunta.)
+
+PASO 1 · En Render (primero)
+  1. Dashboard de Render > tu Web Service > Settings > Custom Domains > "+ Add Custom Domain".
+  2. Agregá  tudominio.com  (Render agrega también www.tudominio.com con redirección).
+  3. Render te muestra los registros que debés crear. Dejá esa pantalla abierta.
+
+PASO 2 · En DonWeb: elegí UNA de estas dos opciones
+
+OPCIÓN A (la más simple): usar la zona DNS de DonWeb, SIN cambiar nameservers
+  1. Panel DonWeb > Dominios > tu dominio > Administrar > DNS / "Zona DNS".
+  2. Si te pide crear la zona, creala y dejá los nameservers de DonWeb que ya tiene el dominio.
+  3. Borrá registros A, AAAA y CNAME viejos de "@" y "www" (los AAAA rompen Render: Render no usa IPv6).
+  4. Creá estos registros:
+       Tipo A      Nombre @     Valor 216.24.57.1       TTL 300 (o el mínimo)
+       Tipo CNAME  Nombre www   Valor TUSERVICIO.onrender.com   (con tu subdominio real de Render)
+     Si el panel exige punto final en el CNAME, escribí  TUSERVICIO.onrender.com.
+  5. Guardá y esperá.
+
+OPCIÓN B: zona DNS creada aparte con sus propios nameservers
+  1. Creá la zona en el servicio DNS de DonWeb y anotá sus nameservers (ej. ns1..., ns2...).
+  2. Dentro de esa zona creá los MISMOS registros A (@ -> 216.24.57.1) y CNAME (www -> TUSERVICIO.onrender.com).
+  3. En el dominio > "Servidores de nombres / DNS" cambiá a "personalizados" y pegá esos nameservers.
+  Importante: los registros viven en la zona que esté delegada. Si cambiás nameservers, los registros de la zona
+  vieja dejan de valer (por ejemplo el correo: copiá también los MX si usás mail con ese dominio).
+
+PASO 3 · Verificar
+  1. Volvé a Render > Custom Domains > "Verify". Puede tardar de minutos a unas horas (hasta 24-48 h).
+  2. Render emite el certificado HTTPS solo, cuando el DNS ya apunta bien.
+  3. Chequeo rápido en Windows:  nslookup tudominio.com   (debe devolver 216.24.57.1)
+
+PASO 4 · Ajustes de IPHub
+  - En Render > Environment: IPHUB_URL / BASE_URL = https://tudominio.com (si tus variables lo usan).
+  - Google OAuth: en Google Cloud agregá https://tudominio.com como origen autorizado y a los redirect URIs.
+  - Discord: actualizá el Redirect URI (DISCORD_REDIRECT_URI) a https://tudominio.com/...
+  - App de escritorio: variable IPHUB_URL=https://tudominio.com (o cambiá la dirección en la tarjeta de cuenta).

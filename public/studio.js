@@ -30,7 +30,7 @@
     if ($('#a11y-fab')) return;
     const fab = document.createElement('button'); fab.id = 'a11y-fab'; fab.type = 'button'; fab.title = 'Configuración de accesibilidad'; fab.setAttribute('aria-label', 'Configuración de accesibilidad');
     fab.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M19.4 13.1a7.6 7.6 0 0 0 .06-1.1 7.6 7.6 0 0 0-.06-1.1l1.7-1.3-1.5-2.6-2 .7a7 7 0 0 0-1.9-1.1l-.3-2.1h-3l-.3 2.1a7 7 0 0 0-1.9 1.1l-2-.7-1.5 2.6 1.7 1.3a7.6 7.6 0 0 0 0 2.2l-1.7 1.3 1.5 2.6 2-.7a7 7 0 0 0 1.9 1.1l.3 2.1h3l.3-2.1a7 7 0 0 0 1.9-1.1l2 .7 1.5-2.6-1.7-1.3z"/></svg>';
-    const box = document.createElement('div'); box.id = 'a11y-box'; box.className = 'hidden'; box.setAttribute('data-no-i18n', '');
+    const box = document.createElement('div'); box.id = 'a11y-box'; box.className = 'hidden';
     const host = document.querySelector('#lang-top') || document.querySelector('#lang-auth');
     if (host && host.parentElement) host.parentElement.insertBefore(fab, host);
     else document.body.append(fab);
@@ -75,7 +75,7 @@
     const a = document.createElement('a'); a.href = '/plan'; a.className = 'nav-item'; a.dataset.section = 'studio'; a.innerHTML = '<span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z"/></svg></span> Plan y Estudio';
     const acc = $('.nav-item[data-section="account"]'); acc.parentNode.insertBefore(a, acc);
     a.onclick = e => { e.preventDefault(); showSection('studio'); };
-    const sec = document.createElement('section'); sec.id = 'studio'; sec.className = 'section'; sec.setAttribute('data-no-i18n', '');
+    const sec = document.createElement('section'); sec.id = 'studio'; sec.className = 'section';
     sec.innerHTML = '<div class="section-header"><h2>Plan y Estudio</h2><p>Funciones de suscripción. Por ahora solo la cuenta oficial las usa, para cuidar recursos del servidor.</p></div><div id="studio-root"></div>';
     $('#empresa').parentNode.appendChild(sec); try { UII.studio = 2; } catch (_) {}
     sec.addEventListener('click', onClick); sec.addEventListener('input', onInput);

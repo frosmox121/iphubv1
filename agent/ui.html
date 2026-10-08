@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data: blob: file:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data: blob: file:; connect-src https://ipwho.is;">
 <title>IPHub</title>
 <style>
 :root{--p:#0a1628;--s:#1a0b2e;--t:#e2e8f0;--m:#94a3b8;--ok:#10b981;--warn:#f59e0b;--bad:#ef4444;--c:#06b6d4;--line:rgba(255,255,255,.08)}
@@ -74,7 +74,7 @@ header,#mapbox,.card,section{animation:up .6s cubic-bezier(.22,1,.36,1) both}
 button,.btn{transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s,filter .25s,border-color .25s}button:hover,.btn:hover{transform:translateY(-2px)}button:active,.btn:active{transform:scale(.97)}
 input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;border-color:var(--c)!important;box-shadow:0 0 0 3px rgba(6,182,212,.18)}
 ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:rgba(129,140,248,.3);border-radius:99px}
-</style><script src="icons.js"></script></head><body>
+</style><script src="icons.js"></script><script src="viz3.js"></script><link rel="stylesheet" href="viz3.css"><link rel="stylesheet" href="polish.css"></head><body>
 <header>
   <div class="logo"><img src="logo-icon.png" alt="IPHub"></div>
   <div><h1>IPHub<small id="sub"></small></h1></div>
@@ -84,17 +84,17 @@ input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;bord
   <button class="btn" id="scan" data-i="rescan"></button>
 </header>
 <div class="card" id="cloud" style="margin-bottom:.9rem">
-  <h4>Cuenta de la página</h4>
+  <h4 data-i="cl_title"></h4>
   <p class="muted" id="cloud-msg" style="margin:.3rem 0 .6rem">Iniciá sesión con la misma cuenta para que Topología muestre esta red.</p>
   <div class="tools" style="display:flex;gap:.4rem;flex-wrap:wrap">
     <input id="cloud-email" type="email" placeholder="correo" style="min-width:180px">
     <input id="cloud-pass" type="password" placeholder="contraseña" style="min-width:140px">
     <input id="cloud-base" type="text" placeholder="https://tu-pagina.onrender.com" title="Dirección de la página de IPHub" style="min-width:210px">
-    <button class="btn sm" id="cloud-login" type="button">Entrar</button>
-    <button class="btn sm g" id="cloud-google" type="button">Continuar con Google</button>
-    <button class="btn sm g" id="cloud-discord" type="button">Continuar con Discord</button>
-    <button class="btn sm g" id="cloud-out" type="button">Salir</button>
-    <button class="btn sm ok" id="cloud-file" type="button">Exportar para la web</button>
+    <button class="btn sm" id="cloud-login" type="button" data-i="cl_enter"></button>
+    <button class="btn sm g" id="cloud-google" type="button" data-i="cl_google"></button>
+    <button class="btn sm g" id="cloud-discord" type="button" data-i="cl_discord"></button>
+    <button class="btn sm g" id="cloud-out" type="button" data-i="cl_out"></button>
+    <button class="btn sm ok" id="cloud-file" type="button" data-i="cl_file"></button>
   </div>
 </div>
 <div class="card" id="tracecard" style="margin-bottom:.9rem">
@@ -145,9 +145,10 @@ input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;bord
 <div id="noNet" class="card muted" style="display:none;margin-bottom:1rem" data-i="neterr"></div>
 <div class="cards" id="cards"></div>
 <div class="card" style="margin-bottom:.9rem"><h4 data-i="net_title" style="margin-bottom:.6rem"></h4><div class="net" id="net"></div></div>
-<div class="vsw" id="vsw"><button data-v="list" class="on" data-i="v_list"></button><button data-v="map" data-i="v_map"></button></div>
+<div class="vsw" id="vsw"><button data-v="list" class="on" data-i="v_list"></button><button data-v="map" data-i="v_map"></button><button data-v="radial" data-i="v_radial"></button><button data-v="globe" data-i="v_globe"></button></div>
 <div class="card">
   <div class="tools" id="tools"></div>
+  <div id="vizbox" style="display:none"></div>
   <div id="mapbox"><canvas id="mapc"></canvas><div class="mhint" data-i="map_hint"></div><div class="mctl"><button data-mz="in" title="Zoom +">+</button><button data-mz="out" title="Zoom −">−</button><button data-mz="fit" title="Centrar">⤢</button></div><div class="mleg" id="mleg"></div><div id="mtip"></div></div>
   <div class="wrap" id="listwrap"><table><thead><tr id="thead"></tr></thead><tbody id="rows"></tbody></table></div>
   <p class="foot" data-i="foot"></p>
@@ -185,6 +186,16 @@ const K = {
  n_pub:['IP pública','Public IP','IP público','IP publique','Öffentliche IP','IP pubblico'],
  n_isp:['Proveedor (ISP)','Provider (ISP)','Provedor (ISP)','Fournisseur (FAI)','Anbieter (ISP)','Provider (ISP)'],
  n_loc:['Ubicación','Location','Localização','Localisation','Standort','Posizione'],
+ cl_title:['Cuenta de la página', 'Website account', 'Conta da página', 'Compte du site', 'Konto der Website', 'Account del sito'],
+ cl_enter:['Entrar', 'Sign in', 'Entrar', 'Connexion', 'Anmelden', 'Accedi'],
+ cl_google:['Continuar con Google', 'Continue with Google', 'Continuar com Google', 'Continuer avec Google', 'Weiter mit Google', 'Continua con Google'],
+ cl_discord:['Continuar con Discord', 'Continue with Discord', 'Continuar com Discord', 'Continuer avec Discord', 'Weiter mit Discord', 'Continua con Discord'],
+ cl_out:['Salir', 'Sign out', 'Sair', 'Déconnexion', 'Abmelden', 'Esci'],
+ cl_file:['Exportar para la web', 'Export for the web', 'Exportar para a web', 'Exporter pour le web', 'Für das Web exportieren', 'Esporta per il web'],
+ cl_hint:['Iniciá sesión con la misma cuenta. Se abre la página de IPHub dentro de la app (credenciales, Google o Discord).', 'Sign in with the same account. The IPHub page opens inside the app (credentials, Google or Discord).', 'Entre com a mesma conta. A página do IPHub abre dentro do app (credenciais, Google ou Discord).', 'Connectez-vous avec le même compte. La page IPHub s’ouvre dans l’app (identifiants, Google ou Discord).', 'Melde dich mit demselben Konto an. Die IPHub-Seite öffnet sich in der App (Zugangsdaten, Google oder Discord).', 'Accedi con lo stesso account. La pagina IPHub si apre nell’app (credenziali, Google o Discord).'],
+ cl_ok:['Conectado como', 'Signed in as', 'Conectado como', 'Connecté en tant que', 'Angemeldet als', 'Connesso come'],
+ cl_opening:['Abriendo la página de IPHub… iniciá sesión ahí.', 'Opening the IPHub page… sign in there.', 'Abrindo a página do IPHub… entre lá.', 'Ouverture de la page IPHub… connectez-vous.', 'IPHub-Seite wird geöffnet… dort anmelden.', 'Apertura della pagina IPHub… accedi lì.'],
+ v_radial:['Radial','Radial','Radial','Radial','Radial','Radiale'],v_globe:['Globo','Globe','Globo','Globe','Globus','Globo'],
  f_all:['Todos','All','Todos','Tous','Alle','Tutti'],f_online:['En línea','Online','Online','En ligne','Online','Online'],f_new:['Nuevos','New','Novos','Nouveaux','Neu','Nuovi'],f_risk:['Con riesgo','At risk','Com risco','À risque','Riskant','A rischio'],f_trusted:['Confiables','Trusted','Confiáveis','De confiance','Vertrauenswürdig','Fidati'],f_off:['Desconectados','Offline','Desconectados','Hors ligne','Offline','Offline'],f_hidden:['Ocultos','Hidden','Ocultos','Masqués','Ausgeblendet','Nascosti'],f_deleted:['Eliminados','Deleted','Excluídos','Supprimés','Gelöscht','Eliminati'],a_restore:['Restaurar','Restore','Restaurar','Restaurer','Wiederherstellen','Ripristina'],v_list:['Lista','List','Lista','Liste','Liste','Elenco'],v_map:['Mapa de red','Network map','Mapa de rede','Carte réseau','Netzwerkkarte','Mappa di rete'],map_hint:['Arrastrá los nodos · rueda para zoom · clic para ver el detalle','Drag nodes · scroll to zoom · click for details','Arraste os nós · role para zoom · clique para detalhes','Faites glisser les nœuds · molette pour zoomer · clic pour les détails','Knoten ziehen · Mausrad zum Zoomen · Klick für Details','Trascina i nodi · rotella per lo zoom · clic per i dettagli'],
  a_trustall:['Confiar en todos','Trust all online','Confiar em todos','Tout approuver','Allen vertrauen','Fidati di tutti'],a_csv:['Exportar CSV','Export CSV','Exportar CSV','Exporter CSV','CSV exportieren','Esporta CSV'],a_json:['Exportar JSON','Export JSON','Exportar JSON','Exporter JSON','JSON exportieren','Esporta JSON'],
  a_notify:['Avisar si aparece un dispositivo nuevo','Notify on new devices','Avisar se surgir um novo dispositivo','Notifier les nouveaux appareils','Bei neuen Geräten benachrichtigen','Avvisa se compare un nuovo dispositivo'],
@@ -278,7 +289,7 @@ function render() {
       <td>${d.rtt != null ? d.rtt + ' ms' : '—'}</td><td class="muted">${d.online ? esc(t('ago_now')) : esc(ago(d.lastSeen))}</td>
       <td>${d.deleted ? `<button class="btn sm ok" data-a="restore" data-k="${esc(d.key)}">${esc(t('a_restore'))}</button>` : d.trusted ? `<span class="tag ok">${esc(t('s_trusted'))}</span>` : d.me ? `<span class="tag me">${esc(t('s_local'))}</span>` : riskTag(d.risk || 0)}</td></tr>`;
   }).join('') || `<tr><td colspan="10" class="muted" style="padding:1.2rem">${esc(t('empty'))}</td></tr>`;
-  mapSync(list);
+  mapSync(list); if (VIZ && (view === 'radial' || view === 'globe')) VIZ.refresh();
   if (sel && $('dr').classList.contains('on') && !(document.activeElement && $('dr').contains(document.activeElement))) drawer();
 }
 
@@ -396,7 +407,7 @@ function mapDraw(now) {
     if (d.isNew && !d.me) { g.beginPath(); g.arc(x + r * .75, y - r * .75, 4.5, 0, 7); g.fillStyle = '#f472b6'; g.fill(); }
     if (sel === d.key) { g.beginPath(); g.arc(x, y, r + 6, 0, 7); g.strokeStyle = '#fff'; g.lineWidth = 1.6; g.setLineDash([4, 4]); g.stroke(); g.setLineDash([]); }
     g.globalAlpha = d.online ? 1 : .55; g.font = Math.round(r * 1.02) + 'px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    icoDraw(g, d.isGateway ? 'router' : (ICON[d.type] || 'help'), x, y + 1, r * 1.1, '#ffffff');
+    if (window.icoDraw) icoDraw(g, d.isGateway ? 'router' : (ICON[d.type] || 'help'), x, y + 1, r * 1.1, '#ffffff');
     if (cam.k > .55 || active === n) {
       g.textBaseline = 'alphabetic'; g.font = '600 11px "Segoe UI",system-ui,sans-serif'; g.fillStyle = '#e2e8f0'; g.fillText(nameOf(d) || d.ip, x, y + r + 15);
       if (cam.k > .85) { g.font = '10px ui-monospace,Consolas,monospace'; g.fillStyle = '#94a3b8'; g.fillText(d.ip, x, y + r + 28); }
@@ -405,10 +416,21 @@ function mapDraw(now) {
   }
 }
 function mapTick(now) { if (view !== 'map') { MAP.raf = 0; return; } mapStep(); mapDraw(now); MAP.raf = requestAnimationFrame(mapTick); }
+var VIZ = null, GEO = null;
+function vizOpen() {
+  if (!VIZ && window.IPHubViz) {
+    VIZ = window.IPHubViz.mount($('vizbox'), { getDevices: () => (S && S.devices) || [], getGeo: () => GEO });
+    fetch('https://ipwho.is/').then(r => r.json()).then(j => { if (j && j.success) { GEO = { lat: j.latitude, lon: j.longitude, city: (j.city || '') + (j.country ? ', ' + j.country : '') }; if (view === 'globe') VIZ.show('globe'); } }).catch(() => {});
+  }
+  if (VIZ) VIZ.show(view);
+}
 function applyView() {
   document.querySelectorAll('#vsw [data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view));
+  const viz = view === 'radial' || view === 'globe';
+  $('vizbox').style.display = viz ? 'block' : 'none';
   $('mapbox').style.display = view === 'map' ? 'block' : 'none';
-  $('listwrap').style.display = view === 'map' ? 'none' : '';
+  $('listwrap').style.display = (view === 'map' || viz) ? 'none' : '';
+  if (viz) { vizOpen(); return; }
   if (view === 'map') { MAP.fitted = false; render(); requestAnimationFrame(() => { mapResize(); mapFit(); if (!MAP.raf) MAP.raf = requestAnimationFrame(mapTick); }); }
 }
 (function mapInit() {
@@ -469,35 +491,34 @@ async function cloudPaint(c) {
   const base = document.getElementById('cloud-base'); if (base && c && c.base && document.activeElement !== base) base.value = c.base;
   const msg = document.getElementById('cloud-msg');
   if (!msg) return; msg.style.color = '';
-  if (c && c.user) msg.textContent = 'Conectado como ' + (c.user.name || c.user.email) + '. La página muestra esta red al abrir Topología.';
+  if (c && c.user) msg.textContent = t('cl_ok') + ' ' + (c.user.name || c.user.email) + '.';
   else if (c && c.pending) msg.textContent = 'Esperando que confirmes en el navegador…';
-  else msg.textContent = 'Iniciá sesión con la misma cuenta. Google y Discord abren la página para confirmar.';
+  else msg.textContent = t('cl_hint');
 }
 document.getElementById('cloud-base').onchange = async e => { const c = await F('cloudBase', e.target.value); cloudPaint(c); toast('Dirección guardada'); };
+async function cloudWeb() {
+  const msg = document.getElementById('cloud-msg'); msg.style.color = '';
+  msg.textContent = t('cl_opening');
+  try {
+    const c = await F('cloudWeb', {});
+    if (!c || c.error || !c.user) throw new Error((c && c.error) || 'No se pudo entrar');
+    cloudPaint(c); toast('Cuenta conectada');
+  } catch (e) { msg.style.color = '#f87171'; msg.textContent = e.message || 'No se pudo entrar'; toast(e.message || 'No se pudo entrar'); }
+}
 document.getElementById('cloud-login').onclick = async () => {
+  const em = document.getElementById('cloud-email').value.trim(), pw = document.getElementById('cloud-pass').value;
+  if (!em || !pw) return cloudWeb();
   const b = document.getElementById('cloud-login'), msg = document.getElementById('cloud-msg'); b.disabled = true; const old = b.textContent; b.textContent = 'Conectando…';
   msg.style.color = ''; msg.textContent = 'Conectando con la página… (si estaba dormida puede tardar hasta ~1 min)';
   try {
-    const c = await F('cloudLogin', { email: document.getElementById('cloud-email').value, password: document.getElementById('cloud-pass').value });
+    const c = await F('cloudLogin', { email: em, password: pw });
     if (!c || c.error || !c.user) throw new Error((c && c.error) || 'No se pudo entrar');
     cloudPaint(c); toast('Cuenta conectada');
-  } catch (e) { msg.style.color = '#f87171'; msg.textContent = (e.message || 'No se pudo entrar'); toast(e.message || 'No se pudo entrar'); }
+  } catch (e) { b.disabled = false; b.textContent = old; await cloudWeb(); }
   finally { b.disabled = false; b.textContent = old; }
 };
-async function cloudSocial() {
-  try {
-    const d = await F('cloudLink', {});
-    cloudPaint({ pending: d.code });
-    toast('Confirmá en el navegador');
-    for (let i = 0; i < 40; i++) {
-      await new Promise(r => setTimeout(r, 2000));
-      const c = await F('cloudPoll', d.code);
-      if (c && c.user) { cloudPaint(c); toast('Exe conectado'); return; }
-    }
-  } catch (e) { toast(e.message || 'No se pudo abrir la página'); }
-}
-document.getElementById('cloud-google').onclick = cloudSocial;
-document.getElementById('cloud-discord').onclick = cloudSocial;
+document.getElementById('cloud-google').onclick = cloudWeb;
+document.getElementById('cloud-discord').onclick = cloudWeb;
 document.getElementById('cloud-out').onclick = async () => { cloudPaint(await F('cloudLogout')); };
 document.getElementById('cloud-file').onclick = async () => {
   const rows = Object.values((S && S.devices) || {});

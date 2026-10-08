@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/pro.css">
   <link rel="stylesheet" href="/m.css">
+  <link rel="stylesheet" href="/viz3.css">
+  <link rel="stylesheet" href="/v1-polish.css">
 </head>
 <body>
   <canvas id="particles"></canvas>
@@ -77,7 +79,7 @@
       </form>
 
       <form id="register-form" class="auth-form">
-        <div class="kind-pick" data-no-i18n>
+        <div class="kind-pick">
           <label class="kind-card">
             <input type="radio" name="reg-kind" value="personal" checked>
             <span class="kind-mark" aria-hidden="true"></span>
@@ -91,7 +93,7 @@
             <small>Perfil para el equipo</small>
           </label>
         </div>
-        <p class="muted small" data-no-i18n>Desde afuera se crea la cuenta y un perfil nuevo. Para unirte a una empresa, iniciá sesión con la cuenta que te dio el administrador.</p>
+        <p class="muted small">Desde afuera se crea la cuenta y un perfil nuevo. Para unirte a una empresa, iniciá sesión con la cuenta que te dio el administrador.</p>
         <div class="input-group">
           <label>Nombre completo <span class="req">*</span></label>
           <input type="text" id="reg-name" required>
@@ -231,7 +233,7 @@
             <a class="btn btn-primary" href="/download/agent" id="topo-download-btn" style="padding:.75rem 1.4rem;font-size:1rem;white-space:nowrap">Descargar aplicación Windows</a>
           </div>
         </div>
-        <div class="card glass" id="agent-panel" data-no-i18n>
+        <div class="card glass" id="agent-panel">
           <div class="tool-form">
             <strong>Red del agente</strong>
             <label class="btn btn-accent btn-sm">Importar JSON<input id="topo-import" type="file" accept=".json,application/json" hidden></label>
@@ -268,7 +270,7 @@
           <h2>Workspace <span class="fn-tip" data-fn="workspace" title="Armá un tablero personal con widgets de la plataforma y embeds externos.">!</span></h2>
           <p>Agregá funciones de IPHub, ordenalas, cambiá el tamaño y embebí recursos externos.</p>
         </div>
-        <div class="card glass" data-no-i18n>
+        <div class="card glass">
           <div class="tool-form" style="margin-bottom:.8rem">
             <select id="ws-add-widget">
               <option value="">Agregar widget…</option>
@@ -291,7 +293,7 @@
         </div>
       </section>
 
-      <section id="tracking" class="section" data-no-i18n>
+      <section id="tracking" class="section">
         <div class="section-header">
           <h2>Tracking Studio</h2>
           <p>IDE de logística, trazabilidad y telemetría. Fase 1: proyectos, envíos, eventos y mapa básico.</p>
@@ -299,7 +301,7 @@
         <!-- Shell inyectado por tracking.js -->
       </section>
 
-      <section id="intercept" class="section" data-no-i18n>
+      <section id="intercept" class="section">
         <div class="section-header">
           <h2>Interceptar <span class="fn-tip" data-fn="intercept" title="Analizador de peticiones HTTP en vivo. Solo el dueño.">!</span></h2>
           <p>Todas las peticiones HTTP que llegan a la plataforma, con cabeceras, cuerpo y tiempos. Exclusivo del dueño.</p>
@@ -307,7 +309,7 @@
         <div class="card glass" id="intercept-root"></div>
       </section>
 
-      <section id="code" class="section" data-no-i18n>
+      <section id="code" class="section">
         <div class="section-header">
           <h2>Código e inteligencia <span class="fn-tip" data-fn="code-intel" title="Repositorios, commits, funciones, Code Query, grafos y foro. Solo dueño.">!</span></h2>
           <p>Módulo exclusivo del dueño: repositorios, commits, análisis de funciones, consultas tipo SQL, grafos y foro.</p>
@@ -317,7 +319,7 @@
         </div>
       </section>
 
-      <section id="empresa" class="section" data-no-i18n>
+      <section id="empresa" class="section">
         <div class="section-header">
           <h2>Empresa y roles</h2>
           <p>Solo el dueño asigna roles, define qué puede usar cada uno y comparte un enlace.</p>
@@ -417,7 +419,7 @@
           </div>
         </div>
 
-        <div class="tool-panel" id="tool-innov" data-no-i18n></div>
+        <div class="tool-panel" id="tool-innov"></div>
 
         <div class="tool-panel" id="tool-speed">
           <div class="card glass">
@@ -535,7 +537,7 @@
       </section>
 
       <!-- ==================== ACCOUNT ==================== -->
-      <section id="manual" class="section" data-no-i18n>
+      <section id="manual" class="section">
         <div class="section-header"><h2>Manual</h2><p>Qué hace cada función, de dónde sale la información y si se puede compartir.</p></div>
         <div id="manual-body"></div>
       </section>
@@ -582,7 +584,7 @@
             <button class="btn btn-glass" id="regen-key-btn">Regenerar Clave</button>
           </div>
         </div>
-      <div class="card glass full-width" style="margin-top:1rem" data-no-i18n>
+      <div class="card glass full-width" style="margin-top:1rem">
           <h3>Asistente de IA y Aprender <span class="fn-tip" data-fn="ai-settings" title="Elegí proveedor, modelo y clave propia.">!</span></h3>
           <p class="muted small">Podés usar la IA del servidor o tu propia API (Groq, Gemini, OpenRouter, OpenAI u otra compatible). El prompt de Aprender define cómo se arman los quizzes.</p>
           <div class="grid-2" style="margin-top:.6rem">
@@ -651,6 +653,8 @@
   <script src="/code.js"></script>
   <script src="/innov.js"></script>
   <script src="/intercept.js"></script>
+  <script src="/viz3.js"></script>
+  <script src="/mods.js"></script>
   <script src="/topo-modes.js"></script>
   <script src="/m.js"></script>
 </body>

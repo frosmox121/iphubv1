@@ -177,3 +177,14 @@ El `.exe` NO va en el repositorio (es pesado): subilo en **Releases**. `node_mod
 - Guardado de la DB agrupado (antes bloqueaba el servidor → 502). Caché de idiomas reparada (+ persistida en Upstash).
 - Mapa de topología nuevo (`public/topo-pro.js`), capa visual `public/pro.css` + `public/pro.js`.
 - Exe: usa la dirección configurable de la página, reintentos si Render está dormido.
+
+
+## v1 · Cambios
+- Cambio de correo corregido (el último paso quedaba colgado: faltaba una función en la base JSON). Además, los handlers async ya no pueden dejar requests colgadas.
+- Ranking reiniciado una vez; la cuenta del dueño no participa del ranking.
+- Se quitó el bloque «Mi perfil / Agregar cuenta» (las cuentas se agregan con el +).
+- EXE: login con la página real dentro de una ventana (credenciales, Google y Discord); mapa arreglado (la CSP bloqueaba icons.js); vistas Radial y Globo con todos los hosts; analizador de paquetes con más de 60 protocolos.
+- WEB: Globo de hosts y Radial de hosts en Topología.
+- Plan y Estudio: pantallas reales de Entorno virtual, Claves API, Phishing y Commits/Foro.
+- Manual ampliado, chatbot actualizado, traducción sin zonas excluidas, capa visual v1-polish.css.
+- Ver DOMINIO-DONWEB-RENDER.txt para conectar el dominio.

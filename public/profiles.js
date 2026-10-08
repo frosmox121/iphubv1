@@ -11,6 +11,8 @@
   }
   function paint() {
     const box = document.getElementById('profile-box');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+    return; /* v1: se quitó el bloque 'Mi perfil / Agregar cuenta'; las cuentas se gestionan con el + */
     if (!box || !window.ME) return;
     const list = read().filter(a => !ME.profileId || a.profileId === ME.profileId);
     box.innerHTML = `<strong>${ME.isBusiness ? (ME.companyName || 'Empresa') : 'Mi perfil'}</strong>

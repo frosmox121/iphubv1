@@ -27,14 +27,22 @@ const ip4 = (b, o) => b[o] + '.' + b[o + 1] + '.' + b[o + 2] + '.' + b[o + 3];
 const ip6 = (b, o) => { const a = []; for (let i = 0; i < 8; i++) a.push(b.readUInt16BE(o + i * 2).toString(16)); return a.join(':').replace(/(^|:)0(:0)+(:|$)/, '::'); };
 const FL = [['FIN', 1], ['SYN', 2], ['RST', 4], ['PSH', 8], ['ACK', 16], ['URG', 32]];
 const flagStr = f => FL.filter(x => f & x[1]).map(x => x[0]).join(', ') || 'ninguno';
-const SERV = { 53: 'DNS', 80: 'HTTP', 443: 'TLS', 22: 'SSH', 67: 'DHCP', 68: 'DHCP', 123: 'NTP', 5353: 'mDNS', 1900: 'SSDP', 443.1: 'QUIC' };
+const SERV = { 20: 'FTP-DATA', 21: 'FTP', 22: 'SSH', 23: 'Telnet', 25: 'SMTP', 53: 'DNS', 67: 'DHCP', 68: 'DHCP', 69: 'TFTP', 80: 'HTTP', 88: 'Kerberos', 110: 'POP3', 111: 'RPC', 119: 'NNTP', 123: 'NTP', 135: 'MS-RPC', 137: 'NBNS', 138: 'NBDS', 139: 'NetBIOS', 143: 'IMAP', 161: 'SNMP', 162: 'SNMP-Trap', 179: 'BGP', 389: 'LDAP', 427: 'SLP', 443: 'TLS', 445: 'SMB', 465: 'SMTPS', 500: 'IKE', 514: 'Syslog', 515: 'LPD', 520: 'RIP', 546: 'DHCPv6', 547: 'DHCPv6', 554: 'RTSP', 587: 'SMTP', 631: 'IPP', 636: 'LDAPS', 853: 'DoT', 873: 'rsync', 993: 'IMAPS', 995: 'POP3S', 1080: 'SOCKS', 1194: 'OpenVPN', 1433: 'MSSQL', 1701: 'L2TP', 1723: 'PPTP', 1812: 'RADIUS', 1813: 'RADIUS', 1883: 'MQTT', 1900: 'SSDP', 2049: 'NFS', 3306: 'MySQL', 3389: 'RDP', 3478: 'STUN', 4500: 'IPsec-NAT', 5060: 'SIP', 5061: 'SIPS', 5222: 'XMPP', 5353: 'mDNS', 5355: 'LLMNR', 5432: 'PostgreSQL', 5683: 'CoAP', 5900: 'VNC', 6379: 'Redis', 6881: 'BitTorrent', 8080: 'HTTP', 8443: 'TLS', 8883: 'MQTT-TLS', 9100: 'JetDirect', 27017: 'MongoDB', 51820: 'WireGuard' };
+const IPP = { 2: 'IGMP', 4: 'IP-in-IP', 41: 'IPv6-in-IP', 47: 'GRE', 50: 'ESP', 51: 'AH', 88: 'EIGRP', 89: 'OSPF', 103: 'PIM', 112: 'VRRP', 115: 'L2TP', 132: 'SCTP', 136: 'UDPLite' };
+const ETYPE = { 0x88cc: 'LLDP', 0x888e: 'EAPOL', 0x88f7: 'PTP', 0x8847: 'MPLS', 0x8848: 'MPLS', 0x8863: 'PPPoE', 0x8864: 'PPPoE', 0x88a8: 'QinQ', 0x8906: 'FCoE', 0x0842: 'WoL', 0x8100: 'VLAN' };
+const ICMP6 = { 128: 'Echo solicitud', 129: 'Echo respuesta', 133: 'Router Solicitation', 134: 'Router Advertisement', 135: 'Neighbor Solicitation', 136: 'Neighbor Advertisement', 143: 'MLDv2 Report' };
+const DHCPT = { 1: 'Discover', 2: 'Offer', 3: 'Request', 4: 'Decline', 5: 'ACK', 6: 'NAK', 7: 'Release', 8: 'Inform' };
+function sniOf(p) { try { if (p[5] !== 1) return ''; let i = 43; i += 1 + p[i]; i += 2 + p.readUInt16BE(i); i += 1 + p[i]; const end = i + 2 + p.readUInt16BE(i); i += 2; while (i + 4 <= end && i + 4 <= p.length) { const ty = p.readUInt16BE(i), ln = p.readUInt16BE(i + 2); if (ty === 0) return ' · Client Hello SNI=' + p.toString('latin1', i + 9, i + 4 + ln); i += 4 + ln; } } catch (_) {} return ''; }
 // Decodificador propio (Ethernet / IPv4 / IPv6 / ARP / TCP / UDP / ICMP) para el caso tcpdump y para el hexdump
 function decode(b) {
   const L = {}; let proto = 'Ethernet', src = '', dst = '', info = '', off = 14;
   if (b.length < 14) return { layers: L, proto, src, dst, info };
   L['Ethernet II'] = { 'Destino': mac(b.slice(0, 6)), 'Origen': mac(b.slice(6, 12)), 'Tipo': '0x' + b.readUInt16BE(12).toString(16).padStart(4, '0') };
   src = mac(b.slice(6, 12)); dst = mac(b.slice(0, 6));
-  const et = b.readUInt16BE(12); let ipp = 0, ipEnd = b.length;
+  let et = b.readUInt16BE(12); let ipp = 0, ipEnd = b.length;
+  if (et === 0x8100 && b.length >= 18) { L['VLAN 802.1Q'] = { 'ID': b.readUInt16BE(14) & 0xfff, 'Prioridad': b[14] >> 5 }; b = Buffer.concat([b.slice(0, 12), b.slice(16)]); et = b.readUInt16BE(12); }
+  if (et < 0x600 && b.length > 17 && b[14] === 0x42 && b[15] === 0x42) return { layers: L, proto: 'STP', src, dst, info: 'Spanning Tree (BPDU)' };
+  if (ETYPE[et] && et !== 0x8100) { L[ETYPE[et]] = { 'Tipo': '0x' + et.toString(16) }; return { layers: L, proto: ETYPE[et], src, dst, info: ETYPE[et] + ' · ' + (b.length - 14) + ' bytes' }; }
   if (et === 0x0806 && b.length >= 42) { proto = 'ARP'; const op = b.readUInt16BE(20); src = ip4(b, 28); dst = ip4(b, 38); L['ARP'] = { 'Operación': op === 1 ? 'solicitud' : 'respuesta', 'MAC emisor': mac(b.slice(22, 28)), 'IP emisor': src, 'MAC destino': mac(b.slice(32, 38)), 'IP destino': dst }; info = op === 1 ? 'Quién tiene ' + dst + '? Decile a ' + src : src + ' está en ' + mac(b.slice(22, 28)); return { layers: L, proto, src, dst, info }; }
   if (et === 0x0800 && b.length >= 34) { const ihl = (b[14] & 15) * 4; ipp = b[23]; src = ip4(b, 26); dst = ip4(b, 30); off = 14 + ihl; proto = 'IPv4'; L['IPv4'] = { 'Versión': 4, 'Largo cabecera': ihl, 'Largo total': b.readUInt16BE(16), 'TTL': b[22], 'Protocolo': ipp, 'Origen': src, 'Destino': dst }; }
   else if (et === 0x86dd && b.length >= 54) { ipp = b[20]; src = ip6(b, 22); dst = ip6(b, 38); off = 54; proto = 'IPv6'; L['IPv6'] = { 'Siguiente cabecera': ipp, 'Límite de saltos': b[21], 'Origen': src, 'Destino': dst }; }
@@ -42,13 +50,17 @@ function decode(b) {
   let sp = 0, dp = 0, pl = Buffer.alloc(0);
   if (ipp === 6 && b.length >= off + 20) { sp = b.readUInt16BE(off); dp = b.readUInt16BE(off + 2); const fl = b[off + 13], hl = (b[off + 12] >> 4) * 4; pl = b.slice(off + hl); proto = 'TCP'; L['TCP'] = { 'Puerto origen': sp, 'Puerto destino': dp, 'Secuencia': b.readUInt32BE(off + 4), 'Confirmación': b.readUInt32BE(off + 8), 'Banderas': flagStr(fl), 'Ventana': b.readUInt16BE(off + 14), 'Datos': pl.length }; info = sp + ' → ' + dp + ' [' + flagStr(fl) + '] Seq=' + b.readUInt32BE(off + 4) + ' Len=' + pl.length; }
   else if (ipp === 17 && b.length >= off + 8) { sp = b.readUInt16BE(off); dp = b.readUInt16BE(off + 2); pl = b.slice(off + 8); proto = 'UDP'; L['UDP'] = { 'Puerto origen': sp, 'Puerto destino': dp, 'Largo': b.readUInt16BE(off + 4) }; info = sp + ' → ' + dp + ' Len=' + pl.length; }
-  else if (ipp === 1 || ipp === 58) { proto = ipp === 1 ? 'ICMP' : 'ICMPv6'; const ty = b[off]; L[proto] = { 'Tipo': ty, 'Código': b[off + 1] }; info = ipp === 1 ? (ty === 8 ? 'Echo (ping) solicitud' : ty === 0 ? 'Echo (ping) respuesta' : 'Tipo ' + ty) : 'Tipo ' + ty; }
+  else if (ipp === 1 || ipp === 58) { proto = ipp === 1 ? 'ICMP' : 'ICMPv6'; const ty = b[off]; L[proto] = { 'Tipo': ty, 'Código': b[off + 1] }; info = ipp === 1 ? (ty === 8 ? 'Echo (ping) solicitud' : ty === 0 ? 'Echo (ping) respuesta' : ty === 3 ? 'Destino inalcanzable' : ty === 11 ? 'TTL excedido' : 'Tipo ' + ty) : (ICMP6[ty] || 'Tipo ' + ty); }
+  else if (IPP[ipp]) { proto = IPP[ipp]; L[proto] = { 'Protocolo IP': ipp }; info = proto + ' · ' + (b.length - off) + ' bytes'; }
+  else if (ipp) { proto = 'IP/' + ipp; info = 'Protocolo IP ' + ipp; }
   const sv = SERV[dp] || SERV[sp];
   if (sv && (proto === 'TCP' || proto === 'UDP')) {
     if (sv === 'HTTP' && pl.length) { const s = pl.toString('latin1', 0, 400); const m = s.match(/^([A-Z]{3,7} \S+ HTTP\/[\d.]+|HTTP\/[\d.]+ \d+[^\r\n]*)/); if (m) { proto = 'HTTP'; info = m[1]; L['HTTP'] = { 'Mensaje': s.split('\r\n\r\n')[0].slice(0, 600) }; } }
-    else if (sv === 'DNS' && proto === 'UDP' && pl.length > 12) { proto = 'DNS'; let i = 12, n = []; while (i < pl.length && pl[i] && pl[i] < 64 && n.length < 10) { n.push(pl.toString('latin1', i + 1, i + 1 + pl[i])); i += pl[i] + 1; } const resp = pl[2] & 0x80; info = (resp ? 'Respuesta' : 'Consulta') + ' ' + n.join('.'); L['DNS'] = { 'Tipo': resp ? 'respuesta' : 'consulta', 'Nombre': n.join('.') }; }
-    else if (sv === 'TLS' && pl.length > 5 && pl[0] >= 20 && pl[0] <= 23 && pl[1] === 3) { proto = 'TLS'; info = pl[0] === 22 ? 'Handshake' : pl[0] === 23 ? 'Datos de aplicación (cifrado)' : 'Registro TLS'; L['TLS'] = { 'Tipo de registro': pl[0], 'Versión': pl[1] + '.' + pl[2] }; }
-    else if (sv !== 'HTTP' && sv !== 'DNS' && sv !== 'TLS') proto = sv;
+    else if ((sv === 'DNS' || sv === 'mDNS' || sv === 'LLMNR') && proto === 'UDP' && pl.length > 12) { proto = sv; let i = 12, n = []; while (i < pl.length && pl[i] && pl[i] < 64 && n.length < 10) { n.push(pl.toString('latin1', i + 1, i + 1 + pl[i])); i += pl[i] + 1; } const resp = pl[2] & 0x80; info = (resp ? 'Respuesta' : 'Consulta') + ' ' + n.join('.'); L['DNS'] = { 'Tipo': resp ? 'respuesta' : 'consulta', 'Nombre': n.join('.') }; }
+    else if (sv === 'TLS' && pl.length > 5 && pl[0] >= 20 && pl[0] <= 23 && pl[1] === 3) { proto = 'TLS'; info = pl[0] === 22 ? ('Handshake' + sniOf(pl)) : pl[0] === 23 ? 'Datos de aplicación (cifrado)' : 'Registro TLS'; L['TLS'] = { 'Tipo de registro': pl[0], 'Versión': pl[1] + '.' + pl[2] }; }
+    else if (sv === 'DHCP' && pl.length > 240) { proto = 'DHCP'; let t = 0; for (let i = 240; i < pl.length - 2;) { const o = pl[i]; if (o === 255) break; if (o === 0) { i++; continue; } if (o === 53) t = pl[i + 2]; i += 2 + pl[i + 1]; } info = 'DHCP ' + (DHCPT[t] || 'mensaje') + ' · cliente ' + mac(pl.slice(28, 34)); L['DHCP'] = { 'Operación': pl[0] === 1 ? 'solicitud' : 'respuesta', 'IP ofrecida': ip4(pl, 16), 'MAC cliente': mac(pl.slice(28, 34)), 'Tipo': DHCPT[t] || t }; }
+    else if (sv === 'TLS' && proto === 'UDP') { proto = 'QUIC'; info = sp + ' → ' + dp + ' Len=' + pl.length; L['QUIC'] = { 'Bytes': pl.length }; }
+    else if (sv !== 'HTTP' && sv !== 'DNS' && sv !== 'TLS') { proto = sv; if (pl.length && !info.includes('Len=')) info += ' · ' + pl.length + ' bytes'; }
   }
   if (pl.length) L['Datos'] = { 'Bytes': pl.length };
   return { layers: L, proto, src, dst, info };

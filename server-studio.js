@@ -8,10 +8,10 @@ module.exports = function register(app, ctx) {
     { id: 'studio', name: 'Estudio modular + IA', desc: 'Cambiá colores, orden y secciones de la página por bloques, con 3 espacios guardados.', ready: true, admin: true },
     { id: 'embed', name: 'Modo embebido', desc: 'La página dentro de otras apps (iframe): agregá ?embed=1 a la URL.', ready: true, admin: false },
     { id: 'a11y', name: 'Accesibilidad', desc: 'Daltonismo, texto grande, contraste, dislexia y más.', ready: true, admin: false },
-    { id: 'sandbox', name: 'Entorno virtual de red', desc: 'Mapa IP editable con pruebas de traza y estrés controlado.', ready: false, admin: true },
-    { id: 'apitrack', name: 'Seguimiento de claves API', desc: 'El administrador ve a qué servicios se conecta cada empleado.', ready: false, admin: true },
-    { id: 'phish', name: 'Simulacro de phishing', desc: 'Campañas internas con consentimiento para medir concientización.', ready: false, admin: true },
-    { id: 'commits', name: 'Commits y foro empresarial', desc: 'Vistas compartibles con commit a GitHub o a un repositorio privado.', ready: false, admin: true },
+    { id: 'sandbox', name: 'Entorno virtual de red', desc: 'Mapa IP editable con pruebas de traza y estrés controlado.', ready: true, admin: true },
+    { id: 'apitrack', name: 'Seguimiento de claves API', desc: 'El administrador ve a qué servicios se conecta cada empleado.', ready: true, admin: true },
+    { id: 'phish', name: 'Simulacro de phishing', desc: 'Campañas internas con consentimiento para medir concientización.', ready: true, admin: true },
+    { id: 'commits', name: 'Commits y foro empresarial', desc: 'Vistas compartibles con commit a GitHub o a un repositorio privado.', ready: true, admin: true },
   ];
   const isOwner = u => !!u && (String(u.email || '').toLowerCase() === OWNER || u.isOwner === true);
   const gate = (req, res, next) => isOwner(req.user) ? next() : res.status(403).json({ error: 'Función de suscripción: por ahora solo la cuenta oficial.' });
