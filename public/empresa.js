@@ -249,8 +249,9 @@
     try {
       await api('/api/agent/link/confirm', { method: 'POST', body: { code } });
       if (typeof toast === 'function') toast('Exe conectado a esta cuenta');
+      if (window.__linkOk) window.__linkOk();
       history.replaceState({}, '', '/topologia');
-    } catch (err) { if (typeof toast === 'function') toast(err.message || 'No se pudo conectar el exe'); }
+    } catch (err) { if (window.__linkErr) window.__linkErr(err.message); if (typeof toast === 'function') toast(err.message || 'No se pudo conectar el exe'); }
   }
   function boot() {
     if (typeof ME === 'undefined' || !ME) return;

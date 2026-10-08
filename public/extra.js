@@ -25,6 +25,35 @@
 
 // ---------- Continuar con Google / Discord ----------
 (function social() {
+  // ----- Conectar el exe: el exe abre /?conectar=CODIGO[&p=google|discord] en el navegador -----
+  const LQ = new URLSearchParams(location.search), LINK = (LQ.get('conectar') || '').replace(/[^a-f0-9]/gi, '').slice(0, 64), LP = LQ.get('p') || '';
+  let banner = null;
+  const bn = (txt, cls) => {
+    if (!banner) { banner = document.createElement('div'); banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;padding:.7rem 1rem;text-align:center;font:600 14px system-ui;color:#fff;background:#0891b2;box-shadow:0 2px 12px #0006'; document.body.appendChild(banner); }
+    banner.textContent = txt; banner.style.background = cls === 'ok' ? '#16a34a' : cls === 'err' ? '#dc2626' : '#0891b2';
+  };
+  window.__linkOk = () => bn('✓ Listo: el exe ya está conectado a tu cuenta. Podés cerrar esta pestaña y volver a la app.', 'ok');
+  window.__linkErr = m => bn('No se pudo conectar el exe: ' + m, 'err');
+  if (LINK) addEventListener('DOMContentLoaded', () => bn('Conectando tu exe de IPHub… ' + (LP === 'google' ? 'tocá «Google» para continuar.' : LP === 'discord' ? 'te llevamos a Discord…' : 'iniciá sesión o registrate y se conecta solo.')));
+  // Vuelta de Discord en pantalla completa (sin popup): /auth/discord#access_token=...&state=CODIGO
+  if (!window.opener && /access_token=/.test(location.hash) && /^\/auth\/discord/.test(location.pathname)) {
+    const h = new URLSearchParams(location.hash.slice(1)), st = (h.get('state') || '').replace(/[^a-f0-9]/gi, '');
+    history.replaceState({}, '', '/');
+    addEventListener('DOMContentLoaded', async () => {
+      try {
+        bn('Validando Discord…');
+        const r = await fetch('/api/auth/discord', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessToken: h.get('access_token') }) });
+        const d = await r.json(); if (!r.ok) throw new Error(d.error || 'No se pudo iniciar sesión con Discord');
+        if (st) {
+          const c = await fetch('/api/agent/link/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + d.token }, body: JSON.stringify({ code: st }) });
+          const cj = await c.json().catch(() => ({})); if (!c.ok) throw new Error(cj.error || 'No se pudo conectar el exe');
+          try { localStorage.setItem('iphub_token', d.token); } catch (_) {}
+          window.__linkOk();
+        } else { localStorage.setItem('iphub_token', d.token); location.replace('/'); }
+      } catch (e) { bn(e.message || String(e), 'err'); }
+    });
+    return;
+  }
   // Popup de Discord: devuelve el token a la ventana principal y se cierra
   if (window.opener && (/access_token=/.test(location.hash) || /error=/.test(location.search + location.hash))) {
     const h = new URLSearchParams(location.hash.slice(1)), q = new URLSearchParams(location.search);
@@ -50,6 +79,11 @@
 
   fetch('/api/auth/config').then(r => r.json()).then(c => {
     cfg = Object.assign(cfg, c);
+    if (LINK && LP === 'discord' && !localStorage.getItem('iphub_token')) { // el exe pidió Discord: va directo a authorize
+      location.replace(`https://discord.com/oauth2/authorize?client_id=${cfg.discordClientId}&response_type=token&redirect_uri=${encodeURIComponent(cfg.discordRedirect)}&scope=identify+email&state=${LINK}`);
+      return;
+    }
+    if (LINK && LP === 'google') { gBtn.style.boxShadow = '0 0 0 3px #06b6d4'; gBtn.scrollIntoView({ block: 'center' }); }
     gBtn.disabled = !cfg.googleClientId; gBtn.style.opacity = cfg.googleClientId ? '1' : '.5';
     if (!cfg.googleClientId) { gBtn.title = 'Falta GOOGLE_CLIENT_ID en .env'; return; }
     // Se precarga el script para que el clic abra la ventana sin que el navegador la bloquee

@@ -1813,7 +1813,7 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1555536920858337371';
 
 app.get('/api/auth/config', (req, res) => {
-  res.json({ googleClientId: GOOGLE_CLIENT_ID, discordClientId: DISCORD_CLIENT_ID, discordRedirect: process.env.DISCORD_REDIRECT_URI || ((process.env.APP_URL || '').replace(/\/$/, '') + '/auth/discord') });
+  res.json({ googleClientId: GOOGLE_CLIENT_ID, discordClientId: DISCORD_CLIENT_ID, discordRedirect: process.env.DISCORD_REDIRECT_URI || ((process.env.APP_URL || (String(req.headers['x-forwarded-proto'] || req.protocol) + '://' + req.get('host'))).replace(/\/$/, '') + '/auth/discord') });
 });
 
 // Busca la cuenta por email; si no existe la crea ya verificada (el proveedor verificó el correo).

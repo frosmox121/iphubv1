@@ -143,23 +143,36 @@ module.exports = function register(app, ctx) {
     return snap;
   }
 
+  const linkHits = {};
   app.post('/api/agent/link/start', (req, res) => {
     ensureOrg();
-    const code = crypto.randomBytes(4).toString('hex');
+    const ip = String(req.ip || ''); const now = Date.now();
+    linkHits[ip] = (linkHits[ip] || []).filter(t => now - t < 60000); // máx. 20 códigos por minuto por IP
+    if (linkHits[ip].length >= 20) return res.status(429).json({ error: 'Demasiados intentos. Esperá un minuto.' });
+    linkHits[ip].push(now);
+    const code = crypto.randomBytes(12).toString('hex');
     const links = db.get('agentLinks').value() || {};
-    links[code] = { code, at: Date.now(), exp: Date.now() + 10 * 60 * 1000, token: null };
+    for (const k of Object.keys(links)) if (links[k].exp < now) delete links[k];
+    links[code] = { code, at: now, exp: now + 10 * 60 * 1000, token: null };
     db.set('agentLinks', links).write();
     const host = req.get('host');
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-    res.json({ code, url: `${proto}://${host}/conectar-agente?code=${code}` });
+    res.json({ code, url: `${proto}://${host}/?conectar=${code}` });
   });
 
-  app.get('/api/agent/link/status', (req, res) => {
+  // Long-poll: si pasás ?wait=N (seg, máx 25) responde en cuanto el navegador confirma (conexión instantánea)
+  app.get('/api/agent/link/status', async (req, res) => {
     const code = String(req.query.code || '');
-    const row = (db.get('agentLinks').value() || {})[code];
-    if (!row || row.exp < Date.now()) return res.status(404).json({ error: 'Código vencido. Generá otro desde el exe.' });
-    if (!row.token) return res.json({ pending: true });
-    res.json({ token: row.token, user: row.user });
+    const wait = Math.min(25, Math.max(0, parseInt(req.query.wait || '0', 10) || 0)) * 1000;
+    const end = Date.now() + wait; let closed = false; req.on('close', () => { closed = true; });
+    for (;;) {
+      const links = db.get('agentLinks').value() || {};
+      const row = links[code];
+      if (!row || row.exp < Date.now()) return res.status(404).json({ error: 'Código vencido. Generá otro desde el exe.' });
+      if (row.token) { delete links[code]; db.set('agentLinks', links).write(); return res.json({ token: row.token, user: row.user }); } // un solo uso
+      if (closed || Date.now() >= end) return res.json({ pending: true });
+      await new Promise(r => setTimeout(r, 200));
+    }
   });
 
   app.post('/api/agent/link/confirm', requireAuth, (req, res) => {
