@@ -1813,7 +1813,7 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '1555536920858337371';
 
 app.get('/api/auth/config', (req, res) => {
-  res.json({ googleClientId: GOOGLE_CLIENT_ID, discordClientId: DISCORD_CLIENT_ID, discordRedirect: process.env.DISCORD_REDIRECT_URI || ((process.env.APP_URL || (String(req.headers['x-forwarded-proto'] || req.protocol) + '://' + req.get('host'))).replace(/\/$/, '') + '/auth/discord') });
+  res.json({ googleClientId: GOOGLE_CLIENT_ID, discordClientId: DISCORD_CLIENT_ID, discordRedirect: process.env.DISCORD_REDIRECT_URI || ((process.env.APP_URL || (/^(localhost|127\.|192\.168\.|10\.)/.test(req.get('host') || '') ? String(req.protocol) + '://' + req.get('host') : 'https://iphub.com.ar')).replace(/\/$/, '') + '/auth/discord') });
 });
 
 // Busca la cuenta por email; si no existe la crea ya verificada (el proveedor verificó el correo).
@@ -1973,7 +1973,7 @@ app.get('*', (req, res) => {
 });
 
 if (typeof global.iphubEnsureOwner === 'function') global.iphubEnsureOwner().catch(e => console.error(e));
-if (process.env.RENDER_EXTERNAL_URL) setInterval(() => { fetch(process.env.RENDER_EXTERNAL_URL + '/').catch(() => {}); }, 10 * 60 * 1000); // evita que Render Free se duerma
+if (process.env.RENDER || process.env.RENDER_EXTERNAL_URL) setInterval(() => { fetch((process.env.APP_URL || 'https://iphub.com.ar').replace(/\/$/, '') + '/api/auth/config').catch(() => {}); }, 8 * 60 * 1000); // evita que Render Free se duerma
 process.on('uncaughtException', e => console.error('[uncaught]', e && e.stack || e));
 process.on('unhandledRejection', e => console.error('[unhandled]', e && e.stack || e));
 app.use((err, req, res, next) => { console.error('[express]', err && err.message); if (res.headersSent) return next(err); res.status(500).json({ error: 'Error interno del servidor' }); });

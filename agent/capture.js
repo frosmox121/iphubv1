@@ -11,10 +11,48 @@ function findTool() {
   for (const x of c) { if (path.isAbsolute(x.p) && !fs.existsSync(x.p)) continue; return x; }
   return null;
 }
+function findDumpcap(t) { // dumpcap viene con Wireshark: escribe pcap por stdout en vivo (más estable que parsear la salida de tshark)
+  if (!t || t.n !== 'tshark') return null;
+  const cand = path.isAbsolute(t.p) ? path.join(path.dirname(t.p), process.platform === 'win32' ? 'dumpcap.exe' : 'dumpcap') : (process.platform === 'win32' ? 'dumpcap.exe' : 'dumpcap');
+  if (path.isAbsolute(cand) && !fs.existsSync(cand)) return null;
+  return cand;
+}
+// Mensajes informativos de tshark/dumpcap que NO son errores (p. ej. "Capturing on…", "[Main MESSAGE] -- File: …")
+const INFO_RE = /^\s*$|Capturing on|\[Main MESSAGE\]|-- File:|packets? (captured|dropped|received)|^\s*\d+\s*$|Running as user|Running as/i;
+function realErr(se) { const l = String(se).split(/\r?\n/).map(x => x.trim()).filter(x => x && !INFO_RE.test(x)); return l.length ? l.slice(-2).join(' · ') : ''; }
+// Parser de pcap en streaming (libpcap clásico) + adaptación de enlaces no-Ethernet a Ethernet para reutilizar decode()
+function toEth(lt, b) {
+  const fake = et => { const h = Buffer.alloc(14); h.writeUInt16BE(et, 12); return h; };
+  if (lt === 1) return b;
+  if (lt === 0 && b.length > 4) return Buffer.concat([fake((b[4] >> 4) === 6 ? 0x86dd : 0x0800), b.slice(4)]); // loopback de Npcap / BSD
+  if ((lt === 101 || lt === 228 || lt === 229) && b.length > 0) return Buffer.concat([fake((b[0] >> 4) === 6 ? 0x86dd : 0x0800), b]);
+  if (lt === 113 && b.length > 16) return Buffer.concat([fake(b.readUInt16BE(14)), b.slice(16)]); // Linux cooked
+  return b;
+}
+function pcapStream(onPkt, onFail) {
+  let acc = Buffer.alloc(0), le = true, ns = false, lt = 1, hdr = false;
+  return chunk => {
+    acc = acc.length ? Buffer.concat([acc, chunk]) : chunk;
+    if (!hdr) {
+      if (acc.length < 24) return;
+      const m = acc.readUInt32LE(0);
+      if (m === 0xa1b2c3d4) { le = true; ns = false; } else if (m === 0xd4c3b2a1) { le = false; ns = false; } else if (m === 0xa1b23c4d) { le = true; ns = true; } else if (m === 0x4d3cb2a1) { le = false; ns = true; }
+      else { acc = Buffer.alloc(0); return onFail('La herramienta de captura devolvió un formato inesperado.'); }
+      lt = (le ? acc.readUInt32LE(20) : acc.readUInt32BE(20)) & 0x0fffffff; acc = acc.slice(24); hdr = true;
+    }
+    while (acc.length >= 16) {
+      const rd = o => le ? acc.readUInt32LE(o) : acc.readUInt32BE(o), incl = rd(8);
+      if (incl > 1 << 24) { acc = Buffer.alloc(0); return onFail('Captura corrupta.'); }
+      if (acc.length < 16 + incl) break;
+      onPkt(toEth(lt, Buffer.from(acc.slice(16, 16 + incl))), rd(0) * 1000 + Math.floor(rd(4) / (ns ? 1e6 : 1e3)), rd(12));
+      acc = acc.slice(16 + incl);
+    }
+  };
+}
 function ifaces() {
   return new Promise(res => {
     const t = findTool(); if (!t) return res({ error: 'No se encontró tshark ni tcpdump. En Windows instalá Wireshark (incluye Npcap) y ejecutá IPHub como administrador. En Linux/macOS instalá tcpdump o wireshark-cli.', list: [] });
-    execFile(t.p, ['-D'], { timeout: 8000 }, (e, out) => {
+    execFile(t.p, ['-D'], { timeout: 15000, windowsHide: true }, (e, out) => {
       if (e && !out) return res({ error: 'No se pudo listar interfaces: ' + e.message, list: [] });
       const list = String(out).split(/\r?\n/).map(l => l.match(/^(\d+)\.\s*(\S+)\s*(?:\((.*?)\))?/)).filter(Boolean).map(m => ({ id: m[1], dev: m[2], name: m[3] || m[2] }));
       res({ tool: t.n, list });
@@ -77,21 +115,43 @@ function fromEK(o) {
   return { src: g('ip_ip_src') || g('ipv6_ipv6_src') || d.src, dst: g('ip_ip_dst') || g('ipv6_ipv6_dst') || d.dst, proto: proto === 'IP' ? d.proto : proto, info: info || d.info, layers: Object.assign({ Trama: { 'Largo': +g('frame_frame_len') || b.length, 'Protocolos': prots.join(' > ') } }, Object.keys(tree).length ? tree : d.layers), bytes: b, len: +g('frame_frame_len') || b.length };
 }
 function push(p) { p.id = ++seq; buf.push(p); stats.bytes += p.len || 0; stats.proto[p.proto] = (stats.proto[p.proto] || 0) + 1; if (buf.length > MAX) buf.splice(0, buf.length - MAX); }
+let stopping = false, startedAt = 0;
 function start({ iface, filter } = {}) {
   if (proc) return status(); err = '';
   const t = findTool(); if (!t) { err = 'No se encontró tshark ni tcpdump. Instalá Wireshark (con Npcap) o tcpdump.'; return status(); }
-  tool = t.n; t0 = Date.now(); const f = String(filter || '').slice(0, 200);
-  const args = t.n === 'tshark' ? ['-l', '-n', '-i', String(iface || '1'), '-T', 'ek', '-x'].concat(f ? ['-f', f] : []) : ['-l', '-n', '-tt', '-xx', '-s', '262144', '-i', String(iface || 'any')].concat(f ? f.split(/\s+/) : []);
-  try { proc = spawn(t.p, args, { windowsHide: true }); } catch (e) { err = e.message; proc = null; return status(); }
-  const rl = readline.createInterface({ input: proc.stdout });
-  if (t.n === 'tshark') rl.on('line', l => { if (l[0] !== '{' || l.startsWith('{"index"')) return; try { const p = fromEK(JSON.parse(l)); if (p) { p.t = Date.now(); push(p); } } catch (_) {} });
-  else { let cur = null; const fin = () => { if (!cur) return; const b = Buffer.from(cur.hex.join(''), 'hex'), d = decode(b); push({ t: cur.ts, src: d.src, dst: d.dst, proto: d.proto, info: d.info || cur.txt.slice(0, 120), layers: d.layers, bytes: b, len: b.length }); cur = null; };
-    rl.on('line', l => { const h = l.match(/^(\d+\.\d+)\s+(.*)$/); if (h) { fin(); cur = { ts: Math.round(+h[1] * 1000), txt: h[2], hex: [] }; return; } const x = l.match(/^\s+0x[0-9a-f]+:\s+((?:[0-9a-f]{2,4}\s?)+)/i); if (x && cur) cur.hex.push(x[1].replace(/\s/g, '')); }); rl.on('close', fin); }
-  let se = ''; proc.stderr.on('data', d => { se += d; if (se.length > 600) se = se.slice(-600); if (/permission|denied|privilegios|root|administrator|Access is denied|not permitted/i.test(se)) err = 'Sin permisos de captura. Ejecutá IPHub como administrador (Windows) o con sudo/permisos de red (Linux/macOS).'; else if (/no such device|doesn.t exist|not found/i.test(se)) err = 'Interfaz no encontrada.'; });
-  proc.on('error', e => { err = e.message; proc = null; }); proc.on('close', () => { if (!err && se && !buf.length) err = se.trim().split('\n').pop(); proc = null; });
+  const dc = findDumpcap(t), f = String(filter || '').trim().slice(0, 200), ifc = String(iface || '').trim() || (t.n === 'tcpdump' ? 'any' : '1');
+  if (!/^[\w.:\\{}\-\\/ ]+$/.test(ifc) && ifc) { err = 'Interfaz inválida.'; return status(); }
+  if (f && !/^[\w\s.:()!&|<>=\-\/\[\]]+$/.test(f)) { err = 'Filtro de captura inválido (usá sintaxis BPF, por ejemplo: tcp port 80).'; return status(); }
+  tool = dc ? 'dumpcap' : t.n; t0 = Date.now(); startedAt = t0; stopping = false;
+  let cmd, args, mode;
+  if (dc) { cmd = dc; mode = 'pcap'; args = ['-q', '-P', '-i', ifc, '-w', '-'].concat(f ? ['-f', f] : []); }
+  else if (t.n === 'tshark') { cmd = t.p; mode = 'ek'; args = ['-l', '-n', '-i', ifc, '-T', 'ek', '-x'].concat(f ? ['-f', f] : []); }
+  else { cmd = t.p; mode = 'tcpdump'; args = ['-l', '-n', '-tt', '-xx', '-s', '262144', '-i', ifc].concat(f ? f.split(/\s+/) : []); }
+  try { proc = spawn(cmd, args, { windowsHide: true }); } catch (e) { err = 'No se pudo ejecutar ' + path.basename(cmd) + ': ' + e.message; proc = null; return status(); }
+  const me = proc; let se = '', npk = 0;
+  const addPkt = (b, ts, orig) => { const d = decode(b); npk++; push({ t: ts || Date.now(), src: d.src, dst: d.dst, proto: d.proto, info: d.info, layers: d.layers, bytes: b, len: orig || b.length }); };
+  if (mode === 'pcap') me.stdout.on('data', pcapStream(addPkt, m => { err = m; }));
+  else {
+    const rl = readline.createInterface({ input: me.stdout });
+    if (mode === 'ek') rl.on('line', l => { l = l.trim(); if (l[0] !== '{' || l.startsWith('{"index"')) return; try { const p = fromEK(JSON.parse(l)); if (p) { p.t = Date.now(); npk++; push(p); } } catch (_) {} });
+    else { let cur = null; const fin = () => { if (!cur) return; const b = Buffer.from(cur.hex.join(''), 'hex'); cur.ts && addPkt(b, cur.ts); cur = null; };
+      rl.on('line', l => { const h = l.match(/^(\d+\.\d+)\s+(.*)$/); if (h) { fin(); cur = { ts: Math.round(+h[1] * 1000), hex: [] }; return; } const x = l.match(/^\s+0x[0-9a-f]+:\s+((?:[0-9a-f]{2,4}\s?)+)/i); if (x && cur) cur.hex.push(x[1].replace(/\s/g, '')); }); rl.on('close', fin); }
+  }
+  me.stderr.on('data', d => {
+    se += d.toString('utf8'); if (se.length > 2000) se = se.slice(-2000);
+    const e = realErr(se);
+    if (/permission|denied|privilegios|administrator|Access is denied|not permitted|failed to open|No tiene permiso/i.test(e)) err = 'Sin permisos de captura. Ejecutá IPHub como administrador (clic derecho > Ejecutar como administrador) o reinstalá Npcap permitiendo capturar a todos los usuarios.';
+    else if (/no such device|doesn.t exist|no existe|There is no interface|not found|No interface/i.test(e)) err = 'Interfaz no encontrada. Elegí otra de la lista.';
+    else if (/filter|syntax error/i.test(e)) err = 'Filtro de captura inválido: ' + e;
+  });
+  me.on('error', e => { err = 'No se pudo ejecutar ' + path.basename(cmd) + ': ' + e.message; if (proc === me) proc = null; });
+  me.on('close', code => {
+    if (proc === me) proc = null;
+    if (!stopping && !err) { const e = realErr(se); if (code && code !== 0) err = e ? 'La captura se detuvo: ' + e : 'La captura se detuvo (código ' + code + '). Probá ejecutar IPHub como administrador y verificá que Npcap esté instalado.'; else if (!npk && Date.now() - startedAt < 4000) err = e || 'La captura terminó sin capturar paquetes. Probá otra interfaz o ejecutá IPHub como administrador.'; }
+  });
   return status();
 }
-function stop() { if (proc) { try { proc.kill(); } catch (_) {} proc = null; } return status(); }
+function stop() { stopping = true; if (proc) { try { proc.kill(); } catch (_) {} proc = null; } return status(); }
 function status() { return { running: !!proc, tool, last: seq, error: err, total: buf.length, bytes: stats.bytes, proto: stats.proto, since: t0 }; }
 function list(since) { const s = +since || 0; return Object.assign(status(), { items: buf.filter(p => p.id > s).slice(0, 500).map(p => ({ id: p.id, t: p.t, src: p.src, dst: p.dst, proto: p.proto, len: p.len, info: p.info })) }); }
 function packet(id) { const p = buf.find(x => x.id === +id); return p ? { id: p.id, t: p.t, len: p.len, proto: p.proto, layers: p.layers, hex: p.bytes.toString('hex') } : { error: 'Paquete no disponible' }; }

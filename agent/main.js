@@ -12,7 +12,7 @@ const teleEngine = getEngine();
 function logf() { return path.join(app.getPath('userData'), 'iphub-exe.log'); }
 function log(m) { try { fs.mkdirSync(path.dirname(logf()), { recursive: true }); fs.appendFileSync(logf(), new Date().toISOString() + ' ' + m + '\n'); } catch (_) {} }
 function cloudFile() { return path.join(app.getPath('userData'), 'iphub-cloud.json'); }
-const SITE = (process.env.IPHUB_URL || 'https://iphuboficial.onrender.com').replace(/\/$/, '');
+const SITE = (process.env.IPHUB_URL || 'https://iphub.com.ar').replace(/\/$/, '');
 function readCloud() { try { return JSON.parse(fs.readFileSync(cloudFile(), 'utf8')); } catch (_) { return { base: SITE }; } }
 function writeCloud(d) { fs.mkdirSync(path.dirname(cloudFile()), { recursive: true }); fs.writeFileSync(cloudFile(), JSON.stringify(d)); }
 const agentHttps = new https.Agent({ keepAlive: true, maxSockets: 8 }), agentHttp = new http.Agent({ keepAlive: true });
@@ -31,7 +31,7 @@ function apiCall(base, method, urlPath, body, token, timeout = 15000) {
     req.on('error', e => end(reject, e)); if (data) req.write(data); req.end();
   });
 }
-const CANDS = ['https://iphub.onrender.com', 'https://iphuboficial.onrender.com'];
+const CANDS = ['https://iphub.com.ar', 'https://www.iphub.com.ar'];
 const normBase = b => { b = String(b || '').trim().replace(/\/+$/, ''); if (!b) return SITE; if (!/^https?:\/\//i.test(b)) b = 'https://' + b; return b; };
 const curBase = () => normBase(readCloud().base || SITE);
 async function apiRetry(base, method, p, body, token, tries = 2, timeout = 15000) { // Render Free devuelve 502/503 o corta la conexión mientras despierta

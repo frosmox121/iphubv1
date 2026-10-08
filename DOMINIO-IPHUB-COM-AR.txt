@@ -1,0 +1,11 @@
+IPHub en iphub.com.ar - que hacer ANTES de usar esta version
+1) Render > tu servicio > Settings > Custom Domains: agregar iphub.com.ar y www.iphub.com.ar, y cargar en el DNS lo que Render indique (ver DOMINIO-DONWEB-RENDER.txt). Esperar el certificado HTTPS.
+2) Google Cloud Console > Credenciales > tu cliente OAuth > Origenes JavaScript autorizados: agregar https://iphub.com.ar
+3) Discord Developer Portal > OAuth2 > Redirects: agregar https://iphub.com.ar/auth/discord
+4) Regenerar el exe (BUILD-EXE.bat). El exe usa iphub.com.ar.
+
+NOVEDAD (login del exe)
+- Google/Discord/"Entrar en el navegador" abren tu navegador con el login normal de IPHub y el exe se conecta solo (long-poll, instantaneo).
+- Discord: en Discord Developer Portal > OAuth2 > Redirects debe estar https://iphub.com.ar/auth/discord (ya lo pedia antes).
+- El exe prueba iphub.com.ar y www.iphub.com.ar EN PARALELO y usa el que responde primero; al abrir "despierta" a Render y lo mantiene despierto.
+- Recomendado: UptimeRobot (gratis) haciendo ping a https://iphub.com.ar/api/auth/config cada 5 min para que Render Free nunca duerma.

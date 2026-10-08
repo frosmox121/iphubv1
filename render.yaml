@@ -13,7 +13,7 @@ services:
       - key: AUTO_VERIFY_ON_SMTP_FAIL
         value: "1"
       - key: APP_URL
-        sync: false
+        value: https://iphub.com.ar
       - key: EXE_URL
         sync: false
       - key: BREVO_API_KEY

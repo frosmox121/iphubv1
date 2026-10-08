@@ -61,17 +61,31 @@
     if (id === 'empresa') loadOrg();
   };
 
-  function stopTopo() { if (poll) { clearInterval(poll); poll = null; } }
+  function stopTopo() { if (poll) { clearInterval(poll); poll = null; } topoOn = false; lastSig = ''; }
 
+  let topoOn = false;
   async function startTopo() {
+    if (topoOn) return; topoOn = true;
+    stopTopo(); poll = setInterval(loadSnap, 8000);
     await loadSnap();
-    stopTopo();
-    poll = setInterval(loadSnap, 8000);
   }
 
+  let lastSig = '';
+  const scrollers = () => [document.scrollingElement, document.querySelector('.main'), document.querySelector('.content')].filter(Boolean);
   function paintSnap(snap) {
     const box = $('agent-view');
     if (!box) return;
+    // Si la red no cambió, solo se actualiza la hora: no se toca el DOM (así no salta el scroll ni se pierde la selección)
+    const sig = snap ? JSON.stringify({ ...snap, updatedAt: 0 }) : 'none';
+    if (sig === lastSig && box.firstElementChild) {
+      const t = box.querySelector('.agent-head .muted'); if (t && snap) t.textContent = `${snap.host || ''} ${snap.gateway ? '· gw ' + snap.gateway : ''} · ${snap.updatedAt ? new Date(snap.updatedAt).toLocaleString() : ''}`;
+      return;
+    }
+    lastSig = sig;
+    const keep = scrollers().map(e => [e, e.scrollTop]), wrapTop = box.querySelector('.table-wrap') ? box.querySelector('.table-wrap').scrollTop : 0;
+    try { paintSnap2(snap, box); } finally { keep.forEach(([e, t]) => { e.scrollTop = t; }); const w = box.querySelector('.table-wrap'); if (w) w.scrollTop = wrapTop; }
+  }
+  function paintSnap2(snap, box) {
     if (!snap) {
       box.innerHTML = '<p class="muted">Todavía no hay una red del exe. Abrí IPHub.exe, iniciá sesión con esta cuenta (o Google/Discord) y esta sección se llena sola. También podés importar el archivo que exporta el exe.</p>';
       return;
@@ -84,7 +98,8 @@
       <div class="table-wrap"><table class="data-table"><thead><tr><th>IP</th><th>MAC</th><th>Nombre</th><th>Estado</th><th>RTT</th><th>Puertos</th></tr></thead><tbody>${rows || '<tr><td colspan="6">Sin dispositivos en el último envío.</td></tr>'}</tbody></table></div>`;
     const list = $('device-list');
     if (list) {
-      list.innerHTML = (snap.devices || []).map(d => `<div class="device-row"><strong>${esc(d.ip)}</strong> <span class="muted">${esc(d.name || d.vendor || '')}</span> <span>${d.online ? '●' : '○'}</span></div>`).join('') || '<p class="muted">Sin datos del exe.</p>';
+      const html = (snap.devices || []).map(d => `<div class="device-row"><strong>${esc(d.ip)}</strong> <span class="muted">${esc(d.name || d.vendor || '')}</span> <span>${d.online ? '●' : '○'}</span></div>`).join('') || '<p class="muted">Sin datos del exe.</p>';
+      if (list.dataset.sig !== html) { list.dataset.sig = html; list.innerHTML = html; }
     }
     drawMap(snap.devices || []);
   }

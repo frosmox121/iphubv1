@@ -15,13 +15,13 @@ OPCIÓN A (la más simple): usar la zona DNS de DonWeb, SIN cambiar nameservers
   3. Borrá registros A, AAAA y CNAME viejos de "@" y "www" (los AAAA rompen Render: Render no usa IPv6).
   4. Creá estos registros:
        Tipo A      Nombre @     Valor 216.24.57.1       TTL 300 (o el mínimo)
-       Tipo CNAME  Nombre www   Valor TUSERVICIO.onrender.com   (con tu subdominio real de Render)
-     Si el panel exige punto final en el CNAME, escribí  TUSERVICIO.onrender.com.
+       Tipo CNAME  Nombre www   Valor EL-HOST-QUE-TE-MUESTRA-RENDER   (Render lo indica en Settings > Custom Domains)
+     Si el panel exige punto final en el CNAME, escribí  EL-HOST-QUE-TE-MUESTRA-RENDER (con punto final).
   5. Guardá y esperá.
 
 OPCIÓN B: zona DNS creada aparte con sus propios nameservers
   1. Creá la zona en el servicio DNS de DonWeb y anotá sus nameservers (ej. ns1..., ns2...).
-  2. Dentro de esa zona creá los MISMOS registros A (@ -> 216.24.57.1) y CNAME (www -> TUSERVICIO.onrender.com).
+  2. Dentro de esa zona creá los MISMOS registros A (@ -> 216.24.57.1) y CNAME (www -> EL-HOST-QUE-TE-MUESTRA-RENDER).
   3. En el dominio > "Servidores de nombres / DNS" cambiá a "personalizados" y pegá esos nameservers.
   Importante: los registros viven en la zona que esté delegada. Si cambiás nameservers, los registros de la zona
   vieja dejan de valer (por ejemplo el correo: copiá también los MX si usás mail con ese dominio).
