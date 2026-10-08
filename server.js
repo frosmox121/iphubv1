@@ -23,7 +23,6 @@ const fs = require('fs');
 const net = require('net');
 const dns = require('dns').promises;
 const crypto = require('crypto');
-const tls = require('tls');
 const { execFile } = require('child_process');
 const express = require('express');
 const bcrypt = require('bcryptjs');
@@ -269,6 +268,24 @@ function longToIp(long) {
 // ---------- App ----------
 const app = express();
 app.use(express.json({ limit: '12mb' }));
+
+// ---------- Interceptar: registro de TODAS las peticiones HTTP que llegan a la plataforma (solo lo ve el dueño) ----------
+const INTERCEPT = { seq: 0, buf: [] };
+const REDACT_K = /^(password|passwordhash|code|token|apikey|aiapikey|newpassword|verifyhash)$/i;
+const redact = (o, d = 0) => { if (o == null || d > 5) return o; if (Array.isArray(o)) return o.slice(0, 30).map(x => redact(x, d + 1)); if (typeof o === 'object') { const r = {}; for (const k of Object.keys(o).slice(0, 60)) r[k] = REDACT_K.test(k) ? '***' : redact(o[k], d + 1); return r; } return typeof o === 'string' && o.length > 600 ? o.slice(0, 600) + '…(' + o.length + ' B)' : o; };
+const maskHdr = h => { const r = {}; for (const k of Object.keys(h || {})) { const v = h[k]; r[k] = /^(authorization|cookie|set-cookie|x-api-key)$/i.test(k) ? String(v).slice(0, 14) + '…(oculto)' : v; } return r; };
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/intercept')) return next();
+  const t0 = process.hrtime.bigint();
+  res.on('finish', () => {
+    try {
+      let body = null; if (req.body && typeof req.body === 'object' && Object.keys(req.body).length) body = redact(req.body);
+      const e = { id: ++INTERCEPT.seq, t: Date.now(), method: req.method, url: req.originalUrl.slice(0, 500), host: req.headers.host || '', ip: String(req.ip || '').replace('::ffff:', ''), proto: req.protocol, httpVersion: req.httpVersion, status: res.statusCode, ms: Math.round(Number(process.hrtime.bigint() - t0) / 1e5) / 10, reqBytes: +req.headers['content-length'] || 0, resBytes: +res.getHeader('content-length') || 0, ct: String(res.getHeader('content-type') || '').split(';')[0], reqHeaders: maskHdr(req.headers), resHeaders: maskHdr(res.getHeaders()), reqBody: body };
+      INTERCEPT.buf.push(e); if (INTERCEPT.buf.length > 1000) INTERCEPT.buf.splice(0, INTERCEPT.buf.length - 1000);
+    } catch (_) {}
+  });
+  next();
+});
 app.use(express.raw({ type: 'application/octet-stream', limit: '50mb' })); // para /speedtest/upload
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -528,10 +545,7 @@ app.post('/api/auth/regenerate-key', requireAuth, (req, res) => {
 });
 
 app.put('/api/auth/profile', requireAuth, (req, res) => {
-  const { name, company, country, lang, email, password } = req.body || {};
-  if (isOwnerUser(req.user) && (email || password)) {
-    return res.status(403).json({ error: 'El dueño no puede cambiar correo ni contraseña desde aquí.' });
-  }
+  const { name, company, country, lang } = req.body || {};
   db.get('users').find({ id: req.user.id }).assign({
     country: country !== undefined ? country : req.user.country, lang: lang || req.user.lang,
     name: name || req.user.name,
@@ -983,138 +997,7 @@ app.post('/api/tools/speedtest/upload', requireAuth, (req, res) => {
 app.post('/api/tools/speedtest/log', requireAuth, (req, res) => {
   const { downloadMbps, uploadMbps, latencyMs, jitterMs } = req.body || {};
   addAudit(req.user.email, 'Prueba de velocidad ejecutada',
-    `↓${(downloadMbps || 0).toFixed?.(1) ?? downloadMbps} Mbps · ↑${(uploadMbps || 0).toFixed?.(1) ?? uploadMbps} Mbps · lat ${latencyMs} ms 
-
-// ======================================================================
-// HERRAMIENTAS INNOVADORAS
-// ======================================================================
-function tcpProbe(host, port, timeoutMs) {
-  return new Promise(resolve => {
-    const t0 = Date.now();
-    const s = net.connect({ host, port, timeout: timeoutMs }, () => {
-      const ms = Date.now() - t0; s.destroy(); resolve({ ok: true, ms });
-    });
-    s.on('error', () => resolve({ ok: false, ms: Date.now() - t0 }));
-    s.on('timeout', () => { s.destroy(); resolve({ ok: false, ms: Date.now() - t0, timeout: true }); });
-  });
-}
-
-app.post('/api/tools/ping-matrix', requireAuth, async (req, res) => {
-  const host = String((req.body || {}).host || '').trim();
-  const samples = Math.min(10, Math.max(3, parseInt((req.body || {}).samples, 10) || 5));
-  if (!host || !isValidTarget(host)) return res.status(400).json({ error: 'Host inválido' });
-  const ports = [443, 80];
-  const times = [];
-  let fails = 0;
-  for (let i = 0; i < samples; i++) {
-    const r = await tcpProbe(host, ports[i % ports.length], 4000);
-    if (r.ok) times.push(r.ms); else fails++;
-  }
-  const min = times.length ? Math.min(...times) : 0;
-  const max = times.length ? Math.max(...times) : 0;
-  const avg = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0;
-  addAudit(req.user.email, 'Ping matrix', host);
-  res.json({ host, samples, ports, min, avg, max, loss: Math.round(100 * fails / samples), times });
-});
-
-app.post('/api/tools/path-probe', requireAuth, async (req, res) => {
-  const host = String((req.body || {}).host || '').trim();
-  if (!host || !isValidTarget(host)) return res.status(400).json({ error: 'Host inválido' });
-  const probes = [];
-  for (const [port, proto] of [[443, 'https'], [80, 'http'], [22, 'ssh'], [53, 'dns-tcp']]) {
-    const r = await tcpProbe(host, port, 3500);
-    probes.push({ port, proto, ok: r.ok, ms: r.ms, note: r.timeout ? 'timeout' : (r.ok ? 'open' : 'closed/filtered') });
-  }
-  const open = probes.filter(p => p.ok);
-  const hint = open.length
-    ? 'Path alcanzable. Mejor RTT en puerto ' + open.sort((a, b) => a.ms - b.ms)[0].port
-    : 'Ningún puerto de prueba respondió desde este servidor (firewall o destino offline).';
-  addAudit(req.user.email, 'Path probe', host);
-  res.json({ host, probes, hint });
-});
-
-app.post('/api/tools/tls-info', requireAuth, async (req, res) => {
-  const host = String((req.body || {}).host || '').replace(/^https?:\/\//, '').split('/')[0].trim();
-  if (!host || !HOSTNAME_RE.test(host) && !isValidTarget(host)) return res.status(400).json({ error: 'Host inválido' });
-  try {
-    const info = await new Promise((resolve, reject) => {
-      const s = tls.connect({ host, port: 443, servername: host, rejectUnauthorized: false, timeout: 8000 }, () => {
-        const c = s.getPeerCertificate();
-        const proto = s.getProtocol && s.getProtocol();
-        const cipher = s.getCipher && s.getCipher();
-        s.end();
-        const validTo = c.valid_to ? new Date(c.valid_to) : null;
-        const daysLeft = validTo ? Math.round((validTo - Date.now()) / 864e5) : null;
-        resolve({
-          subject: (c.subject && (c.subject.CN || JSON.stringify(c.subject))) || null,
-          issuer: (c.issuer && (c.issuer.O || c.issuer.CN || JSON.stringify(c.issuer))) || null,
-          validTo: c.valid_to || null,
-          protocol: proto || null,
-          cipher: cipher ? (cipher.name || cipher.standardName) : null,
-          daysLeft,
-        });
-      });
-      s.on('error', reject);
-      s.on('timeout', () => reject(new Error('TLS timeout')));
-    });
-    addAudit(req.user.email, 'TLS info', host);
-    res.json({ host, ...info });
-  } catch (e) {
-    res.status(502).json({ error: e.message || 'TLS falló' });
-  }
-});
-
-app.post('/api/tools/http-headers', requireAuth, async (req, res) => {
-  let url = String((req.body || {}).url || '').trim();
-  if (!url) return res.status(400).json({ error: 'URL requerida' });
-  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-  try {
-    const t0 = Date.now();
-    const r = await fetch(url, { method: 'GET', redirect: 'follow', signal: AbortSignal.timeout(10000), headers: { 'user-agent': 'IPHub-HeaderProbe/1.0' } });
-    const ms = Date.now() - t0;
-    const headers = {};
-    r.headers.forEach((v, k) => { if (['server','content-type','content-length','cache-control','strict-transport-security','x-frame-options','x-content-type-options','cf-ray','via','location'].includes(k) || k.startsWith('x-')) headers[k] = v; });
-    addAudit(req.user.email, 'HTTP headers', url);
-    res.json({ url: r.url, status: r.status, ms, headers });
-  } catch (e) {
-    res.status(502).json({ error: e.message || 'Fetch falló' });
-  }
-});
-
-app.post('/api/tools/asn-lookup', requireAuth, async (req, res) => {
-  const ip = String((req.body || {}).ip || '').trim();
-  if (!ip) return res.status(400).json({ error: 'IP requerida' });
-  try {
-    const r = await fetch('http://ip-api.com/json/' + encodeURIComponent(ip) + '?fields=status,message,query,country,city,isp,org,as,asname,reverse', { signal: AbortSignal.timeout(8000) });
-    const j = await r.json();
-    if (j.status === 'fail') return res.status(400).json({ error: j.message || 'Lookup falló' });
-    addAudit(req.user.email, 'ASN lookup', ip);
-    res.json({ ip: j.query, country: j.country, city: j.city, isp: j.isp, org: j.org, as: j.as || j.asname, reverse: j.reverse });
-  } catch (e) {
-    res.status(502).json({ error: e.message || 'ASN falló' });
-  }
-});
-
-app.post('/api/tools/dns-propagation', requireAuth, async (req, res) => {
-  const domain = String((req.body || {}).domain || '').trim();
-  if (!domain || !HOSTNAME_RE.test(domain)) return res.status(400).json({ error: 'Dominio inválido' });
-  const servers = ['1.1.1.1', '8.8.8.8', '9.9.9.9', '208.67.222.222'];
-  const resolvers = [];
-  for (const server of servers) {
-    const r = new dns.Resolver();
-    r.setServers([server]);
-    try {
-      const records = await r.resolve4(domain);
-      resolvers.push({ server, records });
-    } catch (e) {
-      resolvers.push({ server, records: [], error: e.code || e.message });
-    }
-  }
-  addAudit(req.user.email, 'DNS propagation', domain);
-  res.json({ domain, resolvers });
-});
-
-· jitter ${jitterMs} ms`);
+    `↓${(downloadMbps || 0).toFixed?.(1) ?? downloadMbps} Mbps · ↑${(uploadMbps || 0).toFixed?.(1) ?? uploadMbps} Mbps · lat ${latencyMs} ms · jitter ${jitterMs} ms`);
   res.json({ ok: true });
 });
 
@@ -1284,6 +1167,7 @@ app.post('/api/contact/:id/priority', requireAuth, async (req, res) => {
 
 // ---------- Cuenta ----------
 app.post('/api/account/password', requireAuth, async (req, res) => {
+  if (isOwnerUser(req.user)) return res.status(403).json({ error: 'La cuenta del dueño no puede cambiar correo ni contraseña ni eliminarse.' });
   const { current, next } = req.body || {};
   const u = db.get('users').find({ id: req.user.id });
   if (!next || next.length < 8) return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
@@ -1301,15 +1185,16 @@ app.put('/api/account/avatar', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 app.post('/api/account/delete/start', requireAuth, async (req, res) => {
+  if (isOwnerUser(req.user)) return res.status(403).json({ error: 'La cuenta del dueño no puede cambiar correo ni contraseña ni eliminarse.' });
   const u = db.get('users').find({ id: req.user.id });
   if (!(await bcrypt.compare((req.body || {}).password || '', u.value().passwordHash))) return res.status(401).json({ error: 'Contraseña incorrecta' });
   const emailSent = await issueCode(u.value());
   res.json({ ok: true, emailSent });
 });
 app.delete('/api/account', requireAuth, async (req, res) => {
+  if (isOwnerUser(req.user)) return res.status(403).json({ error: 'La cuenta del dueño no puede cambiar correo ni contraseña ni eliminarse.' });
   const u = db.get('users').find({ id: req.user.id });
   const user = u.value();
-  if (isOwnerUser(user)) return res.status(403).json({ error: 'La cuenta del dueño de la plataforma no se puede eliminar.' });
   if (!(await bcrypt.compare((req.body || {}).password || '', user.passwordHash))) return res.status(401).json({ error: 'Contraseña incorrecta' });
   const code = String((req.body || {}).code || '').trim();
   if (!user.verifyHash || user.verifyHash !== sha(code)) return res.status(401).json({ error: 'Código incorrecto' });
@@ -1317,16 +1202,6 @@ app.delete('/api/account', requireAuth, async (req, res) => {
   db.get('users').remove({ id: req.user.id }).write();
   ['contacts', 'feedback'].forEach(c => db.get(c).remove({ user: req.user.email }).write());
   res.json({ ok: true });
-});
-
-app.put('/api/workspace', requireAuth, (req, res) => {
-  const layout = (req.body && req.body.layout) || { widgets: [] };
-  db.get('users').find({ id: req.user.id }).assign({ workspace: layout }).write();
-  res.json({ ok: true, workspace: layout });
-});
-app.get('/api/workspace', requireAuth, (req, res) => {
-  const u = db.get('users').find({ id: req.user.id }).value();
-  res.json({ workspace: (u && u.workspace) || { widgets: [] } });
 });
 
 // ---------- Actividad (dashboard web: NO usa dispositivos, eso es del agente .exe) ----------
@@ -1370,6 +1245,7 @@ app.post('/api/tools/subnet-calc', requireAuth, (req, res) => {
 const rc = () => String(crypto.randomInt(100000, 1000000));
 const mailFast = async (...a) => { const r = await Promise.race([sendMail(...a), new Promise(ok => setTimeout(() => ok(null), 2500))]); return r === null ? true : r; };
 app.post('/api/account/email/start', requireAuth, async (req, res) => {
+  if (isOwnerUser(req.user)) return res.status(403).json({ error: 'La cuenta del dueño no puede cambiar correo ni contraseña ni eliminarse.' });
   const ne = String((req.body || {}).newEmail || '').toLowerCase().trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(ne)) return res.status(400).json({ error: 'Correo nuevo inválido' });
   if (db.get('users').find({ email: ne }).value()) return res.status(409).json({ error: 'Ese correo ya está en uso' });
@@ -1383,6 +1259,7 @@ app.post('/api/account/email/start', requireAuth, async (req, res) => {
   res.json({ ok: true, emailSent: sent });
 });
 app.post('/api/account/email/confirm', requireAuth, async (req, res) => {
+  if (isOwnerUser(req.user)) return res.status(403).json({ error: 'La cuenta del dueño no puede cambiar correo ni contraseña ni eliminarse.' });
   const { code } = req.body || {}; const u = db.get('users').find({ id: req.user.id }); const ec = u.value().ec;
   if (!ec || Date.now() > ec.exp) return res.status(400).json({ error: 'No hay un cambio de correo pendiente o venció' });
   if (ec.tries >= 5) return res.status(429).json({ error: 'Demasiados intentos. Empezá de nuevo.' });
@@ -1566,16 +1443,19 @@ const KB = [
   { k: /buscador|buscar|atajo|search/, t: 'BUSCADOR: arriba hay un buscador global para saltar rápido a secciones y herramientas.' },
   { k: /legal|privacidad|terminos|cookies|condiciones|datos personales/, t: 'LEGAL: /privacidad (Política de Privacidad), /terminos (Términos y Condiciones) y /cookies (Cookies y almacenamiento).' },
   { k: /asistente|chat|bot|ia\b|inteligencia/, t: 'ASISTENTE IA: el botón flotante abajo a la derecha abre este chat. "–" lo minimiza (se conserva la conversación) y "×" lo cierra (pide confirmación y borra la conversación).' },
+  { k: /tracking|logistica|envio|telemetria|trazabilidad|studio|proyecto|worker/, t: 'TRACKING STUDIO (/tracking): IDE de logística, trazabilidad y telemetría: proyectos, envíos, eventos, mapa, alertas, KPIs, Smart, Predictivo y Ops; el exe puede correr workers de telemetría. NO es un analizador de paquetes: para ver peticiones/paquetes existe la sección INTERCEPTAR (solo dueño). Los permisos del rol "Tracking Studio" controlan el acceso.' },
+  { k: /interceptar|intercept|paquete|peticion|peticiones|http|sniff|wireshark|analizador de protocolo|capturar|proxy|tshark|tcpdump|pcap/, t: 'INTERCEPTAR (SOLO DUEÑO). Hay 3 herramientas: (1) Sección /interceptar y también el modo Interceptar dentro de Topología (barra de modos de cada red): lista en vivo TODAS las peticiones HTTP que llegan a la plataforma, con método, URL, IP, estado, tiempos, cabeceras de petición y respuesta, cuerpo y el paquete HTTP crudo; filtros por URL/IP/método/estado, pausar y limpiar. Contraseñas y tokens se muestran como ***; Authorization y Cookie van recortadas. (2) Proxy HTTP del exe (puerto 8899, cuenta dueño): configurando otro equipo de la MISMA red para usarlo se ven sus peticiones HTTP; en HTTPS solo host y puerto porque va cifrado. (3) ANALIZADOR DE PROTOCOLOS del exe (estilo Wireshark, cuenta dueño): captura paquetes reales de la placa de red de esa PC. Elegís la interfaz, filtro de captura BPF (ej. tcp port 80, host 192.168.1.5) y filtro de visualización (tcp && ip.addr==192.168.1.5, dns, http). Tiene lista de paquetes con colores por protocolo, árbol de capas (Ethernet, IP, TCP/UDP, DNS, HTTP, TLS) y volcado hexadecimal. Requiere Wireshark (con Npcap) o tcpdump instalado y permisos de administrador. El contenido HTTPS no se puede leer porque va cifrado. La web no puede capturar paquetes crudos del equipo del usuario; eso lo hace el exe. Usalo solo en redes y equipos propios o con permiso.' },
+  { k: /modo|modos|globo|carrier|ipv6|radial|sunburst|concentric|anillos|topologia|topología/, t: 'MODOS DE TOPOLOGÍA (/topologia, barra superior): Mapa de red (la subred), Global Carrier Explorer (globo 3D interactivo: traza Host local > POP > IXP > Carrier > dispositivo destino; lejos se ven backbones y nodos agrupados, al acercar aparecen nodos pequeños; colores y partículas distinguen tipos de red), IPv6 Radial Hierarchy (anillos concéntricos tipo sunburst: núcleo RIR, ISPs, sitios con prefijo de enrutamiento, subredes y hosts; clic en un gajo lo expande, clic en el centro vuelve) e Interceptar (solo dueño). Los datos del globo y del radial salen de una traza real (traceroute) convertida automáticamente al formato de cada vista.' },
+  { k: /celular|movil|móvil|telefono|teléfono|mobile|android|iphone|pantalla chica/, t: 'VERSIÓN MÓVIL: en pantallas chicas la página cambia a un diseño propio: barra inferior con Inicio, Topología, Herramientas, Interceptar (solo dueño) y Más; el botón Más abre una hoja con todas las secciones; botones grandes, tablas en tarjetas y formularios cómodos para el pulgar.' },
+  { k: /globo|global carrier|carrier|pop\b|ixp|3d|ipv6|radial|sunburst|concentric/, t: 'MODOS DE TOPOLOGÍA (en Topología, además del mapa de siempre): (1) GLOBAL CARRIER EXPLORER: globo 3D arrastrable con zoom; traza real hasta un destino y la dibuja Host local → POP → IXP → Carrier → Dispositivo, con partículas de paquetes, colores por tipo y clustering por nivel de zoom (lejos: backbones y grupos; cerca: nodos individuales). (2) IPv6 RADIAL HIERARCHY: anillos concéntricos Internet → ISPs → Sitios → Subredes → Hosts; clic en un gajo para expandirlo, clic en el centro para volver; se puede cargar desde tu traza o con datos de ejemplo.' },
+  { k: /workspace|tablero|widget|embed|notas/, t: 'WORKSPACE (/workspace): tablero personal con widgets reales: resumen de red, últimas acciones, analizador de IP, traceroute rápido, DNS rápido, ping de latencia, reloj, notas y embeds externos (https). Se pueden subir, cambiar de tamaño y quitar; se guarda solo en tu cuenta.' },
+  { k: /manual|guia|como se usa|documentacion/, t: 'MANUAL (/manual): guía de uso por función de la plataforma, con detalles de cada herramienta.' },
+  { k: /codigo|code query|repositor|commit|foro|grafo|funciones/, t: 'CÓDIGO (/codigo): módulo SOLO para el dueño (iphuboficial@gmail.com). Pestañas: Repositorios, Commits, Funciones, Code Query, Grafo, Foro y Compartir (enlaces de solo lectura con vencimiento). Otros usuarios no lo ven.' },
+  { k: /empresa|rol|roles|permiso|miembro|equipo/, t: 'EMPRESA (solo dueño): crear roles y asignarlos a miembros. Cada rol elige secciones (Dashboard, Topología, Workspace, Tracking Studio, Herramientas, Auditoría, Aprender, Ranking, Soporte, Manual) y permisos finos dentro de ellas (por herramienta, exportar auditoría, descubrir red, tickets, reseñas, embeds). El servidor aplica esos permisos.' },
+  { k: /innovador|multiping|jitter|perdida de paquetes|http check|cabeceras|vlsm|comparar rutas|analizador de ruta/, t: 'HERRAMIENTAS INNOVADORAS (/herramientas/innovadoras): Analizador de ruta (traceroute con gráfico de RTT por salto y diagnóstico), Comparador de rutas (dónde divergen dos destinos), Multiping TCP (latencia, jitter y pérdida a varios destinos), HTTP Check (DNS/TTFB/total, TLS y cabeceras de seguridad con puntaje), Planificador VLSM y Conversor de IP (binario, hex, clase, PTR).' },
+  { k: /exe|traceroute en el exe|restaurar|eliminados/, t: 'EXE: además de dispositivos de la red, incluye Traceroute y Tracepacket reales (tracert), filtro "Eliminados" con Restaurar y Restaurar todos, e inicio de sesión con la cuenta de la página.' },
 ];
-const IPHUB_KB = KB.map(e => '- ' + e.t).join('\n') + `
-- TRACKING STUDIO (/tracking): IDE logístico. APIs /api/tracking/*. Vistas: Mapa, Envíos, Eventos, Devices, Alertas, Smart, KPIs, Predictivo, Ops, Extra.
-- HERRAMIENTAS (/herramientas): IP (POST /api/tools/ip-lookup → ip-api.com), Puertos (POST /api/tools/port-scan · net.Socket), Traceroute/Tracepacket (POST /api/tools/traceroute|tracepacket · SO o Globalping/MTR), DNS (POST /api/tools/dns-lookup · dns Node 1.1.1.1/8.8.8.8), Subred (POST /api/tools/subnet-calc), ARP (GET /api/tools/arp-table), Speedtest (/api/tools/speedtest/*), Innovadoras: ping-matrix, path-probe, tls-info, http-headers, asn-lookup, dns-propagation.
-- EXE: traceroute y tracepacket locales (IPC traceroute/tracepacket).
-- CÓDIGO (/codigo): solo dueño. /api/code/* /api/forum/*.
-- WORKSPACE: PUT/GET /api/workspace.
-- MANUAL: tips ! por función + detalle de APIs.
-- EMPRESA: roles con permisos por sección (dashboard, topology, workspace, tracking, tools, …).
-- Aviso: escanear redes ajenas sin permiso puede ser ilegal.`;
+const IPHUB_KB = KB.map(e => '- ' + e.t).join('\n') + '\n- Aviso: escanear redes ajenas sin permiso puede ser ilegal.';
 const deacc = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 // Respuesta local (sin IA externa): las entradas de la base que mejor coinciden con la pregunta
 function kbAnswer(q) {
@@ -1998,6 +1878,47 @@ try { require('./server-studio')(app, { db, requireAuth, addAudit, aiChat }); } 
 try { require('./server-hub')(app, { db, requireAuth, addAudit }); } catch (e) { console.error('server-hub:', e); }
 try { require('./server-profiles')(app, { db, bcrypt, crypto, requireAuth, addAudit, sendMail, SUPPORT_TO }); } catch (e) { console.error('profiles:', e); }
 try { require('./server-org')(app, { db, bcrypt, jwt, crypto, requireAuth, addAudit, JWT_SECRET, sendMail }); } catch (e) { console.error('server-org:', e); }
+
+app.get('/api/intercept/requests', requireOwner, (req, res) => {
+  const since = +req.query.since || 0;
+  res.json({ last: INTERCEPT.seq, total: INTERCEPT.buf.length, items: INTERCEPT.buf.filter(e => e.id > since).slice(-300) });
+});
+app.delete('/api/intercept/requests', requireOwner, (req, res) => { INTERCEPT.buf = []; res.json({ ok: true }); });
+
+// ---------- Globo 3D: traza real -> POP -> IXP -> carrier -> destino con geolocalización ----------
+const isPrivIp = ip => /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(ip);
+app.post('/api/topo/globe', requireAuth, async (req, res) => {
+  const target = String((req.body || {}).target || '').trim();
+  if (!target || !isValidTarget(target)) return res.status(400).json({ error: 'Destino inválido' });
+  const r = await traceCore(target, 25);
+  if (!r) return res.status(503).json({ error: TRACE_FAIL });
+  const hops = [];
+  for (const line of r.raw.split(/\r?\n/)) {
+    const m = line.match(/^\s*(\d+)\s+(.+)$/); if (!m) continue;
+    const ip = (m[2].match(/(\d{1,3}(?:\.\d{1,3}){3})/) || [])[1]; const rt = [...m[2].matchAll(/(\d+[.,]?\d*)\s*ms/gi)].map(x => +x[1].replace(',', '.'));
+    hops.push({ n: +m[1], ip: ip || null, rtt: rt.length ? Math.round(rt.reduce((a, b) => a + b, 0) / rt.length * 10) / 10 : null });
+  }
+  const pubs = [...new Set(hops.filter(h => h.ip && !isPrivIp(h.ip)).map(h => h.ip))].slice(0, 24);
+  const clientIp = String(req.ip || '').replace('::ffff:', '');
+  const geo = {}; await Promise.all([...pubs, ...(clientIp && !isPrivIp(clientIp) && /^\d/.test(clientIp) ? [clientIp] : [])].map(async ip => { try { geo[ip] = await geoLookup(ip); } catch (_) {} }));
+  const IX = /(\bix\b|de-cix|ams-ix|linx|equinix|megaport|peering|exchange|mix-|nap\b|ix\.)/i;
+  const nodes = []; let stage = 'pop', lastAs = null, seenPop = false;
+  const local = geo[clientIp] && geo[clientIp].lat != null ? geo[clientIp] : null;
+  for (const h of hops) {
+    if (!h.ip) continue; const g = geo[h.ip];
+    if (isPrivIp(h.ip) || !g || g.lat == null) { if (!nodes.length || nodes[nodes.length - 1].stage === 'local') nodes.push({ stage: 'local', ip: h.ip, n: h.n, rtt: h.rtt, private: true }); continue; }
+    let st;
+    if (!seenPop) { st = 'pop'; seenPop = true; } else if (IX.test(`${g.org} ${g.asname} ${g.reverse} ${g.isp}`)) st = 'ixp'; else st = 'carrier';
+    nodes.push({ stage: st, ip: h.ip, n: h.n, rtt: h.rtt, lat: g.lat, lon: g.lon, city: g.city, country: g.country, cc: g.countryCode, as: g.as, org: g.org || g.isp });
+  }
+  if (nodes.length) nodes[nodes.length - 1].stage = nodes.length > 1 ? 'device' : nodes[0].stage;
+  const firstPub = nodes.find(n => n.lat != null);
+  const loc = local || (firstPub ? { lat: firstPub.lat + 0.08, lon: firstPub.lon + 0.08, city: firstPub.city, country: firstPub.country } : null);
+  const out = { target, tool: r.tool, local: loc ? { stage: 'local', lat: loc.lat, lon: loc.lon, city: loc.city, country: loc.country, ip: local ? clientIp : null } : null, nodes: nodes.filter(n => n.lat != null) };
+  addAudit(req.user.email, 'Globo 3D: traza geolocalizada', `Destino: ${target}`);
+  res.json(out);
+});
+try { require('./server-innov')(app, { requireAuth, addAudit, isValidTarget: typeof isValidTarget === 'function' ? isValidTarget : null }); } catch (e) { console.error('server-innov:', e); }
 try { require('./server-code')(app, { db, requireAuth, requireOwner, addAudit, crypto, publicUser, isOwnerUser }); } catch (e) { console.error('server-code:', e); }
 try { require('./server-tracking')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking:', e); }
 try { require('./server-tracking-analytics')(app, { db, requireAuth, addAudit, crypto }); } catch (e) { console.error('server-tracking-analytics:', e); }

@@ -3,10 +3,11 @@
 <head>
   <link rel="icon" type="image/png" href="/favicon.png">
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>IPHub - Oficial</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/pro.css">
+  <link rel="stylesheet" href="/m.css">
 </head>
 <body>
   <canvas id="particles"></canvas>
@@ -158,6 +159,7 @@
         <a href="/workspace" class="nav-item" data-section="workspace"><span class="nav-icon">&#9638;</span> Workspace</a>
         <a href="/tracking" class="nav-item" data-section="tracking"><span class="nav-icon">&#9632;</span> Tracking Studio</a>
         <a href="/herramientas" class="nav-item" data-section="tools"><span class="nav-icon">&#9881;</span> Herramientas</a>
+        <a href="/interceptar" class="nav-item" data-section="intercept" id="nav-intercept" hidden><span class="nav-icon">⇄</span> Interceptar</a>
         <a href="/codigo" class="nav-item" data-section="code" id="nav-code" hidden><span class="nav-icon">&lt;/&gt;</span> Código</a>
         <a href="/auditoria" class="nav-item" data-section="audit"><span class="nav-icon">&#9776;</span> Auditoría</a>
         <a href="/aprender" class="nav-item" data-section="learn"><span class="nav-icon">&#9670;</span> Aprender</a>
@@ -276,6 +278,10 @@
               <option value="audit">Última auditoría</option>
               <option value="embed">Embed externo (URL)</option>
               <option value="notes">Notas</option>
+              <option value="trace">Traceroute rápido</option>
+              <option value="dns">DNS rápido</option>
+              <option value="speed">Ping de latencia</option>
+              <option value="clock">Reloj y fecha</option>
             </select>
             <button class="btn btn-primary btn-sm" id="ws-add-btn" type="button">Agregar</button>
             <button class="btn btn-sm g" id="ws-save-btn" type="button">Guardar layout</button>
@@ -291,6 +297,14 @@
           <p>IDE de logística, trazabilidad y telemetría. Fase 1: proyectos, envíos, eventos y mapa básico.</p>
         </div>
         <!-- Shell inyectado por tracking.js -->
+      </section>
+
+      <section id="intercept" class="section" data-no-i18n>
+        <div class="section-header">
+          <h2>Interceptar <span class="fn-tip" data-fn="intercept" title="Analizador de peticiones HTTP en vivo. Solo el dueño.">!</span></h2>
+          <p>Todas las peticiones HTTP que llegan a la plataforma, con cabeceras, cuerpo y tiempos. Exclusivo del dueño.</p>
+        </div>
+        <div class="card glass" id="intercept-root"></div>
       </section>
 
       <section id="code" class="section" data-no-i18n>
@@ -326,7 +340,7 @@
           <button class="tool-tab" data-tool="subnet" data-slug="subredes">Subredes</button>
           <button class="tool-tab" data-tool="arp" data-slug="arp">ARP / MAC</button>
           <button class="tool-tab" data-tool="speed" data-slug="velocidad">Velocidad</button>
-          <button class="tool-tab" data-tool="innov" data-slug="innovadoras">Innovadoras</button>
+          <button class="tool-tab" data-tool="innov" data-slug="innovadoras">✦ Innovadoras</button>
         </div>
 
         <div class="tool-panel active" id="tool-ip">
@@ -403,10 +417,11 @@
           </div>
         </div>
 
+        <div class="tool-panel" id="tool-innov" data-no-i18n></div>
+
         <div class="tool-panel" id="tool-speed">
           <div class="card glass">
-            <h3>Speedtest <span class="fn-tip" data-fn="tool-speed" title="Mide descarga/subida contra este servidor">!</span></h3>
-            <p class="muted">Mide el enlace real entre tu navegador y este servidor. API: /api/tools/speedtest/*</p>
+            <p class="muted">Mide el enlace real entre tu navegador y este servidor (si el server corre en tu LAN, mide tu LAN; si lo desplegás en un VPS, mide tu internet real).</p>
             <div class="input-group" style="max-width:220px"><label>Unidad</label><select id="speed-unit"><option value="Mbps">Mbps (megabits/s)</option><option value="MB/s">MB/s (megabytes/s)</option><option value="Gbps">Gbps</option><option value="kbps">kbps</option><option value="KB/s">KB/s</option></select></div>
             <button class="btn btn-accent" id="speed-test-btn">Ejecutar Prueba de Velocidad Real</button>
             <div class="speed-meters">
@@ -414,23 +429,6 @@
               <div class="meter"><span>Upload</span><strong id="ul-speed">—</strong></div>
               <div class="meter"><span>Latencia</span><strong id="latency">—</strong></div>
             </div>
-          </div>
-        </div>
-
-        <div class="tool-panel" id="tool-innov" style="grid-column:1/-1">
-          <div class="card glass">
-            <h3>Herramientas innovadoras <span class="fn-tip" data-fn="tool-innov" title="Ping matrix, path probe, TLS, headers, ASN, DNS prop, compare traces">!</span></h3>
-            <p class="muted">Sondas avanzadas de red y seguridad. Cada una usa una API documentada en el Manual.</p>
-            <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin:.8rem 0">
-              <button class="btn btn-primary btn-sm" id="innov-ping-btn" type="button">Ping matrix TCP</button>
-              <button class="btn btn-primary btn-sm" id="innov-path-btn" type="button">Path probe</button>
-              <button class="btn btn-primary btn-sm" id="innov-tls-btn" type="button">TLS certificate</button>
-              <button class="btn btn-primary btn-sm" id="innov-http-btn" type="button">HTTP headers</button>
-              <button class="btn btn-primary btn-sm" id="innov-asn-btn" type="button">ASN lookup</button>
-              <button class="btn btn-primary btn-sm" id="innov-dnsprop-btn" type="button">DNS propagation</button>
-              <button class="btn btn-accent btn-sm" id="innov-compare-btn" type="button">Compare TR vs TP</button>
-            </div>
-            <div id="innov-results" class="hidden" style="margin-top:.6rem"></div>
           </div>
         </div>
       </section>
@@ -553,6 +551,8 @@
             <button class="btn btn-primary" id="save-profile-btn">Guardar Cambios</button>
           </div>
           <div class="card glass">
+            <div id="owner-lock-note" class="muted small" style="display:none;padding:.8rem 1rem;border:1px solid var(--border);border-radius:10px;margin-bottom:1rem">🔒 Cuenta del dueño: el correo, la contraseña y la eliminación de la cuenta están bloqueados.</div>
+            <div id="acct-security">
             <h3>Cambiar correo</h3>
             <p class="muted small">Correo actual: <b id="em-cur-v">—</b>. Primero te mandamos un código a ese correo y después otro al nuevo para confirmarlo.</p>
             <div id="em-s1">
@@ -576,6 +576,7 @@
             <div class="input-group"><input type="password" id="del-pw" placeholder="Tu contraseña para confirmar"></div>
             <div class="input-group hidden" id="del-code-g"><label>Código enviado a tu correo</label><input type="text" id="del-code" maxlength="6" inputmode="numeric"></div>
             <button class="btn btn-accent" id="del-btn">Eliminar mi cuenta</button>
+            </div>
             <h3 style="margin-top:1.6rem">Clave de API</h3>
             <div class="api-key-box"><code id="api-key">—</code></div>
             <button class="btn btn-glass" id="regen-key-btn">Regenerar Clave</button>
@@ -631,6 +632,7 @@
     </div>
   </div>
   <div id="search-drop" class="search-drop hidden"></div>
+  <script src="/icons.js"></script>
   <script src="/app.js"></script>
   <script src="/extra.js"></script>
   <script src="/ticket-cats.js"></script>
@@ -647,5 +649,9 @@
   <script src="/topo-pro.js"></script>
   <script src="/pro.js"></script>
   <script src="/code.js"></script>
+  <script src="/innov.js"></script>
+  <script src="/intercept.js"></script>
+  <script src="/topo-modes.js"></script>
+  <script src="/m.js"></script>
 </body>
 </html>

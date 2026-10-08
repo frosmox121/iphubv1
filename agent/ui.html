@@ -74,7 +74,7 @@ header,#mapbox,.card,section{animation:up .6s cubic-bezier(.22,1,.36,1) both}
 button,.btn{transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s,filter .25s,border-color .25s}button:hover,.btn:hover{transform:translateY(-2px)}button:active,.btn:active{transform:scale(.97)}
 input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;border-color:var(--c)!important;box-shadow:0 0 0 3px rgba(6,182,212,.18)}
 ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:rgba(129,140,248,.3);border-radius:99px}
-</style></head><body>
+</style><script src="icons.js"></script></head><body>
 <header>
   <div class="logo"><img src="logo-icon.png" alt="IPHub"></div>
   <div><h1>IPHub<small id="sub"></small></h1></div>
@@ -87,9 +87,6 @@ input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;bord
   <h4>Cuenta de la página</h4>
   <p class="muted" id="cloud-msg" style="margin:.3rem 0 .6rem">Iniciá sesión con la misma cuenta para que Topología muestre esta red.</p>
   <div class="tools" style="display:flex;gap:.4rem;flex-wrap:wrap">
-    <input id="trace-local-target" placeholder="8.8.8.8" value="1.1.1.1" style="width:110px">
-    <button class="btn sm ok" id="trace-local-btn" type="button">Traceroute</button>
-    <button class="btn sm g" id="tracepacket-local-btn" type="button">Tracepacket</button>
     <input id="cloud-email" type="email" placeholder="correo" style="min-width:180px">
     <input id="cloud-pass" type="password" placeholder="contraseña" style="min-width:140px">
     <input id="cloud-base" type="text" placeholder="https://tu-pagina.onrender.com" title="Dirección de la página de IPHub" style="min-width:210px">
@@ -100,6 +97,50 @@ input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;bord
     <button class="btn sm ok" id="cloud-file" type="button">Exportar para la web</button>
   </div>
 </div>
+<div class="card" id="tracecard" style="margin-bottom:.9rem">
+  <h4>Traceroute / Tracepacket</h4>
+  <div class="tools" style="display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0">
+    <input id="tr-target" type="text" value="8.8.8.8" placeholder="IP o dominio" style="min-width:200px">
+    <button class="btn sm" id="tr-route" type="button">Traceroute</button>
+    <button class="btn sm g" id="tr-packet" type="button">Tracepacket</button>
+  </div>
+  <p class="muted" id="tr-msg" style="margin:.2rem 0"></p>
+  <div class="wrap" id="tr-wrap" style="display:none;max-height:260px;overflow:auto"><table><thead><tr><th>#</th><th>IP / Host</th><th>RTT 1</th><th>RTT 2</th><th>RTT 3</th></tr></thead><tbody id="tr-body"></tbody></table></div>
+</div>
+<div class="card" id="intcard" style="margin-bottom:.9rem;display:none">
+  <h4>Interceptar (proxy HTTP · solo dueño)</h4>
+  <p class="muted" style="margin:.3rem 0">Configurá el proxy HTTP de otro equipo de tu red con la IP de esta PC y el puerto elegido. Se ven las peticiones HTTP completas; en HTTPS solo el destino (va cifrado). Usalo solo en tu propia red.</p>
+  <div class="tools" style="display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0">
+    <input id="int-port" type="number" value="8899" style="width:100px"><button class="btn sm" id="int-toggle" type="button">Iniciar</button><button class="btn sm g" id="int-clear" type="button">Limpiar</button><span class="muted" id="int-st"></span>
+  </div>
+  <div class="wrap" style="max-height:280px;overflow:auto"><table><thead><tr><th>Hora</th><th>Origen</th><th>Método</th><th>Destino</th><th>Estado</th><th>ms</th></tr></thead><tbody id="int-rows"></tbody></table></div>
+</div>
+<div class="card" id="wscard" style="margin-bottom:.9rem;display:none">
+  <h4 style="display:flex;align-items:center;gap:.5rem"><span id="ws-ic"></span> Analizador de protocolos <span class="muted" style="font-weight:400;font-size:.8rem">captura real de esta PC | solo dueño</span></h4>
+  <div class="ws-bar">
+    <select id="ws-if"></select>
+    <input id="ws-cf" type="text" placeholder="Filtro de captura (BPF): tcp port 80, host 192.168.1.5" spellcheck="false">
+    <button class="btn sm" id="ws-go" type="button"></button><button class="btn sm g" id="ws-clr" type="button"></button>
+  </div>
+  <div class="ws-bar"><input id="ws-df" type="text" placeholder="Filtro de visualización: tcp && ip.addr==192.168.1.5 | dns | http" spellcheck="false"><label class="muted" style="display:flex;gap:.3rem;align-items:center"><input type="checkbox" id="ws-as" checked> Seguir captura</label></div>
+  <p class="muted" id="ws-msg" style="margin:.2rem 0 .5rem"></p>
+  <div class="ws-grid">
+    <div class="ws-list"><table><thead><tr><th>No.</th><th>Tiempo</th><th>Origen</th><th>Destino</th><th>Protocolo</th><th>Largo</th><th>Info</th></tr></thead><tbody id="ws-rows"></tbody></table></div>
+    <div class="ws-low"><div class="ws-tree" id="ws-tree"><p class="muted">Elegí un paquete para ver sus capas.</p></div><pre class="ws-hex" id="ws-hex"></pre></div>
+  </div>
+  <div class="ws-stat muted" id="ws-stat"></div>
+</div>
+<style>
+.ws-bar{display:flex;gap:.4rem;flex-wrap:wrap;margin:.4rem 0}.ws-bar input[type=text]{flex:1;min-width:200px}.ws-bar select{max-width:320px}
+.ws-grid{display:grid;grid-template-rows:minmax(160px,300px) minmax(160px,260px);gap:.5rem}
+.ws-list{overflow:auto;border:1px solid rgba(148,163,184,.25);border-radius:8px;background:#0b1220}
+.ws-list table{width:100%;border-collapse:collapse;font:12px ui-monospace,Consolas,monospace}.ws-list th{position:sticky;top:0;background:#111c33;text-align:left;padding:.3rem .5rem;font-weight:600;z-index:1}
+.ws-list td{padding:.18rem .5rem;white-space:nowrap;max-width:420px;overflow:hidden;text-overflow:ellipsis;border-left:3px solid transparent}.ws-list tr{cursor:pointer}.ws-list tr:hover{background:rgba(34,211,238,.08)}.ws-list tr.sel{background:rgba(34,211,238,.2)}
+.ws-low{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}.ws-tree,.ws-hex{overflow:auto;border:1px solid rgba(148,163,184,.25);border-radius:8px;background:#0b1220;padding:.5rem;margin:0;font:12px ui-monospace,Consolas,monospace}
+.ws-tree details{margin-bottom:.25rem}.ws-tree summary{cursor:pointer;color:#22d3ee;font-weight:600}.ws-tree dl{margin:.2rem 0 .2rem 1rem;display:grid;grid-template-columns:max-content 1fr;gap:.1rem .8rem}.ws-tree dt{color:#94a3b8}.ws-tree dd{margin:0;word-break:break-all}
+.ws-hex{white-space:pre;color:#cbd5e1}.ws-stat{font-size:.78rem;margin-top:.4rem}
+@media(max-width:800px){.ws-low{grid-template-columns:1fr}}
+</style>
 <div id="prog"><i></i></div>
 <div id="noNet" class="card muted" style="display:none;margin-bottom:1rem" data-i="neterr"></div>
 <div class="cards" id="cards"></div>
@@ -164,7 +205,7 @@ const K = {
 let LI = 0;
 const t = (k, v) => { let s = (K[k] && (K[k][LI] || K[k][0])) || k; if (v) for (const x in v) s = s.replace('{' + x + '}', v[x]); return s; };
 const $ = id => document.getElementById(id), esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const F = (a, x, y) => window.iphub.call(a, x, y);
+const F = (a, x, y) => { const p = window.iphub.call(a, x, y); return /^cloud/.test(a) ? Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('La página no respondió a tiempo. Revisá tu internet y la dirección, y probá de nuevo.')), 50000))]) : p; };
 let S = null, sel = null, filter = 'all', q = '';
 
 function setLang(code) {
@@ -223,7 +264,7 @@ function render() {
     $('tools').dataset.k = LI + '|' + filter;
     $('tools').innerHTML = chips.map(c => `<button class="chip ${filter === c[0] ? 'on' : ''}" data-f="${c[0]}">${esc(t('f_' + c[0]))}</button>`).join('') + '<span class="sp"></span>'
       + `<label class="ck"><input type="checkbox" id="nt" ${S.settings && S.settings.notify ? 'checked' : ''}> ${esc(t('a_notify'))}</label>`
-      + `<button class="btn sm g" data-a="trustAll">${esc(t('a_trustall'))}</button><button class="btn sm g" data-ex="csv">${esc(t('a_csv'))}</button><button class="btn sm g" data-ex="json">${esc(t('a_json'))}</button>`;
+      + (filter === 'deleted' ? `<button class="btn sm ok" data-a="restoreAll">${esc(t('a_restore'))} ✓ (${S.devices.filter(d => d.deleted).length})</button>` : '') + `<button class="btn sm g" data-a="trustAll">${esc(t('a_trustall'))}</button><button class="btn sm g" data-ex="csv">${esc(t('a_csv'))}</button><button class="btn sm g" data-ex="json">${esc(t('a_json'))}</button>`;
   }
   const list = S.devices.filter(match);
   $('rows').innerHTML = list.map(d => {
@@ -235,7 +276,7 @@ function render() {
       <td>${esc(typeTxt(d))}</td><td>${esc(osTxt(d.os))}</td>
       <td>${ports.slice(0, 5).map(pchip).join('') || '<span class="muted">—</span>'}${ports.length > 5 ? `<span class="pt">+${ports.length - 5}</span>` : ''}</td>
       <td>${d.rtt != null ? d.rtt + ' ms' : '—'}</td><td class="muted">${d.online ? esc(t('ago_now')) : esc(ago(d.lastSeen))}</td>
-      <td>${d.trusted ? `<span class="tag ok">${esc(t('s_trusted'))}</span>` : d.me ? `<span class="tag me">${esc(t('s_local'))}</span>` : riskTag(d.risk || 0)}</td></tr>`;
+      <td>${d.deleted ? `<button class="btn sm ok" data-a="restore" data-k="${esc(d.key)}">${esc(t('a_restore'))}</button>` : d.trusted ? `<span class="tag ok">${esc(t('s_trusted'))}</span>` : d.me ? `<span class="tag me">${esc(t('s_local'))}</span>` : riskTag(d.risk || 0)}</td></tr>`;
   }).join('') || `<tr><td colspan="10" class="muted" style="padding:1.2rem">${esc(t('empty'))}</td></tr>`;
   mapSync(list);
   if (sel && $('dr').classList.contains('on') && !(document.activeElement && $('dr').contains(document.activeElement))) drawer();
@@ -280,7 +321,7 @@ function exportData(fmt) {
 /* ---------- Mapa de red: grafo interactivo ---------- */
 var view = 'list';
 var MAP = { nodes: new Map(), hubKey: null, cam: { x: 0, y: 0, k: 1 }, w: 0, h: 0, dpr: 1, drag: null, pan: null, hover: null, raf: 0, fitted: false, moved: 0 };
-const ICON = { router: '🌐', pc: '💻', phone: '📱', tv: '📺', printer: '🖨️', nas: '🗄️', camera: '📷', iot: '💡', console: '🎮', speaker: '🔊', server: '🖥️', vm: '🧩', unknown: '❔' };
+const ICON = { router: 'router', pc: 'pc', phone: 'phone', tv: 'tv', printer: 'printer', nas: 'nas', camera: 'camera', iot: 'iot', console: 'console', speaker: 'speaker', server: 'server', vm: 'chip', unknown: 'help' };
 const mcol = d => !d.online ? '#64748b' : d.trusted ? '#10b981' : (d.risk || 0) >= 60 ? '#ef4444' : (d.risk || 0) >= 30 ? '#f59e0b' : '#06b6d4';
 
 function mapSync(list) {
@@ -355,7 +396,7 @@ function mapDraw(now) {
     if (d.isNew && !d.me) { g.beginPath(); g.arc(x + r * .75, y - r * .75, 4.5, 0, 7); g.fillStyle = '#f472b6'; g.fill(); }
     if (sel === d.key) { g.beginPath(); g.arc(x, y, r + 6, 0, 7); g.strokeStyle = '#fff'; g.lineWidth = 1.6; g.setLineDash([4, 4]); g.stroke(); g.setLineDash([]); }
     g.globalAlpha = d.online ? 1 : .55; g.font = Math.round(r * 1.02) + 'px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(d.isGateway ? '🌐' : (ICON[d.type] || '❔'), x, y + 1);
+    icoDraw(g, d.isGateway ? 'router' : (ICON[d.type] || 'help'), x, y + 1, r * 1.1, '#ffffff');
     if (cam.k > .55 || active === n) {
       g.textBaseline = 'alphabetic'; g.font = '600 11px "Segoe UI",system-ui,sans-serif'; g.fillStyle = '#e2e8f0'; g.fillText(nameOf(d) || d.ip, x, y + r + 15);
       if (cam.k > .85) { g.font = '10px ui-monospace,Consolas,monospace'; g.fillStyle = '#94a3b8'; g.fillText(d.ip, x, y + r + 28); }
@@ -413,17 +454,7 @@ document.addEventListener('click', async e => {
   const ex = el.closest('[data-ex]'); if (ex) { await exportData(ex.dataset.ex); return; }
   const cp = el.closest('[data-copy]'); if (cp) { try { await navigator.clipboard.writeText(cp.dataset.copy); toast(t('copied')); } catch (_) {} return; }
   const op = el.closest('[data-open]'); if (op) { F('open', op.dataset.open); return; }
-  const a = el.closest('[data-a]'); if (a) {
-    try {
-      const r = await F(a.dataset.a, a.dataset.k);
-      if (a.dataset.a === 'wake') toast(t('wol'));
-      if (a.dataset.a === 'restore') toast(t('a_restore') + ' OK');
-      if (a.dataset.a === 'remove') toast(t('a_remove') + ' OK');
-      if (a.dataset.close) { $('dr').classList.remove('on'); sel = null; }
-      if (r) setState(r);
-    } catch (err) { toast((err && err.message) || 'Error'); }
-    return;
-  }
+  const a = el.closest('[data-a]'); if (a) { const r = await F(a.dataset.a, a.dataset.k); if (a.dataset.a === 'wake') toast(t('wol')); if (a.dataset.close) { $('dr').classList.remove('on'); sel = null; } setState(r); return; }
   const row = el.closest('tr.r'); if (row) { sel = row.dataset.k; render(); drawer(); }
 });
 document.addEventListener('change', async e => { if (e.target.id === 'nt') setState(await F('setting', 'notify', e.target.checked)); });
@@ -450,36 +481,20 @@ document.getElementById('cloud-login').onclick = async () => {
     const c = await F('cloudLogin', { email: document.getElementById('cloud-email').value, password: document.getElementById('cloud-pass').value });
     if (!c || c.error || !c.user) throw new Error((c && c.error) || 'No se pudo entrar');
     cloudPaint(c); toast('Cuenta conectada');
-  } catch (e) { msg.style.color = '#f87171'; msg.textContent = '✕ ' + (e.message || 'No se pudo entrar'); toast(e.message || 'No se pudo entrar'); }
+  } catch (e) { msg.style.color = '#f87171'; msg.textContent = (e.message || 'No se pudo entrar'); toast(e.message || 'No se pudo entrar'); }
   finally { b.disabled = false; b.textContent = old; }
 };
 async function cloudSocial() {
-  const msg = document.getElementById('cloud-msg');
-  const btns = [document.getElementById('cloud-google'), document.getElementById('cloud-discord'), document.getElementById('cloud-login')];
-  btns.forEach(b => { if (b) b.disabled = true; });
-  if (msg) { msg.style.color = ''; msg.textContent = 'Conectando… confirmá en el navegador (máx ~80s)'; }
   try {
     const d = await F('cloudLink', {});
-    if (!d || d.error) throw new Error((d && d.error) || 'No se pudo iniciar el enlace');
     cloudPaint({ pending: d.code });
     toast('Confirmá en el navegador');
     for (let i = 0; i < 40; i++) {
       await new Promise(r => setTimeout(r, 2000));
       const c = await F('cloudPoll', d.code);
-      if (c && c.user) {
-        cloudPaint(c); toast('Exe conectado');
-        if (msg) msg.textContent = 'Conectado: ' + (c.user.email || '');
-        return;
-      }
+      if (c && c.user) { cloudPaint(c); toast('Exe conectado'); return; }
     }
-    if (msg) { msg.style.color = '#f87171'; msg.textContent = 'Tiempo agotado. Reintentá o usá email/contraseña.'; }
-    toast('No se completó el login social');
-  } catch (e) {
-    if (msg) { msg.style.color = '#f87171'; msg.textContent = '✕ ' + (e.message || 'Error'); }
-    toast(e.message || 'No se pudo abrir la página');
-  } finally {
-    btns.forEach(b => { if (b) b.disabled = false; });
-  }
+  } catch (e) { toast(e.message || 'No se pudo abrir la página'); }
 }
 document.getElementById('cloud-google').onclick = cloudSocial;
 document.getElementById('cloud-discord').onclick = cloudSocial;
@@ -490,27 +505,79 @@ document.getElementById('cloud-file').onclick = async () => {
   const r = await F('export', { name: 'iphub-red.json', content });
   if (r && r.ok) toast('Archivo listo para importar en Topología');
 };
-document.getElementById('trace-local-btn').onclick = async () => {
-  const target = document.getElementById('trace-local-target').value.trim();
-  if (!target) return toast('Destino vacío');
-  toast('Traceroute local…');
+
+async function runTr(packet) {
+  const msg = $('tr-msg'), body = $('tr-body'), wrap = $('tr-wrap');
+  const bs = [$('tr-route'), $('tr-packet')]; bs.forEach(b => b.disabled = true);
+  msg.style.color = ''; msg.textContent = packet ? 'Enviando paquetes (3 por salto)…' : 'Trazando ruta, puede tardar hasta 1 minuto…';
   try {
-    const r = await F('traceroute', target);
-    const msg = document.getElementById('cloud-msg');
-    if (msg) msg.textContent = (r && r.raw) ? r.raw.slice(0, 500) : JSON.stringify(r);
-    toast(r && r.ok !== false ? 'Traceroute OK' : ((r && r.error) || 'Trace fin'));
-  } catch (e) { toast(e.message || 'Error trace'); }
-};
-document.getElementById('tracepacket-local-btn').onclick = async () => {
-  const target = document.getElementById('trace-local-target').value.trim();
-  if (!target) return toast('Destino vacío');
-  toast('Tracepacket local…');
-  try {
-    const r = await F('tracepacket', target);
-    const msg = document.getElementById('cloud-msg');
-    if (msg) msg.textContent = (r && r.raw) ? r.raw.slice(0, 500) : JSON.stringify(r);
-    toast(r && r.ok !== false ? 'Tracepacket OK' : ((r && r.error) || 'Trace fin'));
-  } catch (e) { toast(e.message || 'Error trace'); }
-};
+    const r = await F('trace', $('tr-target').value, packet);
+    if (!r || r.error) throw new Error((r && r.error) || 'Error');
+    wrap.style.display = r.hops.length ? 'block' : 'none';
+    body.innerHTML = r.hops.map(h => `<tr><td>${esc(h.hop)}</td><td class="mono">${esc(h.host)}</td><td>${esc(h.rtts[0])}</td><td>${esc(h.rtts[1])}</td><td>${esc(h.rtts[2])}</td></tr>`).join('');
+    msg.textContent = `${r.tool} → ${r.target}: ${r.hops.length} saltos`;
+  } catch (e) { msg.style.color = '#f87171'; msg.textContent = e.message; }
+  bs.forEach(b => b.disabled = false);
+}
+$('tr-route').onclick = () => runTr(false);
+$('tr-packet').onclick = () => runTr(true);
+$('tr-target').addEventListener('keydown', e => { if (e.key === 'Enter') runTr(false); });
+
+let intLast = 0, intRows = [], intOn = false;
+async function intPoll() {
+  const c = await F('cloudStatus'); $('intcard').style.display = c && c.user && c.user.isOwner ? 'block' : 'none';
+  if (!(c && c.user && c.user.isOwner)) return;
+  const r = await F('intList', intLast); if (!r || r.error) return;
+  intOn = r.running; $('int-toggle').textContent = intOn ? 'Detener' : 'Iniciar'; $('int-st').textContent = intOn ? 'Escuchando en el puerto ' + r.port : 'Detenido';
+  if (r.items && r.items.length) { intLast = r.last; intRows = r.items.concat(intRows).slice(0, 300); }
+  $('int-rows').innerHTML = intRows.map(e => `<tr title="${esc(e.url)}"><td>${new Date(e.t).toLocaleTimeString()}</td><td class="mono">${esc(e.src)}</td><td>${esc(e.method)}</td><td class="mono" style="max-width:420px;overflow:hidden;text-overflow:ellipsis">${esc(e.url)}</td><td>${e.status || '—'}</td><td>${e.ms ?? '—'}</td></tr>`).join('');
+}
+$('int-toggle').onclick = async () => { const r = await F(intOn ? 'intStop' : 'intStart', $('int-port').value); if (r && r.error) toast(r.error); intPoll(); };
+$('int-clear').onclick = async () => { await F('intClear'); intRows = []; intLast = 0; intPoll(); };
+setInterval(intPoll, 2000);
+
+/* ---------- Analizador de protocolos ---------- */
+const WS = { last: 0, rows: [], sel: null, on: false, f: '', ready: false };
+const WC = { TCP: '#8b9cff', UDP: '#38bdf8', DNS: '#22d3ee', HTTP: '#4ade80', TLS: '#a78bfa', ARP: '#fbbf24', ICMP: '#f87171', ICMPV6: '#f87171', IPV4: '#94a3b8', IPV6: '#94a3b8', DHCP: '#fb923c', MDNS: '#2dd4bf', SSDP: '#f472b6', QUIC: '#818cf8' };
+const wcol = p => WC[String(p).toUpperCase()] || '#64748b';
+function wmatch(r) {
+  if (!WS.f) return true;
+  return WS.f.split(/&&|\band\b/i).every(term => {
+    term = term.trim(); if (!term) return true; let neg = false; if (term[0] === '!') { neg = true; term = term.slice(1).trim(); }
+    let ok; const m = term.match(/^(ip\.addr|ip\.src|ip\.dst|port|tcp\.port|udp\.port)\s*==\s*(\S+)$/i);
+    if (m) { const k = m[1].toLowerCase(), v = m[2]; ok = k === 'ip.addr' ? (r.src === v || r.dst === v) : k === 'ip.src' ? r.src === v : k === 'ip.dst' ? r.dst === v : (r.info.indexOf(v + ' \u2192') >= 0 || r.info.indexOf('\u2192 ' + v) >= 0); }
+    else ok = r.proto.toLowerCase() === term.toLowerCase() || (r.src + ' ' + r.dst + ' ' + r.proto + ' ' + r.info).toLowerCase().includes(term.toLowerCase());
+    return neg ? !ok : ok;
+  });
+}
+function wpaint() {
+  const l = WS.rows.filter(wmatch).slice(-400), box = $('ws-rows').parentNode.parentNode, stick = $('ws-as').checked;
+  $('ws-rows').innerHTML = l.map(r => `<tr data-id="${r.id}" class="${WS.sel === r.id ? 'sel' : ''}"><td style="border-left-color:${wcol(r.proto)}">${r.id}</td><td>${((r.t - (WS.t0 || r.t)) / 1000).toFixed(3)}</td><td>${esc(r.src)}</td><td>${esc(r.dst)}</td><td style="color:${wcol(r.proto)}">${esc(r.proto)}</td><td>${r.len}</td><td title="${esc(r.info)}">${esc(r.info)}</td></tr>`).join('');
+  if (stick) box.scrollTop = box.scrollHeight;
+}
+function whex(hex) {
+  const b = hex.match(/../g) || []; let o = '';
+  for (let i = 0; i < b.length; i += 16) { const s = b.slice(i, i + 16); o += i.toString(16).padStart(4, '0') + '  ' + s.slice(0, 8).join(' ').padEnd(23) + '  ' + s.slice(8).join(' ').padEnd(23) + '  ' + s.map(x => { const c = parseInt(x, 16); return c >= 32 && c < 127 ? String.fromCharCode(c) : '.'; }).join('').replace(/</g, '&lt;') + '\n'; }
+  return o;
+}
+async function wsel(id) {
+  WS.sel = id; wpaint(); const p = await F('capPacket', id); if (!p || p.error) { $('ws-tree').innerHTML = '<p class="muted">' + esc(p && p.error || 'Sin datos') + '</p>'; return; }
+  $('ws-tree').innerHTML = Object.entries(p.layers).map(([k, v], i) => `<details ${i < 6 ? 'open' : ''}><summary>${esc(k)}</summary><dl>${Object.entries(v).map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('')}</dl></details>`).join('');
+  $('ws-hex').innerHTML = whex(p.hex);
+}
+async function wsPoll() {
+  const c = await F('cloudStatus'); const own = !!(c && c.user && c.user.isOwner); $('wscard').style.display = own ? 'block' : 'none'; if (!own) return;
+  if (!WS.ready) { WS.ready = true; $('ws-ic').innerHTML = IC('packet', 20); const r = await F('capIfaces'); $('ws-if').innerHTML = (r.list || []).map(i => `<option value="${esc(i.id)}">${esc(i.id)}. ${esc(i.name)}</option>`).join('') || '<option value="">Sin interfaces</option>'; if (r.error) $('ws-msg').textContent = r.error; }
+  const r = await F('capList', WS.last); if (!r) return; WS.on = r.running; $('ws-go').innerHTML = (WS.on ? IC('stop', 14) + ' Detener' : IC('play', 14) + ' Iniciar captura'); $('ws-clr').innerHTML = IC('trash', 14) + ' Limpiar';
+  if (r.error) $('ws-msg').textContent = r.error; else if (WS.on) $('ws-msg').textContent = 'Capturando con ' + r.tool + '...'; else if (r.total) $('ws-msg').textContent = 'Captura detenida.';
+  if (r.items && r.items.length) { WS.t0 = WS.t0 || r.items[0].t; WS.rows = WS.rows.concat(r.items).slice(-5000); WS.last = r.items[r.items.length - 1].id; wpaint(); }
+  const top = Object.entries(r.proto || {}).sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => x[0] + ' ' + x[1]).join(' | ');
+  $('ws-stat').textContent = 'Paquetes: ' + r.total + ' | Mostrados: ' + WS.rows.filter(wmatch).length + ' | Bytes: ' + r.bytes + (top ? ' | ' + top : '');
+}
+$('ws-go').onclick = async () => { const r = WS.on ? await F('capStop') : await F('capStart', { iface: $('ws-if').value, filter: $('ws-cf').value }); if (r && r.error) $('ws-msg').textContent = r.error; wsPoll(); };
+$('ws-clr').onclick = async () => { await F('capClear'); WS.rows = []; WS.last = 0; WS.t0 = 0; WS.sel = null; $('ws-tree').innerHTML = ''; $('ws-hex').textContent = ''; wpaint(); wsPoll(); };
+$('ws-df').oninput = e => { WS.f = e.target.value.trim(); wpaint(); };
+$('ws-rows').onclick = e => { const tr = e.target.closest('tr[data-id]'); if (tr) wsel(+tr.dataset.id); };
+setInterval(wsPoll, 900);
 cloudPaint();
 </script></body></html>

@@ -4,19 +4,12 @@
   let tab = 'repos';
 
   function ownerOnly() {
-    const me = window.ME;
-    if (!me) return false;
-    if (me.isOwner) return true;
-    const em = String(me.email || '').toLowerCase();
-    return em === 'iphuboficial@gmail.com';
+    const m = (typeof ME !== 'undefined' && ME) || window.ME; return !!(m && m.isOwner);
   }
 
   function showNav() {
     const n = $('nav-code');
-    if (!n) return;
-    const show = ownerOnly();
-    if (n.hidden === !show) return; // avoid flicker
-    n.hidden = !show;
+    if (n) n.hidden = !ownerOnly();
   }
 
   async function api(path, opts) {
@@ -245,11 +238,6 @@
       if (id === 'code') render();
     };
   }
-  // show nav once when ME is ready (no interval = no flicker)
-  let _navTries = 0;
-  const _navIv = setInterval(() => {
-    _navTries++;
-    if (window.ME) { showNav(); clearInterval(_navIv); }
-    else if (_navTries > 20) clearInterval(_navIv);
-  }, 400);
+  document.addEventListener('iphub-ready', showNav);
+  window.__codeShowNav = showNav;
 })();

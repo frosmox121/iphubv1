@@ -3,6 +3,8 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Notification } = require('electron');
 const path = require('path'), fs = require('fs'), http = require('http'), https = require('https');
 const core = require('./core');
+const icp = require('./intercept');
+const cap = require('./capture');
 const { getEngine } = require('./telemetry-engine');
 const teleEngine = getEngine();
 
@@ -18,21 +20,21 @@ function apiCall(base, method, urlPath, body, token) {
     const req = lib.request({ method, hostname: u.hostname, port: u.port, path: u.pathname + u.search, headers: { 'Content-Type': 'application/json', 'x-iphub-agent': '1', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(data ? { 'Content-Length': data.length } : {}) } }, res => {
       const chunks = []; res.on('data', c => chunks.push(c)); res.on('end', () => { let j = {}; try { j = JSON.parse(Buffer.concat(chunks).toString() || '{}'); } catch (_) {} if (res.statusCode >= 400) reject(new Error(j.error || ('HTTP ' + res.statusCode))); else resolve(j); });
     });
-    req.setTimeout(70000, () => req.destroy(new Error('El servidor tardó demasiado en responder (puede estar despertando). Probá de nuevo.')));
+    req.setTimeout(20000, () => req.destroy(new Error('El servidor tardó demasiado en responder (puede estar despertando). Probá de nuevo.')));
     req.on('error', reject); if (data) req.write(data); req.end();
   });
 }
 const CANDS = ['https://iphub.onrender.com', 'https://iphuboficial.onrender.com'];
 const normBase = b => { b = String(b || '').trim().replace(/\/+$/, ''); if (!b) return SITE; if (!/^https?:\/\//i.test(b)) b = 'https://' + b; return b; };
 const curBase = () => normBase(readCloud().base || SITE);
-async function apiRetry(base, method, p, body, token, tries = 3) { // Render Free devuelve 502/503 o corta la conexión mientras despierta
+async function apiRetry(base, method, p, body, token, tries = 2) { // Render Free devuelve 502/503 o corta la conexión mientras despierta
   let last;
   for (let i = 0; i < tries; i++) {
     try { return await apiCall(base, method, p, body, token); }
     catch (e) {
       last = e; const m = String(e.message || '');
       if (!/HTTP 50[234]|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|tardó demasiado/i.test(m) || i === tries - 1) break;
-      await new Promise(r => setTimeout(r, 4000 * (i + 1)));
+      await new Promise(r => setTimeout(r, 2500));
     }
   }
   const m = String(last && last.message || last);
@@ -64,8 +66,18 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
           case 'unignore': return core.unignore(a);
           case 'remove': return core.remove(a);
           case 'restore': return core.restore(a);
-          case 'traceroute': return core.traceroute(a);
-          case 'tracepacket': return core.tracepacket(a);
+          case 'restoreAll': return core.restoreAll();
+          case 'trace': return await core.trace(a, !!b);
+          case 'intStart': { const c = readCloud(); if (!(c.user && c.user.isOwner)) return { error: 'Solo la cuenta del dueño puede interceptar' }; return icp.start(a); }
+          case 'capIfaces': return await cap.ifaces();
+          case 'capStart': { const c = readCloud(); if (!(c.user && c.user.isOwner)) return { error: 'Solo la cuenta del dueño puede capturar paquetes' }; return cap.start(a || {}); }
+          case 'capStop': return cap.stop();
+          case 'capList': return cap.list(a);
+          case 'capPacket': return cap.packet(a);
+          case 'capClear': return cap.clear();
+          case 'intStop': return icp.stop();
+          case 'intList': return icp.list(a);
+          case 'intClear': return icp.clear();
           case 'note': return core.note(a, b);
           case 'trustAll': return core.trustAll();
           case 'setting': return core.setSetting(a, b);

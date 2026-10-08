@@ -1,10 +1,24 @@
 /* Empresa, roles y topología conectada al exe. */
 (function () {
-  const PERM_LABEL = {
-    dashboard: 'Dashboard', topology: 'Topología', workspace: 'Workspace', tracking: 'Tracking Studio',
-    tools: 'Herramientas', audit: 'Auditoría', learn: 'Aprender', ranking: 'Ranking',
-    support: 'Soporte', manual: 'Manual', account: 'Mi Cuenta',
-  };
+  const PERM_TREE = [
+    ['dashboard', 'Dashboard', []],
+    ['topology', 'Topología', [['topology:discover', 'Descubrir red']]],
+    ['workspace', 'Workspace', [['workspace:embed', 'Embeds externos']]],
+    ['tracking', 'Tracking Studio', [['tracking:edit', 'Editar proyectos']]],
+    ['tools', 'Herramientas', [['tools:ip', 'IP'], ['tools:ports', 'Puertos'], ['tools:trace', 'Traceroute/Tracepacket'], ['tools:dns', 'DNS'], ['tools:subnet', 'Subredes'], ['tools:arp', 'ARP/MAC'], ['tools:speed', 'Velocidad'], ['tools:innovative', 'Innovadoras']]],
+    ['audit', 'Auditoría', [['audit:export', 'Exportar CSV/PDF']]],
+    ['learn', 'Aprender', []], ['ranking', 'Ranking', []],
+    ['support', 'Soporte', [['support:tickets', 'Tickets'], ['support:reviews', 'Reseñas']]],
+    ['manual', 'Manual', []],
+  ];
+  const PERM_LABEL = {}; PERM_TREE.forEach(([k, l, subs]) => { PERM_LABEL[k] = l; subs.forEach(([sk, sl]) => PERM_LABEL[sk] = l + ' · ' + sl); });
+  const hasPerm = (perms, p) => { perms = perms || []; if (perms.includes(p)) return true; const i = p.indexOf(':'); if (i < 0) return false; const s = p.slice(0, i); return perms.includes(s) && !perms.some(x => x.startsWith(s + ':')); };
+  document.addEventListener('change', ev => {
+    const inp = ev.target; if (!inp.closest || !inp.closest('.perm-sec')) return;
+    const sec = inp.closest('.perm-sec'), main = sec.querySelector('[data-main]'), subs = [...sec.querySelectorAll('[data-sub]')];
+    if (inp === main) subs.forEach(s => s.checked = main.checked);
+    else if (subs.some(s => s.checked)) main.checked = true; else if (subs.length) main.checked = false;
+  });
   const $ = id => document.getElementById(id);
   let poll = null;
 
@@ -12,22 +26,20 @@
 
   function applyAccess() {
     const owner = !!(ME && ME.isOwner);
+    document.body.classList.toggle('is-owner', owner);
     const nav = $('nav-empresa');
     if (nav) nav.hidden = !owner;
     const role = ME && ME.role;
     document.querySelectorAll('.nav-item[data-section]').forEach(a => {
       const sec = a.dataset.section;
       if (sec === 'empresa') return;
+      if (sec === 'code' || sec === 'intercept') { a.hidden = !owner; return; }
       if (sec === 'account') { a.hidden = false; return; }
-      if (sec === 'code') return; // code: solo dueño (otro módulo)
-      if (sec === 'leaderboard') {
-        if (!role || owner) { a.hidden = false; return; }
-        a.hidden = !(role.perms || []).includes('ranking');
-        return;
-      }
       if (!role || owner) { a.hidden = false; return; }
       a.hidden = !(role.perms || []).includes(sec);
     });
+    const TT = { ip: 'tools:ip', ports: 'tools:ports', trace: 'tools:trace', dns: 'tools:dns', subnet: 'tools:subnet', arp: 'tools:arp', speed: 'tools:speed', innov: 'tools:innovative' };
+    document.querySelectorAll('.tool-tab[data-tool]').forEach(t => { const p = TT[t.dataset.tool]; t.hidden = !!(role && !owner && p && !hasPerm(role.perms, p)); });
     const pill = $('user-email');
     if (pill && ME) {
       const tag = owner ? 'Dueño' : (role ? role.name : '');
@@ -38,7 +50,7 @@
   const origShow = window.showSection;
   window.showSection = function (id) {
     const role = ME && ME.role;
-    if (id === 'empresa' && !(ME && ME.isOwner)) id = 'dashboard';
+    if ((id === 'empresa' || id === 'intercept' || id === 'code') && !(ME && ME.isOwner)) id = 'dashboard';
     if (role && !ME.isOwner && id !== 'account' && id !== 'empresa' && id !== 'legal' && !(role.perms || []).includes(id)) {
       if (typeof toast === 'function') toast('Tu rol no incluye esa sección');
       id = (role.perms || [])[0] || 'account';
@@ -117,8 +129,10 @@
   });
 
   function permBoxes(selected) {
-    return Object.keys(PERM_LABEL).map(k => `<label class="ck role-tick"><input type="checkbox" value="${k}" ${(selected || []).includes(k) ? 'checked' : ''}><span>${PERM_LABEL[k]}</span></label>`).join('');
+    selected = selected || [];
+    return PERM_TREE.map(([k, l, subs]) => `<div class="perm-sec"><label class="ck role-tick"><input type="checkbox" data-main value="${k}" ${selected.includes(k) ? 'checked' : ''}><span><b>${l}</b></span></label>${subs.length ? `<div class="perm-subs">${subs.map(([sk, sl]) => `<label class="ck role-tick"><input type="checkbox" data-sub value="${sk}" ${hasPerm(selected, sk) && selected.includes(k) ? 'checked' : ''}><span>${sl}</span></label>`).join('')}</div>` : ''}</div>`).join('');
   }
+
 
   async function loadOrg() {
     const root = $('empresa-root'); if (!root || !(ME && ME.isOwner)) return;

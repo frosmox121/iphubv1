@@ -138,72 +138,74 @@
   bind('lab-export', 'Exportar topología (JSON del laboratorio)');
 })();
 
-// Workspace
+// Workspace (widgets reales y funcionales)
 (function workspaceMod() {
   const grid = () => document.getElementById('ws-grid');
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const me = () => (typeof ME !== 'undefined' && ME) || null;
+  const ws = () => { const m = me(); if (!m) return { widgets: [] }; if (!m.workspace || !Array.isArray(m.workspace.widgets)) m.workspace = { widgets: [] }; return m.workspace; };
+  const T = { dashboard: 'Resumen de red', topology: 'Topología', 'tools-ip': 'Analizador de IP', audit: 'Últimas acciones', embed: 'Embed externo', notes: 'Notas', trace: 'Traceroute rápido', dns: 'DNS rápido', clock: 'Reloj y fecha', speed: 'Ping de latencia' };
+  const SECTION = { dashboard: 'dashboard', topology: 'topology', 'tools-ip': 'tools', audit: 'audit' };
+  const toastSafe = (t, err) => { try { toast(t, err); } catch (_) {} };
+  let save_t = null;
+  const autosave = () => { clearTimeout(save_t); save_t = setTimeout(save, 700); };
+  async function save(manual) {
+    try { await api('/api/workspace', { method: 'PUT', body: { layout: ws() } }); if (manual) toastSafe('Workspace guardado'); }
+    catch (e) { toastSafe(e.message, true); }
+  }
+  const body = {
+    dashboard: async el => { const d = await api('/api/dashboard/summary'); const rows = Object.entries(d).filter(([k, v]) => (typeof v === 'number' || v === null) && k !== 'hasData').slice(0, 8);
+      el.innerHTML = rows.length ? `<div class="ws-kv">${rows.map(([k, v]) => `<div><small>${esc(k.replace(/([A-Z])/g, ' $1'))}</small><b>${v ?? '—'}</b></div>`).join('')}</div>` : '<p class="muted small">Sin datos todavía. Descubrí tu red desde Topología.</p>'; },
+    topology: async el => { const d = await api('/api/dashboard/summary'); el.innerHTML = `<p class="muted small">Dispositivos y estado de la red local.</p><div class="ws-kv"><div><small>Puntaje</small><b>${d.score ?? '—'}</b></div><div><small>Latencia ms</small><b>${d.avgLatency ?? '—'}</b></div></div>`; },
+    audit: async el => { const d = await api('/api/audit'); const l = (d.entries || []).slice(0, 6); el.innerHTML = l.length ? `<ul class="ws-list">${l.map(e => `<li>${esc(e.action)}<small>${esc(e.detail || e.details || '')}</small></li>`).join('')}</ul>` : '<p class="muted small">Sin actividad.</p>'; },
+    'tools-ip': el => { el.innerHTML = '<div class="tool-form"><input class="ws-in" value="8.8.8.8"><button class="btn btn-sm btn-primary" type="button">Analizar</button></div><div class="ws-out muted small"></div>';
+      const go = async () => { const o = el.querySelector('.ws-out'); o.textContent = 'Consultando…'; try { const d = await api('/api/tools/ip-lookup', { method: 'POST', body: { ip: el.querySelector('.ws-in').value.trim() } }); o.innerHTML = `<b>${esc(d.query)}</b> · ${esc(d.city)}, ${esc(d.country)}<br>${esc(d.isp)} · VPN/Proxy: ${d.isVpnOrProxy ? 'sí' : 'no'}`; } catch (e) { o.textContent = e.message; } };
+      el.querySelector('button').onclick = go; },
+    trace: el => { el.innerHTML = '<div class="tool-form"><input class="ws-in" value="8.8.8.8"><button class="btn btn-sm btn-primary" type="button">Trazar</button></div><pre class="ws-out raw-output" style="max-height:160px;overflow:auto"></pre>';
+      el.querySelector('button').onclick = async () => { const o = el.querySelector('.ws-out'); o.textContent = 'Trazando ruta…'; try { const d = await api('/api/tools/traceroute', { method: 'POST', body: { target: el.querySelector('.ws-in').value.trim() } }); o.textContent = d.raw || ''; } catch (e) { o.textContent = e.message; } }; },
+    dns: el => { el.innerHTML = '<div class="tool-form"><input class="ws-in" value="google.com"><button class="btn btn-sm btn-primary" type="button">Resolver</button></div><pre class="ws-out raw-output" style="max-height:160px;overflow:auto"></pre>';
+      el.querySelector('button').onclick = async () => { const o = el.querySelector('.ws-out'); o.textContent = 'Consultando…'; try { const d = await api('/api/tools/dns-lookup', { method: 'POST', body: { domain: el.querySelector('.ws-in').value.trim(), host: el.querySelector('.ws-in').value.trim() } }); o.textContent = JSON.stringify(d.records || d, null, 1).slice(0, 1500); } catch (e) { o.textContent = e.message; } }; },
+    clock: el => { const t = () => { const d = new Date(); el.innerHTML = `<div class="ws-clock">${d.toLocaleTimeString()}</div><small class="muted">${d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</small>`; }; t(); const iv = setInterval(() => { if (!el.isConnected) return clearInterval(iv); t(); }, 1000); },
+    speed: el => { el.innerHTML = '<button class="btn btn-sm btn-primary" type="button">Medir latencia</button><div class="ws-out muted small" style="margin-top:.4rem"></div>';
+      el.querySelector('button').onclick = async () => { const o = el.querySelector('.ws-out'); const r = []; for (let i = 0; i < 5; i++) { const t0 = performance.now(); try { await fetch('/favicon.png?x=' + Date.now(), { cache: 'no-store' }); } catch (_) {} r.push(performance.now() - t0); } o.innerHTML = `Mín ${Math.min(...r).toFixed(0)} · Prom ${(r.reduce((a, b) => a + b, 0) / r.length).toFixed(0)} · Máx ${Math.max(...r).toFixed(0)} ms (hacia el servidor)`; }; },
+    notes: (el, w, i) => { el.innerHTML = '<textarea></textarea>'; const t = el.querySelector('textarea'); t.value = w.text || ''; t.oninput = () => { ws().widgets[i].text = t.value; autosave(); }; },
+    embed: (el, w) => { const u = String(w.url || ''); if (!/^https?:\/\//i.test(u)) { el.innerHTML = '<p class="muted small">URL inválida: usá https://…</p>'; return; } el.innerHTML = `<iframe src="${esc(u)}" sandbox="allow-scripts allow-same-origin allow-popups" referrerpolicy="no-referrer"></iframe><a class="muted small" href="${esc(u)}" target="_blank" rel="noopener">Abrir en pestaña nueva ↗</a>`; },
+  };
   function load() {
-    const g = grid(); if (!g || !window.ME) return;
-    const layout = (window.ME.workspace && window.ME.workspace.widgets) || [];
-    g.innerHTML = '';
-    layout.forEach((w, i) => addCard(w, i));
-    if (!layout.length) g.innerHTML = '<p class="muted small">Todavía no hay widgets. Elegí uno arriba y pulsá Agregar.</p>';
-  }
-  function addCard(w, idx) {
-    const g = grid(); if (!g) return;
-    if (g.querySelector('.muted')) g.innerHTML = '';
-    const el = document.createElement('div');
-    el.className = 'ws-card' + (w.size === 'wide' ? ' wide' : '') + (w.size === 'tall' ? ' tall' : '');
-    const title = { dashboard: 'Dashboard', topology: 'Topología', 'tools-ip': 'IP Lookup', audit: 'Auditoría', embed: 'Embed', notes: 'Notas' }[w.type] || w.type;
-    let body = '';
-    if (w.type === 'notes') body = `<textarea data-idx="${idx}">${w.text || ''}</textarea>`;
-    else if (w.type === 'embed') body = `<iframe src="${(w.url || 'about:blank').replace(/"/g, '')}" sandbox="allow-scripts allow-same-origin"></iframe>`;
-    else body = `<p class="muted small">Widget “${title}”. Los datos se enlazan a la sección correspondiente de IPHub.</p>
-      <button class="btn btn-sm g" type="button" data-go="${w.type}">Abrir sección</button>`;
-    el.innerHTML = `<h4>${title}<button class="ws-rm" type="button" data-rm="${idx}" title="Quitar">x</button></h4>${body}`;
-    g.appendChild(el);
-    el.querySelector('[data-rm]')?.addEventListener('click', () => {
-      const ws = (window.ME.workspace = window.ME.workspace || { widgets: [] });
-      if (!Array.isArray(ws.widgets)) ws.widgets = [];
-      ws.widgets.splice(idx, 1); load();
-      api('/api/workspace', { method: 'PUT', body: { layout: ws } }).catch(() => {});
+    const g = grid(); if (!g || !me()) return;
+    const list = ws().widgets; g.innerHTML = '';
+    if (!list.length) { g.innerHTML = '<p class="muted small">Todavía no hay widgets. Elegí uno arriba y pulsá Agregar.</p>'; return; }
+    list.forEach((w, i) => {
+      const el = document.createElement('div');
+      el.className = 'ws-card' + (w.size === 'wide' ? ' wide' : '') + (w.size === 'tall' ? ' tall' : '');
+      el.innerHTML = `<h4><span>${esc(T[w.type] || w.type)}</span><span class="ws-ctl"><button class="ws-rm" type="button" data-act="up" title="Subir">↑</button><button class="ws-rm" type="button" data-act="size" title="Tamaño">⤢</button>${SECTION[w.type] ? '<button class="ws-rm" type="button" data-act="go" title="Abrir sección">↗</button>' : ''}<button class="ws-rm" type="button" data-act="rm" title="Quitar">✕</button></span></h4><div class="ws-body"><p class="muted small">Cargando…</p></div>`;
+      g.appendChild(el);
+      const b = el.querySelector('.ws-body');
+      Promise.resolve().then(() => (body[w.type] || (x => { x.innerHTML = '<p class="muted small">Widget desconocido.</p>'; }))(b, w, i)).catch(e => { b.innerHTML = '<p class="muted small">' + esc(e.message) + '</p>'; });
+      el.querySelector('.ws-ctl').addEventListener('click', e => {
+        const act = e.target.closest('[data-act]')?.dataset.act; if (!act) return;
+        const l = ws().widgets;
+        if (act === 'rm') l.splice(i, 1);
+        else if (act === 'up' && i > 0) [l[i - 1], l[i]] = [l[i], l[i - 1]];
+        else if (act === 'size') l[i].size = l[i].size === 'wide' ? 'normal' : l[i].size === 'normal' || !l[i].size ? 'tall' : 'wide';
+        else if (act === 'go') { showSection(SECTION[w.type]); return; }
+        autosave(); load();
+      });
     });
-    el.querySelector('[data-go]')?.addEventListener('click', () => {
-      const map = { dashboard: 'dashboard', topology: 'topology', 'tools-ip': 'tools', audit: 'audit' };
-      if (typeof showSection === 'function') showSection(map[w.type] || 'dashboard');
-    });
-    el.querySelector('textarea')?.addEventListener('change', e => {
-      window.ME.workspace.widgets[idx].text = e.target.value;
-    });
-  }
-  async function persist() {
-    try {
-      await api('/api/workspace', { method: 'PUT', body: { layout: window.ME.workspace || { widgets: [] } } });
-      if (typeof toast === 'function') toast('Workspace guardado');
-    } catch (e) { if (typeof toast === 'function') toast(e.message || 'Error al guardar', true); }
   }
   document.getElementById('ws-add-btn')?.addEventListener('click', () => {
-    if (!window.ME) { if (typeof toast === 'function') toast('Iniciá sesión primero', true); return; }
-    const sel = document.getElementById('ws-add-widget');
-    const type = sel && sel.value; if (!type) return;
-    const ws = (window.ME.workspace = window.ME.workspace || { widgets: [] });
-    if (!Array.isArray(ws.widgets)) ws.widgets = [];
+    const sel = document.getElementById('ws-add-widget'); const type = sel && sel.value;
+    if (!type) return toastSafe('Elegí un widget de la lista', true);
+    if (!me()) return;
     const w = { type, size: 'normal' };
-    if (type === 'embed') w.url = prompt('URL del embed (https://…)') || '';
+    if (type === 'embed') { const u = prompt('URL del embed (https://…)'); if (!u || !/^https?:\/\//i.test(u.trim())) return toastSafe('URL inválida', true); w.url = u.trim(); }
     if (type === 'notes') w.text = '';
-    ws.widgets.push(w); load(); if (sel) sel.value = '';
-    persist();
+    ws().widgets.push(w); sel.value = ''; load(); autosave();
   });
-  document.getElementById('ws-save-btn')?.addEventListener('click', persist);
+  document.getElementById('ws-save-btn')?.addEventListener('click', () => save(true));
   const orig = window.showSection;
-  if (typeof orig === 'function') {
-    window.showSection = function (id) {
-      orig(id);
-      if (id === 'workspace') {
-        if (window.ME && !window.ME.workspace) window.ME.workspace = { widgets: [] };
-        load();
-      }
-    };
-  }
+  if (orig) window.showSection = function (id) { orig(id); if (id === 'workspace') load(); };
+  document.addEventListener('iphub-ready', load);
 })();
 
 // AI settings form

@@ -453,6 +453,31 @@ const unignore = act(d => { d.ignored = false; });
 // Eliminar = mover a "Eliminados" (se conserva el registro: no vuelve a aparecer como dispositivo nuevo y se puede restaurar)
 const remove = act(d => { d.deleted = true; d.ignored = false; d.trusted = false; });
 const restore = act(d => { d.deleted = false; });
+function restoreAll() { for (const d of Object.values(S.devices)) if (d.deleted) d.deleted = false; save(); emit(); return summary(); }
+// Traceroute / Tracepacket reales con las herramientas del sistema (tracert en Windows)
+function trace(target, packet) {
+  return new Promise(resolve => {
+    target = String(target || '').trim();
+    if (!/^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$/i.test(target) && !/^[0-9a-f:]+$/i.test(target)) return resolve({ error: 'Destino inválido' });
+    const win = process.platform === 'win32';
+    const hops = packet ? 30 : 20;
+    const cmd = win ? 'tracert' : 'traceroute';
+    const args = win ? ['-d', '-h', String(hops), '-w', packet ? '2500' : '1500', target] : ['-n', '-m', String(hops), '-w', '2', ...(packet ? ['-q', '3'] : []), target];
+    execFile(cmd, args, { timeout: 60000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }, (err, so) => {
+      const raw = String(so || '');
+      if (!raw && err) return resolve({ error: err.code === 'ENOENT' ? 'No se encontró ' + cmd + ' en este equipo' : 'No se pudo ejecutar la traza' });
+      const rows = [];
+      for (const line of raw.split(/\r?\n/)) {
+        const m = line.match(/^\s*(\d+)\s+(.+)$/); if (!m) continue;
+        const rest = m[2].trim(), rtts = [...rest.matchAll(/(<?\d+[.,]?\d*)\s*ms/gi)].map(x => x[1].replace('<', '').replace(',', '.'));
+        const host = (rest.replace(/<?\d+[.,]?\d*\s*ms/gi, '').replace(/\[.*?\]/g, '').replace(/\*/g, '').replace(/\s+/g, ' ').trim()) || '*';
+        while (rtts.length < 3) rtts.push('*');
+        rows.push({ hop: m[1], host: /Request timed out|agotado/i.test(rest) ? '*' : host, rtts: rtts.slice(0, 3) });
+      }
+      resolve({ target, raw, hops: rows, tool: cmd, packet: !!packet });
+    });
+  });
+}
 function note(key, text) { const d = S.devices[key]; if (d) d.note = String(text || '').slice(0, 300); save(); emit(); return summary(); }
 function trustAll() { for (const d of Object.values(S.devices)) if (d.online) d.trusted = true; save(); emit(); return summary(); }
 function setSetting(k, v) { S.settings[k] = v; save(); return summary(); }
@@ -473,22 +498,5 @@ async function watchNet() {
   return false;
 }
 currentNet().then(info => { if (info) useNet(info); emit(); }).catch(() => {});
-
-function runTraceLocal(target, packet) {
-  return new Promise(resolve => {
-    const cmd = WIN ? 'tracert' : 'traceroute';
-    const args = WIN
-      ? ['-d', '-h', '20', '-w', '1500', String(target)]
-      : ['-n', '-m', '20', '-w', '2'].concat(packet ? ['-q', '3'] : []).concat([String(target)]);
-    execFile(cmd, args, { timeout: 45000, maxBuffer: 2 * 1024 * 1024 }, (err, stdout, stderr) => {
-      const raw = (stdout || '') || (stderr || '') || (err && err.message) || 'Sin salida';
-      pushTrace({ target: String(target), mode: packet ? 'tracepacket' : 'traceroute', raw: String(raw).slice(0, 12000) });
-      resolve({ ok: !err || !!stdout, target, mode: packet ? 'tracepacket' : 'traceroute', raw: String(raw).slice(0, 12000), error: err && !stdout ? err.message : null });
-    });
-  });
-}
-const traceroute = (target) => runTraceLocal(target, false);
-const tracepacket = (target) => runTraceLocal(target, true);
-
-module.exports = { bus, scan, summary, watchNet, trust, untrust, ignore, unignore, remove, restore, note, trustAll, setSetting, wake, flush, traceroute, tracepacket, _t: { classify, guessOs, parseHttp, arpTable, netInfo } };
+module.exports = { bus, scan, summary, watchNet, trust, untrust, ignore, unignore, remove, restore, restoreAll, trace, note, trustAll, setSetting, wake, flush, _t: { classify, guessOs, parseHttp, arpTable, netInfo } };
 

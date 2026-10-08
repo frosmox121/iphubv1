@@ -27,6 +27,7 @@ document.getElementById('speed-unit')?.addEventListener('change', showSpeeds);
 
 /* ---------- Envolver enterApp para engancharse al inicio de sesión ---------- */
 function afterEnter() {
+  try { saveAccountLocal(ME); } catch (_) {}
   try { applyAvatar(ME && ME.avatar); } catch (_) {}
   try { syncQuiz(); loadTickets(); loadReviews(); loadTopo(); } catch (_) {}
   try { applyRoute(); } catch (_) {}
@@ -333,7 +334,7 @@ let AVATAR_PENDING; // undefined = sin cambios, null = quitar, string = nueva
 function applyAvatar(src, previewOnly) {
   (previewOnly ? ['acc-avatar'] : ['acc-avatar', 'user-avatar']).forEach(id => {
     const el = document.getElementById(id); if (!el) return;
-    const initials = ((ME && ME.name) || '--').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    const initials = String((ME && (ME.name || ME.email)) || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '·';
     if (src) { el.classList.add('has-img'); el.style.backgroundImage = `url(${src})`; el.textContent = ''; }
     else { el.classList.remove('has-img'); el.style.backgroundImage = ''; el.textContent = initials; }
   });
@@ -611,7 +612,7 @@ if (cv) {
 /* =====================================================================
  * RUTAS (/home, /aprender, /privacidad…) sin recargar
  * ===================================================================== */
-const ROUTES = { home: 'dashboard', topologia: 'topology', workspace: 'workspace', herramientas: 'tools', codigo: 'code', auditoria: 'audit', aprender: 'learn', ranking: 'leaderboard', soporte: 'support', cuenta: 'account', empresa: 'empresa', manual: 'manual', privacidad: 'legal', terminos: 'legal', cookies: 'legal' };
+const ROUTES = { home: 'dashboard', topologia: 'topology', workspace: 'workspace', herramientas: 'tools', codigo: 'code', interceptar: 'intercept', auditoria: 'audit', aprender: 'learn', ranking: 'leaderboard', soporte: 'support', cuenta: 'account', empresa: 'empresa', manual: 'manual', privacidad: 'legal', terminos: 'legal', cookies: 'legal' };
 const TOOL_SLUGS = { ip: 'ip', puertos: 'ports', traceroute: 'trace', dns: 'dns', subredes: 'subnet', arp: 'arp', velocidad: 'speed' };
 function openTool(tool) {
   window.__routing = true;

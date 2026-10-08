@@ -46,8 +46,10 @@
     };
     box.onchange = e => { const t = e.target; if (t.id === 'a11y-cb') A.cb = t.value; else if (t.dataset.k) A[t.dataset.k] = t.checked; applyA(); };
     box.oninput = e => { if (e.target.id === 'a11y-size') { A.size = +e.target.value; $('#a11y-sv').textContent = A.size + '%'; applyA(); } };
-    box.onclick = e => { if (e.target.id === 'a11y-x') box.classList.add('hidden'); if (e.target.id === 'a11y-reset') { A = { ...A_DEF }; applyA(); draw(); } };
-    fab.onclick = () => { draw(); box.classList.toggle('hidden'); };
+    box.onclick = e => { if (e.target.closest('#a11y-x')) box.classList.add('hidden'); if (e.target.id === 'a11y-reset') { A = { ...A_DEF }; applyA(); draw(); } };
+    fab.onclick = e => { e.stopPropagation(); draw(); box.classList.toggle('hidden'); };
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') box.classList.add('hidden'); });
+    document.addEventListener('click', e => { if (!box.classList.contains('hidden') && !box.contains(e.target) && !fab.contains(e.target)) box.classList.add('hidden'); });
   }
   document.addEventListener('DOMContentLoaded', () => { a11yPanel(); applyA(); }); if (document.readyState !== 'loading') { a11yPanel(); applyA(); }
 

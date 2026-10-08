@@ -5,8 +5,8 @@
   const g = cv.getContext('2d');
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const M = { nodes: [], cam: { x: 0, y: 0, k: 1 }, w: 0, h: 0, dpr: 1, drag: null, pan: null, hover: null, sel: null, moved: 0, fitted: false, raf: 0, sig: '' };
-  const ICON = { router: '🌐', gateway: '🌐', switch: '🔀', server: '🖥️', pc: '💻', laptop: '💻', computer: '💻', phone: '📱', mobile: '📱', printer: '🖨️', tv: '📺', camera: '📷', iot: '📡', nas: '🗄️' };
-  const iconOf = d => { if (d.isGateway || d.gw) return '🌐'; const t = String(d.type || d.kind || '').toLowerCase(); for (const k in ICON) if (t.includes(k)) return ICON[k]; return '💠'; };
+  const ICON = { router: 'router', gateway: 'router', switch: 'switch', server: 'server', pc: 'pc', laptop: 'pc', computer: 'pc', phone: 'phone', mobile: 'phone', printer: 'printer', tv: 'tv', camera: 'camera', iot: 'iot', nas: 'nas' };
+  const iconOf = d => { if (d.isGateway || d.gw) return 'router'; const t = String(d.type || d.kind || '').toLowerCase(); for (const k in ICON) if (t.includes(k)) return ICON[k]; return 'chip'; };
   const colOf = d => d.gw || d.isGateway ? '#22d3ee' : d.suspicious ? '#f472b6' : d.online === false ? '#64748b' : '#34d399';
   const nameOf = d => d.alias || d.name || d.hostname || d.vendor || d.ip || 'Equipo';
 
@@ -68,7 +68,7 @@
       const gr = g.createRadialGradient(n.x - r * .3, yy - r * .4, r * .2, n.x, yy, r); gr.addColorStop(0, '#1e293b'); gr.addColorStop(1, '#0b1220');
       g.beginPath(); g.arc(n.x, yy, r, 0, 7); g.fillStyle = gr; g.fill(); g.lineWidth = n.hub ? 3.2 : 2.4; g.strokeStyle = c; g.stroke(); g.restore();
       if (M.sel === n) { g.beginPath(); g.arc(n.x, yy, r + 7, 0, 7); g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.setLineDash([4, 4]); g.stroke(); g.setLineDash([]); }
-      g.globalAlpha = on ? 1 : .55; g.font = Math.round(r * 1.0) + 'px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(iconOf(d), n.x, yy + 1);
+      g.globalAlpha = on ? 1 : .55; icoDraw(g, iconOf(d), n.x, yy + 1, r * 1.15, '#ffffff'); g.textAlign = 'center'; g.textBaseline = 'middle';
       if (k > .5 || hl) {
         g.textBaseline = 'alphabetic'; g.font = '600 12px "Segoe UI",system-ui,sans-serif'; g.fillStyle = '#e2e8f0'; g.fillText(nameOf(d), n.x, yy + r + 16);
         if (k > .8 && d.ip) { g.font = '10.5px ui-monospace,Consolas,monospace'; g.fillStyle = '#94a3b8'; g.fillText(d.ip, n.x, yy + r + 30); }
@@ -85,7 +85,7 @@
   function detail(n) {
     const d = n.d, el = document.getElementById('lab-props-body'), info = document.getElementById('topo-info');
     const rows = [['IP', d.ip], ['MAC', d.mac], ['Fabricante', d.vendor], ['Tipo', d.type], ['Estado', d.online === false ? 'Sin respuesta' : 'En línea'], ['RTT', d.rtt != null ? d.rtt + ' ms' : d.lastRttMs != null ? d.lastRttMs + ' ms' : ''], ['Puertos', (d.ports || []).map(p => p.port || p).join(', ')]].filter(r => r[1]);
-    if (el) el.innerHTML = `<div class="tp-card"><div class="tp-ic" style="border-color:${colOf(d)}">${iconOf(d)}</div><strong>${esc(nameOf(d))}</strong>${d.suspicious ? '<span class="tp-bad">⚠ desconocido</span>' : ''}</div><dl class="tp-dl">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('')}</dl>`;
+    if (el) el.innerHTML = `<div class="tp-card"><div class="tp-ic" style="border-color:${colOf(d)}">${IC(iconOf(d), 22)}</div><strong>${esc(nameOf(d))}</strong>${d.suspicious ? '<span class="tp-bad">⚠ desconocido</span>' : ''}</div><dl class="tp-dl">${rows.map(r => `<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('')}</dl>`;
     if (info) info.textContent = `${nameOf(d)} · ${d.ip || ''} · ${d.online === false ? 'sin respuesta' : 'en línea'}`;
   }
   cv.addEventListener('pointerdown', e => {
