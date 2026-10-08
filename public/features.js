@@ -43,15 +43,15 @@ const ACC_KEY = 'iphub_accounts';
 const getAccs = () => { // solo cuentas válidas (con correo y sesión); se limpian las entradas rotas que mostraban un "?"
   let raw = []; try { raw = JSON.parse(localStorage.getItem(ACC_KEY) || '[]'); } catch (_) {}
   if (!Array.isArray(raw)) raw = [];
-  const seen = new Set(), ok = raw.filter(a => a && typeof a.email === 'string' && /^\S+@\S+$/.test(a.email.trim()) && typeof a.token === 'string' && a.token && !seen.has(a.email.trim().toLowerCase()) && seen.add(a.email.trim().toLowerCase()));
+  const seen = new Set(), seenId = new Set(), seenTk = new Set(), ok = raw.filter(a => { if (!a || typeof a.email !== 'string' || !/^\S+@\S+$/.test(a.email.trim()) || typeof a.token !== 'string' || !a.token) return false; const k = a.email.trim().toLowerCase(); if (seen.has(k) || seenTk.has(a.token) || (a.id && seenId.has(a.id))) return false; seen.add(k); seenTk.add(a.token); if (a.id) seenId.add(a.id); return true; });
   if (ok.length !== raw.length) { try { localStorage.setItem(ACC_KEY, JSON.stringify(ok)); } catch (_) {} }
   return ok;
 };
 const setAccs = a => localStorage.setItem(ACC_KEY, JSON.stringify(a));
 function saveAccountLocal(u) {
   if (!u || !TOKEN || !u.email) return;
-  const a = getAccs().filter(x => x.email !== u.email);
-  a.unshift({ email: u.email, name: u.name || String(u.email).split('@')[0], token: TOKEN, provider: u.provider || 'credentials' });
+  const a = getAccs().filter(x => x.email !== u.email && x.token !== TOKEN && !(u.id && x.id === u.id));
+  a.unshift({ id: u.id, email: u.email, name: u.name || String(u.email).split('@')[0], token: TOKEN, provider: u.provider || 'credentials' });
   setAccs(a.slice(0, 6));
   try { // foto de perfil miniatura (96px) guardada aparte para no llenar localStorage
     const k = 'iphub_av_' + u.email.toLowerCase();
@@ -684,10 +684,12 @@ addEventListener('popstate', () => { try { applyRoute(); } catch (_) {} });
         g('em-info').textContent = 'Paso 2 de 2 · Ahora te enviamos otro código a ' + newEmail + ' para comprobar que el correo es tuyo.';
         g('em-lbl').textContent = 'Código del correo nuevo'; g('em-code').value = ''; g('em-code').focus(); warn(d.emailSent);
       } else if (d.done) {
-        const old = ME && ME.email; Object.assign(ME, d.user);
+        const old = (ME && ME.email) || d.oldEmail; Object.assign(ME, d.user);
+        if (d.token) { TOKEN = d.token; try { localStorage.setItem('iphub_token', TOKEN); } catch (_) {} }
+        try { localStorage.removeItem('iphub_av_' + String(old || '').toLowerCase()); } catch (_) {}
         if (ue) ue.textContent = ME.email;
         document.querySelectorAll('#acc-email').forEach(i => { i.value = ME.email; });
-        try { setAccs(getAccs().filter(x => x.email !== old)); saveAccountLocal(ME); } catch (_) {}
+        try { setAccs(getAccs().filter(x => x.email !== old && x.id !== ME.id)); saveAccountLocal(ME); } catch (_) {}
         cur(); reset(); g('em-new').value = ''; toast('Correo actualizado a ' + ME.email); refreshAudit();
       }
     } catch (ex) { toast(ex.message, true); }

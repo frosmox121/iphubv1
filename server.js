@@ -1275,12 +1275,21 @@ app.post('/api/account/email/confirm', requireAuth, async (req, res) => {
   }
   if (h !== ec.newHash) { u.assign({ ec: { ...ec, tries: ec.tries + 1 } }).write(); return res.status(400).json({ error: 'Código incorrecto' }); }
   if (db.get('users').find({ email: ec.ne }).value()) { u.assign({ ec: null }).write(); return res.status(409).json({ error: 'Ese correo ya está en uso' }); }
-  const old = req.user.email;
-  for (const col of ['audit', 'feedback', 'contacts']) { for (const x of (db.get(col).filter({ user: old }).value() || [])) x.user = ec.ne; }
-  u.assign({ email: ec.ne, ec: null }).write(); db.write();
-  addAudit(ec.ne, 'Correo cambiado', `${old} → ${ec.ne}`);
-  sendMail(old, 'Cambiaste el correo de tu cuenta de IPHub', `El correo de tu cuenta pasó de ${old} a ${ec.ne}. Si no fuiste vos, escribinos a ${SUPPORT_TO} de inmediato.`).catch(() => {});
-  res.json({ done: true, user: publicUser(u.value()) });
+  try {
+    const old = req.user.email;
+    // Se actualiza la MISMA cuenta (mismo id): no se crea ningún usuario nuevo
+    for (const col of ['audit', 'feedback', 'contacts']) { for (const x of (db.get(col).filter({ user: old }).value() || [])) x.user = ec.ne; }
+    u.assign({ email: ec.ne, ec: null }).write();
+    try { writeDbNow(); } catch (_) {}
+    try { addAudit(ec.ne, 'Correo cambiado', `${old} → ${ec.ne}`); } catch (_) {}
+    try { Promise.resolve(sendMail(old, 'Cambiaste el correo de tu cuenta de IPHub', `El correo de tu cuenta pasó de ${old} a ${ec.ne}. Si no fuiste vos, escribinos a ${SUPPORT_TO} de inmediato.`)).catch(() => {}); } catch (_) {}
+    const fresh = u.value();
+    const token = jwt.sign({ sub: fresh.id, email: fresh.email }, JWT_SECRET, { expiresIn: '7d' });
+    return res.json({ done: true, token, oldEmail: old, user: publicUser(fresh) });
+  } catch (e) {
+    console.error('[EMAIL CHANGE]', e);
+    return res.status(500).json({ error: 'No se pudo completar el cambio de correo: ' + e.message });
+  }
 });
 
 

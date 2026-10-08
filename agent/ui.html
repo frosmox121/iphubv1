@@ -91,8 +91,6 @@ input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;bord
     <input id="cloud-pass" type="password" placeholder="contraseña" style="min-width:140px">
     <input id="cloud-base" type="text" placeholder="https://tu-pagina.onrender.com" title="Dirección de la página de IPHub" style="min-width:210px">
     <button class="btn sm" id="cloud-login" type="button" data-i="cl_enter"></button>
-    <button class="btn sm g" id="cloud-google" type="button" data-i="cl_google"></button>
-    <button class="btn sm g" id="cloud-discord" type="button" data-i="cl_discord"></button>
     <button class="btn sm g" id="cloud-out" type="button" data-i="cl_out"></button>
     <button class="btn sm ok" id="cloud-file" type="button" data-i="cl_file"></button>
   </div>
@@ -491,34 +489,30 @@ async function cloudPaint(c) {
   const base = document.getElementById('cloud-base'); if (base && c && c.base && document.activeElement !== base) base.value = c.base;
   const msg = document.getElementById('cloud-msg');
   if (!msg) return; msg.style.color = '';
-  if (c && c.user) msg.textContent = t('cl_ok') + ' ' + (c.user.name || c.user.email) + '.';
+  if (c && c.user) {
+    msg.textContent = t('cl_ok') + ' ' + (c.user.name || c.user.email) + '.';
+    if (c.push && c.push.ok === false) { msg.style.color = '#f59e0b'; msg.textContent += ' · No se pudo subir la red: ' + c.push.error; }
+    else if (c.push && c.push.ok) msg.textContent += ' · Red sincronizada ' + new Date(c.push.at).toLocaleTimeString();
+  }
   else if (c && c.pending) msg.textContent = 'Esperando que confirmes en el navegador…';
   else msg.textContent = t('cl_hint');
 }
 document.getElementById('cloud-base').onchange = async e => { const c = await F('cloudBase', e.target.value); cloudPaint(c); toast('Dirección guardada'); };
-async function cloudWeb() {
-  const msg = document.getElementById('cloud-msg'); msg.style.color = '';
-  msg.textContent = t('cl_opening');
-  try {
-    const c = await F('cloudWeb', {});
-    if (!c || c.error || !c.user) throw new Error((c && c.error) || 'No se pudo entrar');
-    cloudPaint(c); toast('Cuenta conectada');
-  } catch (e) { msg.style.color = '#f87171'; msg.textContent = e.message || 'No se pudo entrar'; toast(e.message || 'No se pudo entrar'); }
-}
 document.getElementById('cloud-login').onclick = async () => {
   const em = document.getElementById('cloud-email').value.trim(), pw = document.getElementById('cloud-pass').value;
-  if (!em || !pw) return cloudWeb();
-  const b = document.getElementById('cloud-login'), msg = document.getElementById('cloud-msg'); b.disabled = true; const old = b.textContent; b.textContent = 'Conectando…';
+  const b = document.getElementById('cloud-login'), msg = document.getElementById('cloud-msg');
+  if (!em || !pw) { msg.style.color = '#f87171'; msg.textContent = 'Ingresá tu correo y contraseña.'; return; }
+  b.disabled = true; const old = b.textContent; b.textContent = 'Conectando…';
   msg.style.color = ''; msg.textContent = 'Conectando con la página… (si estaba dormida puede tardar hasta ~1 min)';
   try {
     const c = await F('cloudLogin', { email: em, password: pw });
     if (!c || c.error || !c.user) throw new Error((c && c.error) || 'No se pudo entrar');
-    cloudPaint(c); toast('Cuenta conectada');
-  } catch (e) { b.disabled = false; b.textContent = old; await cloudWeb(); }
+    document.getElementById('cloud-pass').value = '';
+    await cloudPaint(c); toast('Sesión iniciada correctamente');
+    msg.textContent = 'Sesión iniciada correctamente · ' + (c.user.name || c.user.email);
+  } catch (e) { msg.style.color = '#f87171'; msg.textContent = e.message || 'No se pudo entrar'; toast(e.message || 'No se pudo entrar'); }
   finally { b.disabled = false; b.textContent = old; }
 };
-document.getElementById('cloud-google').onclick = cloudWeb;
-document.getElementById('cloud-discord').onclick = cloudWeb;
 document.getElementById('cloud-out').onclick = async () => { cloudPaint(await F('cloudLogout')); };
 document.getElementById('cloud-file').onclick = async () => {
   const rows = Object.values((S && S.devices) || {});
@@ -601,4 +595,5 @@ $('ws-df').oninput = e => { WS.f = e.target.value.trim(); wpaint(); };
 $('ws-rows').onclick = e => { const tr = e.target.closest('tr[data-id]'); if (tr) wsel(+tr.dataset.id); };
 setInterval(wsPoll, 900);
 cloudPaint();
+setInterval(() => { const m = document.getElementById('cloud-login'); if (m && !m.disabled) cloudPaint(); }, 20000);
 </script></body></html>

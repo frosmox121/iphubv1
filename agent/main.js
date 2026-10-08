@@ -78,13 +78,32 @@ function webLogin() {
     }, 800);
   });
 }
-let pushT = null;
-function schedulePush() {
+let pushT = null, pushInfo = { ok: null, at: 0, error: '' };
+async function pushNow() {
+  const c = readCloud(); if (!c.token || !c.base) return false;
+  try {
+    const s = core.summary();
+    await apiRetry(c.base, 'POST', '/api/agent/snapshot', { ...s, host: require('os').hostname(), devices: s.devices }, c.token, 2);
+    pushInfo = { ok: true, at: Date.now(), error: '' }; return true;
+  } catch (e) {
+    const m = String(e && e.message || e);
+    pushInfo = { ok: false, at: Date.now(), error: m };
+    // Token vencido o usuario inexistente: se limpia la sesión para no quedar "conectado" sin subir nada
+    if (/Usuario no existe|Token inválido|No autenticado|HTTP 401/i.test(m)) writeCloud({ base: c.base });
+    return false;
+  }
+}
+function schedulePush() { clearTimeout(pushT); pushT = setTimeout(pushNow, 1500); }
+// Refresca los datos de la cuenta (nombre/correo/rol) desde la página para que no queden viejos
+async function refreshUser() {
   const c = readCloud(); if (!c.token || !c.base) return;
-  clearTimeout(pushT);
-  pushT = setTimeout(async () => {
-    try { const s = core.summary(); await apiCall(c.base, 'POST', '/api/agent/snapshot', { ...s, host: require('os').hostname(), devices: s.devices }, c.token); } catch (_) {}
-  }, 1500);
+  try {
+    const d = await apiRetry(c.base, 'GET', '/api/auth/me', null, c.token, 2);
+    if (d && d.user) {
+      const u = d.user, isOwner = !!(u.isOwner || String(u.email || '').toLowerCase() === 'iphuboficial@gmail.com');
+      writeCloud({ ...readCloud(), user: { name: u.name, email: u.email, isOwner, role: u.role || (isOwner ? 'owner' : undefined) } });
+    }
+  } catch (e) { if (/Usuario no existe|Token inválido|No autenticado|HTTP 401/i.test(String(e.message))) writeCloud({ base: c.base }); }
 }
 
 if (!app.requestSingleInstanceLock()) { app.quit(); } else {
@@ -125,7 +144,7 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
             if (r.canceled || !r.filePath) return { canceled: true };
             fs.writeFileSync(r.filePath, '\ufeff' + a.content, 'utf8'); return { ok: true, path: r.filePath };
           }
-          case 'cloudStatus': { const c = readCloud(); return { ...c, base: normBase(c.base || SITE) }; }
+          case 'cloudStatus': { const c = readCloud(); return { ...c, base: normBase(c.base || SITE), push: pushInfo }; }
           case 'cloudLogin': {
             const bases = [...new Set([curBase(), ...CANDS])]; let d, base, last;
             for (const b of bases) {
@@ -134,22 +153,19 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
             }
             if (!d) throw last;
             if (!d.token) throw new Error(d.needsVerification ? 'Tenés que verificar tu correo en la página antes de conectar el exe.' : (d.error || 'No se pudo entrar'));
-            writeCloud({ base, token: d.token, user: d.user }); schedulePush(); return readCloud();
+            const u = d.user || {}, isOwner = !!(u.isOwner || String(u.email || '').toLowerCase() === 'iphuboficial@gmail.com');
+            writeCloud({ base, token: d.token, user: { name: u.name, email: u.email, isOwner, role: u.role || (isOwner ? 'owner' : undefined) } });
+            await pushNow(); return { ...readCloud(), push: pushInfo };
           }
-          case 'cloudWeb': return await webLogin();
-          case 'cloudLink': {
-            const base = curBase();
-            const d = await apiRetry(base, 'POST', '/api/agent/link/start', {});
-            writeCloud({ ...readCloud(), base, pending: d.code });
-            shell.openExternal(d.url); return d;
-          }
+          case 'cloudWeb': return { error: 'Iniciá sesión con tu correo y contraseña.' };
+          case 'cloudLink': return { error: 'Iniciá sesión con tu correo y contraseña.' };
           case 'cloudPoll': {
             const c = readCloud();
             const d = await apiRetry(normBase(c.base), 'GET', '/api/agent/link/status?code=' + encodeURIComponent(a || c.pending));
             if (d.token) { writeCloud({ base: c.base, token: d.token, user: d.user }); schedulePush(); }
             return d.token ? readCloud() : d;
           }
-          case 'cloudLogout': writeCloud({ base: curBase() }); return readCloud();
+          case 'cloudLogout': writeCloud({ base: curBase() }); pushInfo = { ok: null, at: 0, error: '' }; return readCloud();
           case 'cloudBase': writeCloud({ ...readCloud(), base: normBase(a) }); return readCloud();
           // Tracking Studio — motor de telemetría (workers)
           case 'teleResources': return teleEngine.resources();
@@ -187,6 +203,9 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
       if (core.summary().settings.notify && Notification.isSupported()) new Notification({ title: 'IPHub', body: `${d.name || d.vendor || 'Nuevo dispositivo'} · ${d.ip} · ${d.mac || ''}` }).show();
     });
     core.scan({ full: true });
+    refreshUser().then(pushNow);
+    setInterval(pushNow, 60000);
+    setInterval(refreshUser, 5 * 60000);
     setInterval(() => core.scan(), 45000);
     setInterval(async () => { try { if (await core.watchNet()) core.scan({ full: true }); } catch (_) {} }, 12000);
   });

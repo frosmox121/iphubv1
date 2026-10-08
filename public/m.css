@@ -17,7 +17,7 @@ body.mob .tm-bar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 
 body.mob .tm-bar::-webkit-scrollbar{display:none}
 body.mob .tm-bar button{flex:none;white-space:nowrap}
 body.mob .gl-wrap,body.mob .rd-wrap{margin:0 -.75rem;border-radius:0}
-body.mob .gl-wrap canvas{touch-action:none}
+body.mob .gl-wrap canvas{touch-action:pan-y pinch-zoom}
 body.mob .int-wrap{grid-template-columns:1fr}
 body.mob .int-list{max-height:46vh}
 body.mob .int-detail{max-height:none}
