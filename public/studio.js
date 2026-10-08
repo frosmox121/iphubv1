@@ -61,8 +61,8 @@
     const pad = { compact: '.6rem', normal: '1.2rem', cozy: '1.8rem' }[l.density];
     st.textContent = `:root{--accent:${l.accent};--accent2:${l.accent2};--bg:${l.bg};--radius:${l.radius}px;--radius-sm:${Math.round(l.radius * .7)}px;--font:${FONTS[l.font]}}
       .section{padding-top:${pad}!important}.card{margin-bottom:${l.density === 'compact' ? '.5rem' : '1rem'}}` +
-      (l.nav === 'hidden' ? `.sidebar{display:none}.main{margin-left:0!important}` : '') + (l.hidden.length ? l.hidden.map(h => `.nav-item[data-section="${h}"]{display:none!important}`).join('') : '');
-    $$('.nav-item[data-section]').forEach(n => { const i = l.order.indexOf(n.dataset.section); n.style.order = i < 0 ? 99 : i; });
+      (l.nav === 'hidden' ? `.sidebar{display:none}.main{margin-left:0!important}` : '') + ((l.hidden || []).length ? (l.hidden || []).map(h => `.nav-item[data-section="${h}"]{display:none!important}`).join('') : '');
+    $$('.nav-item[data-section]').forEach(n => { const i = (l.order || []).indexOf(n.dataset.section); n.style.order = i < 0 ? 99 : i; });
   }
   window.iphubApplyLayout = applyLayout;
 
@@ -90,8 +90,10 @@
     const cat = SUB.features.map(f => `<div class="plan-card ${f.enabled ? 'on' : ''}"><b>${esc(f.name)}</b><p class="muted small">${esc(f.desc)}</p><span class="nl-badge ${f.enabled ? 'on' : f.ready ? 'warn' : ''}">${f.enabled ? 'Activo' : f.ready ? 'Solo cuenta oficial' : f.admin ? 'En desarrollo · cuenta oficial' : 'En desarrollo'}</span></div>`).join('');
     let html = `<div class="card glass"><div class="nl-head"><h3>Tu plan</h3><span class="nl-badge ${admin ? 'on' : ''}">${admin ? 'Administrador (cuenta oficial)' : 'Gratis'}</span></div><div class="plan-grid">${cat}</div></div>`;
     if (admin && ST) {
-      const d = DRAFT || (DRAFT = JSON.parse(JSON.stringify(ST.active ? ST.slots[ST.active - 1].layout : DEF_LAYOUT))), order = d.order.length ? d.order : ST.sections;
-      const ord = [...order, ...ST.sections.filter(s => !order.includes(s))];
+      ST.sections = Array.isArray(ST.sections) ? ST.sections : Object.keys(SEC_NAME); ST.slots = Array.isArray(ST.slots) ? ST.slots : [null, null, null];
+      const d = DRAFT || (DRAFT = JSON.parse(JSON.stringify((ST.active && ST.slots[ST.active - 1] && ST.slots[ST.active - 1].layout) || DEF_LAYOUT))); d.order = Array.isArray(d.order) ? d.order : []; d.hidden = Array.isArray(d.hidden) ? d.hidden : [];
+      const order = (d.order || []).length ? d.order : ST.sections;
+      const ord = [...order, ...(ST.sections || []).filter(s => !order.includes(s))];
       html += `<div class="card glass tm-card"><h3>Espacios</h3><p class="muted small">El espacio 0 es la página original de IPHub y no se toca. Podés guardar hasta 3 diseños propios.</p><div class="tm-row">
         <button class="btn ${ST.active === 0 ? 'btn-primary' : ''}" data-a="act" data-n="0" type="button">0 · IPHub (default)</button>
         ${[1, 2, 3].map(n => { const s = ST.slots[n - 1]; return `<button class="btn ${ST.active === n ? 'btn-primary' : ''}" data-a="act" data-n="${n}" type="button" ${s ? '' : 'disabled'}>${n} · ${s ? esc(s.name) : 'vacío'}</button>`; }).join('')}</div></div>
@@ -102,7 +104,7 @@
           <span class="tm-lbl" style="margin-top:.7rem">Densidad</span><select class="tm-in" data-f="density">${['compact', 'normal', 'cozy'].map(v => `<option ${d.density === v ? 'selected' : ''} value="${v}">${{ compact: 'Compacta', normal: 'Normal', cozy: 'Amplia' }[v]}</option>`).join('')}</select>
           <span class="tm-lbl" style="margin-top:.7rem">Tipografía</span><select class="tm-in" data-f="font">${['system', 'serif', 'mono', 'rounded'].map(v => `<option ${d.font === v ? 'selected' : ''} value="${v}">${{ system: 'Sistema', serif: 'Serif', mono: 'Monoespaciada', rounded: 'Redondeada' }[v]}</option>`).join('')}</select>
           <span class="tm-lbl" style="margin-top:.7rem">Menú lateral</span><select class="tm-in" data-f="nav"><option value="left" ${d.nav === 'left' ? 'selected' : ''}>Visible</option><option value="hidden" ${d.nav === 'hidden' ? 'selected' : ''}>Oculto (modo embebido/pantalla chica)</option></select></div>
-        <div><span class="tm-lbl">Secciones: orden y visibilidad</span>${ord.map((s, i) => `<div class="tm-row" style="align-items:center;margin:.25rem 0"><label style="flex:1;display:flex;gap:.5rem"><input type="checkbox" data-h="${s}" ${d.hidden.includes(s) ? '' : 'checked'} ${s === 'account' ? 'disabled' : ''}> ${esc(SEC_NAME[s] || s)}</label><button class="btn btn-sm" data-a="up" data-s="${s}" type="button" ${i === 0 ? 'disabled' : ''}>↑</button><button class="btn btn-sm" data-a="down" data-s="${s}" type="button" ${i === ord.length - 1 ? 'disabled' : ''}>↓</button></div>`).join('')}</div></div>
+        <div><span class="tm-lbl">Secciones: orden y visibilidad</span>${ord.map((s, i) => `<div class="tm-row" style="align-items:center;margin:.25rem 0"><label style="flex:1;display:flex;gap:.5rem"><input type="checkbox" data-h="${s}" ${(d.hidden || []).includes(s) ? '' : 'checked'} ${s === 'account' ? 'disabled' : ''}> ${esc(SEC_NAME[s] || s)}</label><button class="btn btn-sm" data-a="up" data-s="${s}" type="button" ${i === 0 ? 'disabled' : ''}>↑</button><button class="btn btn-sm" data-a="down" data-s="${s}" type="button" ${i === ord.length - 1 ? 'disabled' : ''}>↓</button></div>`).join('')}</div></div>
         <div class="tm-row"><button class="btn" data-a="prev" type="button">Vista previa</button>${[1, 2, 3].map(n => `<button class="btn btn-primary" data-a="save" data-n="${n}" type="button">Guardar en espacio ${n}</button>`).join('')}<button class="btn" data-a="reset" type="button">Volver al default</button></div></div>`;
     }
     html += `<div class="card glass tm-card"><h3>Modo embebido</h3><p class="muted small">Para usar IPHub dentro de otra app o web (iframe, pestaña de Teams/Notion, ventana de escritorio):</p><code class="embed-code">&lt;iframe src="${esc(location.origin)}/home?embed=1" width="100%" height="700" style="border:0"&gt;&lt;/iframe&gt;</code><p class="muted small">Oculta el menú y la barra superior. Discord no permite iframes sueltos: requeriría su Embedded App SDK (no incluido todavía).</p></div>`;
@@ -110,9 +112,9 @@
   }
   function onInput(e) { const t = e.target; if (!DRAFT) return; if (t.dataset.f) { DRAFT[t.dataset.f] = t.dataset.f === 'radius' ? +t.value : t.value; if (t.type === 'range') draw(); } }
   async function onClick(e) {
-    const b = e.target.closest('[data-a]'), h = e.target.dataset && e.target.dataset.h; if (h && DRAFT) { DRAFT.hidden = e.target.checked ? DRAFT.hidden.filter(x => x !== h) : [...DRAFT.hidden, h]; return; }
+    const b = e.target.closest('[data-a]'), h = e.target.dataset && e.target.dataset.h; if (h && DRAFT) { DRAFT.hidden = e.target.checked ? (DRAFT.hidden || []).filter(x => x !== h) : [...DRAFT.hidden, h]; return; }
     if (!b) return; const a = b.dataset.a;
-    const ordNow = () => { const o = DRAFT.order.length ? DRAFT.order : ST.sections; return [...o, ...ST.sections.filter(s => !o.includes(s))]; };
+    const ordNow = () => { const o = (DRAFT.order || []).length ? DRAFT.order : ST.sections; return [...o, ...(ST.sections || []).filter(s => !o.includes(s))]; };
     try {
       if (a === 'act') { ST = await api('/api/studio', { method: 'PUT', body: { active: +b.dataset.n } }); DRAFT = null; applyActive(); draw(); say('Espacio activado'); }
       else if (a === 'up' || a === 'down') { const o = ordNow(), i = o.indexOf(b.dataset.s), j = a === 'up' ? i - 1 : i + 1; [o[i], o[j]] = [o[j], o[i]]; DRAFT.order = o; draw(); }

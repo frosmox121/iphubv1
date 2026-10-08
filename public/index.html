@@ -580,8 +580,19 @@
             <button class="btn btn-accent" id="del-btn">Eliminar mi cuenta</button>
             </div>
             <h3 style="margin-top:1.6rem">Clave de API</h3>
-            <div class="api-key-box"><code id="api-key">—</code></div>
-            <button class="btn btn-glass" id="regen-key-btn">Regenerar Clave</button>
+            <div class="apik">
+              <div class="apik-head"><strong>Tu clave personal</strong><span class="apik-pill">Activa</span></div>
+              <p class="muted small" style="margin:.3rem 0 0">Usala en el header <code>x-api-key</code> para llamar a la API de IPHub desde scripts. Es privada: quien la tenga actúa como vos.</p>
+              <div class="apik-key"><code id="api-key" class="masked">—</code></div>
+              <div class="apik-row">
+                <button class="btn btn-sm btn-glass" id="api-show" type="button">Mostrar</button>
+                <button class="btn btn-sm btn-primary" id="api-copy" type="button">Copiar</button>
+                <button class="btn btn-sm btn-glass" id="regen-key-btn" type="button">Regenerar clave</button>
+              </div>
+              <pre id="api-curl" data-no-i18n>—</pre>
+              <button class="btn btn-sm btn-glass" id="api-copy-curl" type="button" style="margin-top:.5rem">Copiar ejemplo</button>
+              <p class="apik-warn">Al regenerar, la clave anterior deja de funcionar al instante.</p>
+            </div>
           </div>
         </div>
       <div class="card glass full-width" style="margin-top:1rem">

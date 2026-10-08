@@ -20,7 +20,7 @@ function apiCall(base, method, urlPath, body, token) {
     const req = lib.request({ method, hostname: u.hostname, port: u.port, path: u.pathname + u.search, headers: { 'Content-Type': 'application/json', 'x-iphub-agent': '1', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(data ? { 'Content-Length': data.length } : {}) } }, res => {
       const chunks = []; res.on('data', c => chunks.push(c)); res.on('end', () => { let j = {}; try { j = JSON.parse(Buffer.concat(chunks).toString() || '{}'); } catch (_) {} if (res.statusCode >= 400) reject(new Error(j.error || ('HTTP ' + res.statusCode))); else resolve(j); });
     });
-    req.setTimeout(20000, () => req.destroy(new Error('El servidor tardó demasiado en responder (puede estar despertando). Probá de nuevo.')));
+    req.setTimeout(40000, () => req.destroy(new Error('El servidor tardó demasiado en responder (puede estar despertando). Probá de nuevo.')));
     req.on('error', reject); if (data) req.write(data); req.end();
   });
 }
@@ -45,37 +45,43 @@ async function apiRetry(base, method, p, body, token, tries = 2) { // Render Fre
 // Login real: abre la página de IPHub dentro del exe (credenciales, Google y Discord funcionan igual que en el navegador)
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 let webWin = null;
-function webLogin() {
+function webLogin(provider) {
   return new Promise((resolve, reject) => {
     if (webWin && !webWin.isDestroyed()) { webWin.focus(); return reject(new Error('La ventana de inicio de sesión ya está abierta')); }
     const base = curBase();
-    const w = new BrowserWindow({ width: 520, height: 780, parent: BrowserWindow.getAllWindows()[0], title: 'IPHub · Iniciar sesión', autoHideMenuBar: true, backgroundColor: '#0a1628',
+    const btnId = provider === 'discord' ? 'discord-btn' : 'google-btn';
+    const w = new BrowserWindow({ width: 520, height: 780, parent: BrowserWindow.getAllWindows()[0], title: 'IPHub · ' + (provider === 'discord' ? 'Discord' : 'Google'), autoHideMenuBar: true, backgroundColor: '#0a1628',
       webPreferences: { partition: 'persist:iphubweb', contextIsolation: true, nodeIntegration: false } });
     webWin = w; w.webContents.setUserAgent(CHROME_UA);
-    let done = false, timer = null;
+    let done = false, timer = null, clicked = 0;
     const finish = (err, val) => { if (done) return; done = true; clearInterval(timer); if (!w.isDestroyed()) w.destroy(); webWin = null; err ? reject(err) : resolve(val); };
-    // Google/Discord abren popups: se permiten dentro de la misma sesión
-    w.webContents.setWindowOpenHandler(() => ({ action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: true, parent: w, webPreferences: { partition: 'persist:iphubweb', contextIsolation: true, nodeIntegration: false } } }));
+    // Google/Discord abren su popup (accounts.google.com / discord.com) dentro de la misma sesión
+    w.webContents.setWindowOpenHandler(() => ({ action: 'allow', overrideBrowserWindowOptions: { autoHideMenuBar: true, width: 520, height: 720, parent: w, webPreferences: { partition: 'persist:iphubweb', contextIsolation: true, nodeIntegration: false } } }));
     w.webContents.on('did-create-window', c => c.webContents.setUserAgent(CHROME_UA));
     w.on('closed', () => finish(new Error('Cerraste la ventana sin iniciar sesión')));
     w.webContents.on('did-fail-load', (_e, code, desc, url, main) => { if (main && code !== -3) finish(new Error('No se pudo abrir ' + base + ' (' + desc + '). Revisá tu conexión.')); });
-    w.loadURL(base + '/?from=exe').catch(() => {});
+    // Se cierra la sesión previa de la página para que SIEMPRE pida elegir cuenta
+    w.webContents.session.clearStorageData({ storages: ['localstorage'] }).catch(() => {}).finally(() => w.loadURL(base + '/?from=exe').catch(() => {}));
     let busy = false, ticks = 0;
     timer = setInterval(async () => {
       if (done || busy || w.isDestroyed()) return; busy = true;
       try {
-        if (++ticks > 600) return finish(new Error('Se agotó el tiempo para iniciar sesión'));
+        if (++ticks > 450) return finish(new Error('Se agotó el tiempo para iniciar sesión'));
         const token = await w.webContents.executeJavaScript("localStorage.getItem('iphub_token')", true);
         if (token) {
           const d = await apiRetry(base, 'GET', '/api/auth/me', null, token, 3);
           if (d && d.user) {
             const u = d.user, isOwner = !!(u.isOwner || String(u.email || '').toLowerCase() === 'iphuboficial@gmail.com');
             writeCloud({ base, token, user: { name: u.name, email: u.email, isOwner, role: u.role || (isOwner ? 'owner' : undefined) } });
-            schedulePush(); return finish(null, readCloud());
+            pushNow(); return finish(null, { ...readCloud(), push: pushInfo });
           }
+        } else if (!clicked || ticks % 12 === 0) {
+          // Hace clic en "Continuar con Google/Discord" de la propia página (ella manda a accounts.google.com / discord.com)
+          const r = await w.webContents.executeJavaScript("(function(){var b=document.getElementById('" + btnId + "');if(!b||b.disabled||b.offsetParent===null)return 0;b.click();return 1})()", true);
+          if (r) clicked++;
         }
       } catch (_) {} finally { busy = false; }
-    }, 800);
+    }, 1000);
   });
 }
 let pushT = null, pushInfo = { ok: null, at: 0, error: '' };
@@ -148,16 +154,16 @@ if (!app.requestSingleInstanceLock()) { app.quit(); } else {
           case 'cloudLogin': {
             const bases = [...new Set([curBase(), ...CANDS])]; let d, base, last;
             for (const b of bases) {
-              try { d = await apiRetry(b, 'POST', '/api/auth/login', { email: String(a.email || '').trim(), password: a.password }, null, b === bases[0] ? 3 : 1); base = b; break; }
+              try { d = await apiRetry(b, 'POST', '/api/auth/login', { email: String(a.email || '').trim(), password: a.password }, null, b === bases[0] ? 4 : 1); base = b; break; }
               catch (e) { last = e; if (!/No se encontró la página|ENOTFOUND/.test(String(e.message))) throw e; }
             }
             if (!d) throw last;
             if (!d.token) throw new Error(d.needsVerification ? 'Tenés que verificar tu correo en la página antes de conectar el exe.' : (d.error || 'No se pudo entrar'));
             const u = d.user || {}, isOwner = !!(u.isOwner || String(u.email || '').toLowerCase() === 'iphuboficial@gmail.com');
             writeCloud({ base, token: d.token, user: { name: u.name, email: u.email, isOwner, role: u.role || (isOwner ? 'owner' : undefined) } });
-            await pushNow(); return { ...readCloud(), push: pushInfo };
+            pushNow(); return { ...readCloud(), push: pushInfo };
           }
-          case 'cloudWeb': return { error: 'Iniciá sesión con tu correo y contraseña.' };
+          case 'cloudWeb': return await webLogin(a && a.provider);
           case 'cloudLink': return { error: 'Iniciá sesión con tu correo y contraseña.' };
           case 'cloudPoll': {
             const c = readCloud();

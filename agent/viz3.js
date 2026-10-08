@@ -18,7 +18,7 @@
     function size() { const r = stage.getBoundingClientRect(); W = Math.max(300, r.width); H = Math.max(360, Math.min(640, innerHeight * .68)); dpr = devicePixelRatio || 1; cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px'; }
     /* ---------- RADIAL ---------- */
     function layoutRadial() {
-      const all = devs().filter(d => !d.deleted && !d.ignored);
+      const all = devs().filter(d => !d.deleted);
       const hub = all.find(d => d.isGateway) || all.find(d => d.me) || null;
       const rest = all.filter(d => d !== hub).sort((a, b) => (a.type || 'z').localeCompare(b.type || 'z') || String(a.ip).localeCompare(String(b.ip), undefined, { numeric: true }));
       const nodes = []; if (hub) nodes.push({ d: hub, x: 0, y: 0, r: 26, hub: true });
@@ -52,7 +52,7 @@
     /* ---------- GLOBO ---------- */
     function P(lat, lon) { const φ = lat * rad, λ = lon * rad - G.lon, cp = Math.cos(φ), s0 = Math.sin(G.lat), c0 = Math.cos(G.lat); const x = cp * Math.sin(λ), y = c0 * Math.sin(φ) - s0 * cp * Math.cos(λ), z = s0 * Math.sin(φ) + c0 * cp * Math.cos(λ), r = Math.min(W, H) * .42 * G.zoom; return { x: W / 2 + x * r, y: H / 2 - y * r, z, v: z > 0 }; }
     function placeHosts() { // todos los hosts alrededor del sitio local (espiral de girasol: ninguno se superpone)
-      const a = geo(), all = devs().filter(d => !d.deleted && !d.ignored), hub = all.find(d => d.isGateway) || all.find(d => d.me);
+      const a = geo(), all = devs().filter(d => !d.deleted), hub = all.find(d => d.isGateway) || all.find(d => d.me);
       const out = []; let i = 0;
       for (const d of all) { if (d === hub) { out.push({ d, lat: a.lat, lon: a.lon, hub: true }); continue; } i++; const rr = .35 * Math.sqrt(i) , t = i * 2.39996; out.push({ d, lat: a.lat + Math.sin(t) * rr, lon: a.lon + Math.cos(t) * rr / Math.max(.3, Math.cos(a.lat * rad)) }); }
       return out;
@@ -86,7 +86,7 @@
     function frame(now) { raf = requestAnimationFrame(frame); if (!rootEl.offsetParent) return; const dt = Math.min(50, now - t0) / 1000; t0 = now; if (!cv.width) size(); mode === 'radial' ? drawRadial(now) : drawGlobe(now, dt); }
     function info(d) { sel = d.key || d.ip; const rows = [['IP', d.ip], ['MAC', d.mac], ['Fabricante', d.vendor], ['Tipo', TYPE[d.type] || d.type], ['Estado', d.online ? 'En línea' : 'Sin conexión'], ['Riesgo', d.risk != null ? d.risk : ''], ['SO', d.os && (d.os.name || d.os)], ['Puertos', (d.ports || []).map(p => p.port).join(', ')]].filter(r => r[1] !== '' && r[1] != null);
       $('.ivz-info').innerHTML = '<b style="color:' + col(d) + '">' + esc(nm(d)) + '</b>' + rows.map(r => '<div><span>' + r[0] + '</span> ' + esc(r[1]) + '</div>').join(''); }
-    function legend() { const all = devs().filter(d => !d.deleted && !d.ignored), cnt = {}; all.forEach(d => { const t = d.type || 'unknown'; cnt[t] = (cnt[t] || 0) + 1; });
+    function legend() { const all = devs().filter(d => !d.deleted), cnt = {}; all.forEach(d => { const t = d.type || 'unknown'; cnt[t] = (cnt[t] || 0) + 1; });
       $('.ivz-leg').innerHTML = '<div class="ivz-tot">' + all.length + ' hosts · ' + all.filter(d => d.online).length + ' en línea</div>' + [['#10b981', 'Confiable'], ['#06b6d4', 'Riesgo bajo'], ['#f59e0b', 'Medio'], ['#ef4444', 'Alto'], ['#64748b', 'Offline']].map(c => '<span><i style="background:' + c[0] + '"></i>' + c[1] + '</span>').join('') + '<hr>' + Object.keys(cnt).sort().map(t => '<span>' + esc(TYPE[t] || t) + ' <b>' + cnt[t] + '</b></span>').join(''); }
     const pos = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
     const pick = p => hit.slice().reverse().find(h => Math.hypot(h.x - p.x, h.y - p.y) <= h.r);
@@ -95,8 +95,8 @@
       if (dr) { const dx = p.x - dr.x, dy = p.y - dr.y; dr.m = Math.max(dr.m, Math.abs(dx) + Math.abs(dy)); if (mode === 'radial') { R.cam.x = dr.cx + dx; R.cam.y = dr.cy + dy; } else { const k = .005 / G.zoom; G.lon = dr.lon - dx * k; G.lat = Math.max(-1.4, Math.min(1.4, dr.lat + dy * k)); } return; }
       const h = pick(p); hover = h ? (mode === 'radial' ? R.nodes.find(n => n.d === h.d) : h) : null; cv.style.cursor = h ? 'pointer' : 'grab'; });
     cv.addEventListener('pointerup', e => { const dr = mode === 'radial' ? R.drag : G.drag; R.drag = G.drag = null; if (dr && dr.m < 5) { const h = pick(pos(e)); if (h) { info(h.d); if (mode === 'globe' && h.lat != null) G.tgt = { lon: h.lon * rad, lat: h.lat * rad }; } } });
-    cv.addEventListener('wheel', e => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); const f = e.deltaY < 0 ? 1.15 : .87; if (mode === 'radial') { const p = pos(e), c = R.cam, k = Math.max(.25, Math.min(4, c.k * f)); c.x = p.x - (p.x - c.x) * k / c.k; c.y = p.y - (p.y - c.y) * k / c.k; c.k = k; } else G.zoom = Math.max(.7, Math.min(60, G.zoom * f)); }, { passive: false });
-    rootEl.querySelector('.ivz-ctl').onclick = e => { const z = e.target.dataset.z; if (!z) return; if (mode === 'radial') { if (z === 'fit') fitRadial(); else { R.cam.k = Math.max(.25, Math.min(4, R.cam.k * (z === 'in' ? 1.25 : .8))); } } else { if (z === 'fit') { G.zoom = 1; G.tgt = { lon: geo().lon * rad, lat: geo().lat * rad }; } else G.zoom = Math.max(.7, Math.min(60, G.zoom * (z === 'in' ? 1.4 : .7))); } };
+    cv.addEventListener('wheel', e => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); const f = e.deltaY < 0 ? 1.15 : .87; if (mode === 'radial') { const p = pos(e), c = R.cam, k = Math.max(.25, Math.min(16, c.k * f)); c.x = p.x - (p.x - c.x) * k / c.k; c.y = p.y - (p.y - c.y) * k / c.k; c.k = k; } else G.zoom = Math.max(.7, Math.min(2500, G.zoom * f)); }, { passive: false });
+    rootEl.querySelector('.ivz-ctl').onclick = e => { const z = e.target.dataset.z; if (!z) return; if (mode === 'radial') { if (z === 'fit') fitRadial(); else { R.cam.k = Math.max(.25, Math.min(16, R.cam.k * (z === 'in' ? 1.25 : .8))); } } else { if (z === 'fit') { G.zoom = 1; G.tgt = { lon: geo().lon * rad, lat: geo().lat * rad }; } else G.zoom = Math.max(.7, Math.min(2500, G.zoom * (z === 'in' ? 1.4 : .7))); } };
     addEventListener('resize', () => { size(); if (mode === 'radial') fitRadial(); });
     function show(m) { mode = m; sel = null; hover = null; size(); legend(); if (m === 'radial') layoutRadial(); else G.tgt = { lon: geo().lon * rad, lat: geo().lat * rad }; $('.ivz-hint').textContent = m === 'radial' ? 'Arrastrá para mover · rueda para zoom · tocá un host' : 'Arrastrá para girar · rueda para acercar: todos los hosts del sitio se separan'; if (!raf) raf = requestAnimationFrame(frame); }
     return { show, refresh() { legend(); if (mode === 'radial') layoutRadial(); } };

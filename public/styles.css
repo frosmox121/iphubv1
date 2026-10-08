@@ -848,3 +848,36 @@ body.is-owner #acct-security{display:none!important}body.is-owner #owner-lock-no
 #rd-svg{display:block;width:100%;max-height:640px}.rd-seg{cursor:pointer;stroke:#06101f;stroke-width:1.2;transition:filter .2s}.rd-seg:hover{filter:brightness(1.35)}.rd-core{cursor:pointer}.rd-lbl{fill:#06101f;font:600 9.5px system-ui;dominant-baseline:middle}.rd-ctr{fill:#e2e8f0;font:700 11px system-ui;pointer-events:none}.rd-sub{font:9px ui-monospace,monospace;fill:#94a3b8}
 .int-bar{margin-bottom:.8rem}.int-wrap{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:1rem}@media(max-width:900px){.int-wrap{grid-template-columns:1fr}}.int-list{max-height:560px;overflow:auto}.int-list tr{cursor:pointer}.int-list tr.sel,.int-list tr:hover{background:rgba(34,211,238,.1)}.int-url{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.int-detail{max-height:560px;overflow:auto;border:1px solid var(--border);border-radius:12px;padding:.8rem;font-size:.8rem}.int-detail h5{margin:.8rem 0 .3rem;color:var(--accent)}
 .int-st{padding:.1rem .45rem;border-radius:6px;font-weight:700;font-size:.75rem}.int-2{background:rgba(52,211,153,.18);color:#34d399}.int-3{background:rgba(96,165,250,.18);color:#60a5fa}.int-4{background:rgba(251,191,36,.18);color:#fbbf24}.int-5{background:rgba(248,113,113,.2);color:#f87171}.int-m{font-size:.75rem}.int-GET{color:#34d399}.int-POST{color:#fbbf24}.int-PUT{color:#60a5fa}.int-DELETE{color:#f87171}.int-kv{width:100%;border-collapse:collapse}.int-kv td{padding:2px 6px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;word-break:break-all}.int-kv td:first-child{color:#8b98b8;white-space:nowrap}
+
+/* ---- v2 fixes ---- */
+.main>*{flex-shrink:0}
+.section,.section.active,#topology{flex-shrink:0;overflow:visible}
+.main{overscroll-behavior:auto}
+.stars span.active,.stars span.on,.stars span.sel{color:#fbbf24!important;text-shadow:0 0 10px rgba(251,191,36,.55)}
+.stars span{cursor:pointer;user-select:none}.stars span:hover{color:#fcd34d}
+.stars-txt{color:#fbbf24!important}
+/* Claves API */
+.apik{border:1px solid var(--border,rgba(148,163,184,.2));border-radius:14px;padding:1rem;background:linear-gradient(135deg,rgba(34,211,238,.07),rgba(129,140,248,.07))}
+.apik-head{display:flex;align-items:center;gap:.6rem;justify-content:space-between;flex-wrap:wrap}
+.apik-pill{font-size:.72rem;padding:.15rem .6rem;border-radius:99px;background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.35)}
+.apik-key{display:flex;align-items:center;gap:.5rem;margin:.7rem 0;background:rgba(5,10,20,.65);border:1px solid rgba(148,163,184,.18);border-radius:10px;padding:.55rem .75rem}
+.apik-key code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:13px ui-monospace,Consolas,monospace;transition:filter .2s}
+.apik-key code.masked{filter:blur(6px);user-select:none}
+.apik-row{display:flex;gap:.5rem;flex-wrap:wrap}
+.apik pre{margin:.7rem 0 0;padding:.6rem .75rem;border-radius:10px;background:rgba(5,10,20,.65);font:12px ui-monospace,Consolas,monospace;overflow:auto;white-space:pre-wrap;word-break:break-all;color:#cbd5e1}
+.apik-warn{font-size:.78rem;color:#fbbf24;margin:.6rem 0 0}
+/* Workspace: tarjetas movibles y redimensionables */
+#ws-grid.ws-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;grid-template-columns:none}
+#ws-grid .ws-card{width:320px;max-width:100%;min-width:200px;min-height:90px;resize:both;overflow:auto;box-sizing:border-box;position:relative}
+#ws-grid .ws-card.wide{width:min(100%,660px)}#ws-grid .ws-card.tall{min-height:340px}
+#ws-grid .ws-card.ws-min{height:auto!important;min-height:0;resize:horizontal;overflow:hidden}#ws-grid .ws-card.ws-min .ws-body{display:none}
+#ws-grid .ws-card h4{cursor:grab;user-select:none}#ws-grid .ws-card.ws-drag{opacity:.45;outline:2px dashed var(--accent,#22d3ee)}
+#ws-grid .ws-card.ws-over{outline:2px solid var(--accent,#22d3ee)}
+#ws-grid .ws-card .ws-body{overflow:auto}
+/* Plan y Estudio / Tracking: que nada se superponga */
+.ts-insp-section{overflow:hidden;position:relative;clear:both}
+.ts-insp-section canvas,#ex-topo-canvas{max-width:100%;height:auto!important;display:block}
+#ex-topo-canvas-wrap{overflow:auto;max-height:340px}
+#studio .plan-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+#studio .card{overflow:hidden}
+.ivz-stage,.gl-wrap,.rd-wrap,.tmap{isolation:isolate;max-width:100%}

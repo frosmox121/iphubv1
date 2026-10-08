@@ -92,6 +92,8 @@ input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;bord
     <input id="cloud-base" type="text" placeholder="https://tu-pagina.onrender.com" title="Dirección de la página de IPHub" style="min-width:210px">
     <button class="btn sm" id="cloud-login" type="button" data-i="cl_enter"></button>
     <button class="btn sm g" id="cloud-out" type="button" data-i="cl_out"></button>
+    <button class="btn sm g" id="cloud-google" type="button" data-i="cl_google"></button>
+    <button class="btn sm g" id="cloud-discord" type="button" data-i="cl_discord"></button>
     <button class="btn sm ok" id="cloud-file" type="button" data-i="cl_file"></button>
   </div>
 </div>
@@ -111,7 +113,7 @@ input{transition:border-color .25s,box-shadow .25s}input:focus{outline:none;bord
   <div class="tools" style="display:flex;gap:.4rem;flex-wrap:wrap;margin:.5rem 0">
     <input id="int-port" type="number" value="8899" style="width:100px"><button class="btn sm" id="int-toggle" type="button">Iniciar</button><button class="btn sm g" id="int-clear" type="button">Limpiar</button><span class="muted" id="int-st"></span>
   </div>
-  <div class="wrap" style="max-height:280px;overflow:auto"><table><thead><tr><th>Hora</th><th>Origen</th><th>Método</th><th>Destino</th><th>Estado</th><th>ms</th></tr></thead><tbody id="int-rows"></tbody></table></div>
+  <div class="wrap" style="max-height:280px;overflow:auto"><table><thead><tr><th>Hora</th><th>Origen</th><th>Proto</th><th>Método</th><th>Destino</th><th>Detalle</th><th>Estado</th><th>ms</th><th>Bytes ↑/↓</th></tr></thead><tbody id="int-rows"></tbody></table></div>
 </div>
 <div class="card" id="wscard" style="margin-bottom:.9rem;display:none">
   <h4 style="display:flex;align-items:center;gap:.5rem"><span id="ws-ic"></span> Analizador de protocolos <span class="muted" style="font-weight:400;font-size:.8rem">captura real de esta PC | solo dueño</span></h4>
@@ -214,7 +216,7 @@ const K = {
 let LI = 0;
 const t = (k, v) => { let s = (K[k] && (K[k][LI] || K[k][0])) || k; if (v) for (const x in v) s = s.replace('{' + x + '}', v[x]); return s; };
 const $ = id => document.getElementById(id), esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const F = (a, x, y) => { const p = window.iphub.call(a, x, y); return /^cloud/.test(a) ? Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('La página no respondió a tiempo. Revisá tu internet y la dirección, y probá de nuevo.')), 50000))]) : p; };
+const F = (a, x, y) => { const p = window.iphub.call(a, x, y); return /^cloud/.test(a) ? Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('La página no respondió a tiempo. Revisá tu internet y la dirección, y probá de nuevo.')), 170000))]) : p; };
 let S = null, sel = null, filter = 'all', q = '';
 
 function setLang(code) {
@@ -503,7 +505,7 @@ document.getElementById('cloud-login').onclick = async () => {
   const b = document.getElementById('cloud-login'), msg = document.getElementById('cloud-msg');
   if (!em || !pw) { msg.style.color = '#f87171'; msg.textContent = 'Ingresá tu correo y contraseña.'; return; }
   b.disabled = true; const old = b.textContent; b.textContent = 'Conectando…';
-  msg.style.color = ''; msg.textContent = 'Conectando con la página… (si estaba dormida puede tardar hasta ~1 min)';
+  msg.style.color = ''; msg.textContent = 'Conectando con la página… (si estaba dormida, Render tarda hasta ~1 min en despertar; no cierres el exe)';
   try {
     const c = await F('cloudLogin', { email: em, password: pw });
     if (!c || c.error || !c.user) throw new Error((c && c.error) || 'No se pudo entrar');
@@ -513,6 +515,18 @@ document.getElementById('cloud-login').onclick = async () => {
   } catch (e) { msg.style.color = '#f87171'; msg.textContent = e.message || 'No se pudo entrar'; toast(e.message || 'No se pudo entrar'); }
   finally { b.disabled = false; b.textContent = old; }
 };
+async function cloudWeb(provider) {
+  const msg = document.getElementById('cloud-msg'); msg.style.color = '';
+  msg.textContent = 'Abriendo ' + (provider === 'discord' ? 'Discord' : 'Google') + '…';
+  try {
+    const c = await F('cloudWeb', { provider });
+    if (!c || c.error || !c.user) throw new Error((c && c.error) || 'No se pudo entrar');
+    await cloudPaint(c); toast('Sesión iniciada correctamente');
+    msg.textContent = 'Sesión iniciada correctamente · ' + (c.user.name || c.user.email);
+  } catch (e) { msg.style.color = '#f87171'; msg.textContent = e.message || 'No se pudo entrar'; toast(e.message || 'No se pudo entrar'); }
+}
+document.getElementById('cloud-google').onclick = () => cloudWeb('google');
+document.getElementById('cloud-discord').onclick = () => cloudWeb('discord');
 document.getElementById('cloud-out').onclick = async () => { cloudPaint(await F('cloudLogout')); };
 document.getElementById('cloud-file').onclick = async () => {
   const rows = Object.values((S && S.devices) || {});
@@ -542,10 +556,10 @@ let intLast = 0, intRows = [], intOn = false;
 async function intPoll() {
   const c = await F('cloudStatus'); $('intcard').style.display = c && c.user && c.user.isOwner ? 'block' : 'none';
   if (!(c && c.user && c.user.isOwner)) return;
-  const r = await F('intList', intLast); if (!r || r.error) return;
+  const r = await F('intList', 0); if (!r || r.error) return;
   intOn = r.running; $('int-toggle').textContent = intOn ? 'Detener' : 'Iniciar'; $('int-st').textContent = intOn ? 'Escuchando en el puerto ' + r.port : 'Detenido';
-  if (r.items && r.items.length) { intLast = r.last; intRows = r.items.concat(intRows).slice(0, 300); }
-  $('int-rows').innerHTML = intRows.map(e => `<tr title="${esc(e.url)}"><td>${new Date(e.t).toLocaleTimeString()}</td><td class="mono">${esc(e.src)}</td><td>${esc(e.method)}</td><td class="mono" style="max-width:420px;overflow:hidden;text-overflow:ellipsis">${esc(e.url)}</td><td>${e.status || '—'}</td><td>${e.ms ?? '—'}</td></tr>`).join('');
+  intRows = (r.items || []).slice().reverse();
+  $('int-rows').innerHTML = intRows.map(e => `<tr title="${esc(e.url)}"><td>${new Date(e.t).toLocaleTimeString()}</td><td class="mono">${esc(e.src)}</td><td><b>${esc(e.proto || '')}</b></td><td>${esc(e.method)}</td><td class="mono" style="max-width:340px;overflow:hidden;text-overflow:ellipsis">${esc(e.sni ? (/:\d+$/.test(e.sni) ? e.sni : e.sni + ':' + e.port) : e.url)}</td><td class="mono small" style="max-width:300px;overflow:hidden;text-overflow:ellipsis">${esc([e.tls, e.alpn, e.ua, e.banner, e.dstIp, e.error].filter(Boolean).join(' · '))}</td><td>${e.status || '--'}</td><td>${e.ms ?? '--'}</td><td>${e.up != null ? e.up + ' / ' + (e.down || 0) : '--'}</td></tr>`).join('');
 }
 $('int-toggle').onclick = async () => { const r = await F(intOn ? 'intStop' : 'intStart', $('int-port').value); if (r && r.error) toast(r.error); intPoll(); };
 $('int-clear').onclick = async () => { await F('intClear'); intRows = []; intLast = 0; intPoll(); };

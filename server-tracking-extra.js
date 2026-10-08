@@ -584,27 +584,29 @@ module.exports = function register(app, ctx) {
   app.post('/api/tracking/projects/:id/topology/seed', requireAuth, (req, res) => {
     const p = canAccessProject(req.user.id, req.params.id);
     if (!p) return res.status(404).json({ error: 'Proyecto no encontrado' });
-    // Clear existing
     db.set('topologyNodes', (db.get('topologyNodes').value() || []).filter(n => n.projectId !== p.id)).write();
     db.set('topologyLinks', (db.get('topologyLinks').value() || []).filter(l => l.projectId !== p.id)).write();
-    const nodes = [
-      { id: uuid(), projectId: p.id, type: 'network', name: 'IoT VLAN', x: 200, y: 80, meta: { cidr: '10.0.1.0/24' }, createdAt: new Date().toISOString() },
-      { id: uuid(), projectId: p.id, type: 'gateway', name: 'Cellular GW', x: 100, y: 200, meta: {}, createdAt: new Date().toISOString() },
-      { id: uuid(), projectId: p.id, type: 'gateway', name: 'Sat GW', x: 300, y: 200, meta: {}, createdAt: new Date().toISOString() },
-      { id: uuid(), projectId: p.id, type: 'host', name: 'mqtt-broker', x: 200, y: 320, meta: { ip: '10.0.1.20' }, createdAt: new Date().toISOString() },
-      { id: uuid(), projectId: p.id, type: 'host', name: 'tracking-api', x: 350, y: 320, meta: { ip: '10.0.1.30' }, createdAt: new Date().toISOString() },
-      { id: uuid(), projectId: p.id, type: 'device', name: 'Tracker fleet', x: 50, y: 320, meta: {}, createdAt: new Date().toISOString() },
-    ];
-    for (const n of nodes) db.get('topologyNodes').push(n).write();
-    const links = [
-      { id: uuid(), projectId: p.id, from: nodes[5].id, to: nodes[1].id, type: 'radio', createdAt: new Date().toISOString() },
-      { id: uuid(), projectId: p.id, from: nodes[1].id, to: nodes[0].id, type: 'network', createdAt: new Date().toISOString() },
-      { id: uuid(), projectId: p.id, from: nodes[2].id, to: nodes[0].id, type: 'network', createdAt: new Date().toISOString() },
-      { id: uuid(), projectId: p.id, from: nodes[0].id, to: nodes[3].id, type: 'network', createdAt: new Date().toISOString() },
-      { id: uuid(), projectId: p.id, from: nodes[0].id, to: nodes[4].id, type: 'network', createdAt: new Date().toISOString() },
-    ];
-    for (const l of links) db.get('topologyLinks').push(l).write();
-    res.json({ nodes, links });
+    const now = () => new Date().toISOString();
+    const nodes = [], links = [];
+    const add = (type, name, x, y, meta) => { const n = { id: uuid(), projectId: p.id, type, name: String(name || '?').slice(0, 22), x: Math.round(x), y: Math.round(y), meta: meta || {}, createdAt: now() }; nodes.push(n); return n; };
+    const lk = (a, b, type) => links.push({ id: uuid(), projectId: p.id, from: a.id, to: b.id, type: type || 'network', createdAt: now() });
+    // El entorno virtual sale de la red REAL que publica el exe de esta cuenta
+    let snap = null; try { snap = (db.get('agentSnapshots').value() || {})[req.user.id] || null; } catch (_) {}
+    const devs = ((snap && snap.devices) || []).filter(d => d && !d.deleted && d.ip).slice(0, 24);
+    if (devs.length) {
+      const cidr = snap.cidr || snap.subnet || (devs[0].ip.split('.').slice(0, 3).join('.') + '.0/24');
+      const net = add('network', 'LAN ' + cidr, 240, 26, { cidr, real: true });
+      const gwD = devs.find(d => d.isGateway) || null;
+      const gw = add('gateway', gwD ? (gwD.name || gwD.hostname || gwD.ip) : 'Gateway', 240, 82, { ip: gwD && gwD.ip, real: true }); lk(net, gw);
+      const rest = devs.filter(d => d !== gwD), cols = Math.min(8, Math.max(1, rest.length)), sx = 460 / cols;
+      rest.forEach((d, i) => { const c = i % cols, r = Math.floor(i / cols); const n = add(d.type === 'router' || d.type === 'ap' ? 'gateway' : d.type === 'server' || d.type === 'nas' ? 'host' : 'device', d.name || d.hostname || d.vendor || d.ip, 10 + sx * c + sx / 2, 150 + r * 44 + (c % 2 ? 18 : 0), { ip: d.ip, mac: d.mac, vendor: d.vendor, online: d.online, real: true }); lk(gw, n, 'ethernet'); });
+      return res.json({ nodes, links, real: true });
+    }
+    // Sin exe conectado: ejemplo mínimo (conectá el exe con tu cuenta para ver tu red real)
+    const nw = add('network', 'IoT VLAN', 240, 26, { cidr: '10.0.1.0/24' }), g1 = add('gateway', 'Cellular GW', 130, 100, {}), g2 = add('gateway', 'Sat GW', 350, 100, {});
+    const h1 = add('host', 'mqtt-broker', 150, 190, { ip: '10.0.1.20' }), h2 = add('host', 'tracking-api', 330, 190, { ip: '10.0.1.30' }), dv = add('device', 'Tracker fleet', 40, 190, {});
+    lk(dv, g1, 'radio'); lk(g1, nw); lk(g2, nw); lk(nw, h1); lk(nw, h2);
+    res.json({ nodes, links, real: false });
   });
 
   // =====================================================================

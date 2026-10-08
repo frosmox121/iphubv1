@@ -179,6 +179,18 @@
       const el = document.createElement('div');
       el.className = 'ws-card' + (w.size === 'wide' ? ' wide' : '') + (w.size === 'tall' ? ' tall' : '');
       el.innerHTML = `<h4><span>${esc(T[w.type] || w.type)}</span><span class="ws-ctl"><button class="ws-rm" type="button" data-act="up" title="Subir">↑</button><button class="ws-rm" type="button" data-act="size" title="Tamaño">⤢</button>${SECTION[w.type] ? '<button class="ws-rm" type="button" data-act="go" title="Abrir sección">↗</button>' : ''}<button class="ws-rm" type="button" data-act="rm" title="Quitar">✕</button></span></h4><div class="ws-body"><p class="muted small">Cargando…</p></div>`;
+      if (w.w) el.style.width = w.w + 'px'; if (w.h) el.style.height = w.h + 'px'; if (w.min) el.classList.add('ws-min');
+      const h4 = el.querySelector('h4');
+      h4.title = 'Arrastrá para mover · doble clic para minimizar';
+      h4.addEventListener('mousedown', ev => { if (!ev.target.closest('.ws-ctl')) el.draggable = true; });
+      h4.addEventListener('dblclick', ev => { if (ev.target.closest('.ws-ctl')) return; w.min = !w.min; el.classList.toggle('ws-min', !!w.min); autosave(); });
+      el.addEventListener('dragstart', ev => { ev.dataTransfer.setData('text/plain', String(i)); ev.dataTransfer.effectAllowed = 'move'; el.classList.add('ws-drag'); });
+      el.addEventListener('dragend', () => { el.draggable = false; el.classList.remove('ws-drag'); document.querySelectorAll('.ws-over').forEach(x => x.classList.remove('ws-over')); });
+      el.addEventListener('dragover', ev => { ev.preventDefault(); el.classList.add('ws-over'); });
+      el.addEventListener('dragleave', () => el.classList.remove('ws-over'));
+      el.addEventListener('drop', ev => { ev.preventDefault(); const from = +ev.dataTransfer.getData('text/plain'); if (isNaN(from) || from === i) return; const l = ws().widgets; const [m] = l.splice(from, 1); l.splice(i, 0, m); autosave(); load(); });
+      let r0 = null; el.addEventListener('mousedown', () => { const r = el.getBoundingClientRect(); r0 = [r.width, r.height]; });
+      addEventListener('mouseup', () => { if (!r0 || !el.isConnected) return; const r = el.getBoundingClientRect(); if (Math.abs(r.width - r0[0]) > 3 || Math.abs(r.height - r0[1]) > 3) { w.w = Math.round(r.width); w.h = Math.round(r.height); autosave(); } r0 = null; });
       g.appendChild(el);
       const b = el.querySelector('.ws-body');
       Promise.resolve().then(() => (body[w.type] || (x => { x.innerHTML = '<p class="muted small">Widget desconocido.</p>'; }))(b, w, i)).catch(e => { b.innerHTML = '<p class="muted small">' + esc(e.message) + '</p>'; });

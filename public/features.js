@@ -285,7 +285,7 @@ document.getElementById('tickets-list')?.addEventListener('click', async e => {
  * RESEÑAS / FEEDBACK
  * ===================================================================== */
 let RATING = 0;
-const paintStars = (el, n) => [...el.querySelectorAll('span')].forEach(s => s.classList.toggle('active', +s.dataset.v <= n));
+const paintStars = (el, n) => [...el.querySelectorAll('span')].forEach(s => { const on = +s.dataset.v <= n; s.classList.toggle('active', on); s.style.color = on ? '#fbbf24' : ''; });
 document.getElementById('stars')?.addEventListener('click', e => {
   const s = e.target.closest('span[data-v]'); if (!s) return;
   RATING = +s.dataset.v; paintStars(e.currentTarget, RATING);
@@ -550,7 +550,7 @@ if (cv) {
  * CHATBOT (usa /api/chat; con GROQ/OPENAI en .env responde con IA)
  * ===================================================================== */
 (function chatbot() {
-  const wrap = document.createElement('div'); wrap.className = 'ipbot'; wrap.id = 'ipbot';
+  document.querySelectorAll('#ipbot,.ipbot').forEach(x => x.remove()); const wrap = document.createElement('div'); wrap.className = 'ipbot'; wrap.id = 'ipbot';
   wrap.innerHTML = `<div class="ipbot-win hidden" id="ipbot-win"><div class="ipbot-head"><span class="ipbot-title"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Asistente IPHub</span><div class="ipbot-ctl"><button class="ipbot-x" id="ipbot-min" title="Minimizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg></button><button class="ipbot-x" id="ipbot-x" title="Cerrar chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></div>
       <div class="ipbot-msgs" id="ipbot-msgs"></div>
       <input id="ipbot-in" class="global-search" placeholder="Escribí y Enter…" autocomplete="off">
@@ -757,4 +757,20 @@ addEventListener('popstate', () => { try { applyRoute(); } catch (_) {} });
   fab.addEventListener('click', e => { if (block) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
   fab.addEventListener('contextmenu', e => { if (drag) e.preventDefault(); });
   fab.style.touchAction = 'none'; fab.style.userSelect = 'none';
+})();
+
+
+/* =====================================================================
+ * CLAVE API: ocultar/mostrar, copiar y ejemplo de uso
+ * ===================================================================== */
+(function apiKeyUI() {
+  const code = document.getElementById('api-key'); if (!code) return;
+  const g = id => document.getElementById(id);
+  const ex = () => { const k = (code.textContent || '').trim(); const el = g('api-curl'); if (el) el.textContent = k && k.length > 8 ? `curl -H "x-api-key: ${k}" ${location.origin}/api/auth/me` : 'Iniciá sesión para ver tu clave'; };
+  code.classList.add('masked'); ex();
+  new MutationObserver(ex).observe(code, { childList: true, characterData: true, subtree: true });
+  g('api-show')?.addEventListener('click', e => { const m = code.classList.toggle('masked'); e.currentTarget.textContent = m ? 'Mostrar' : 'Ocultar'; });
+  g('api-copy')?.addEventListener('click', async () => { try { await navigator.clipboard.writeText((code.textContent || '').trim()); toast('Clave copiada'); } catch (_) { const r = document.createRange(); r.selectNodeContents(code); getSelection().removeAllRanges(); getSelection().addRange(r); toast('Seleccionada: copiala con Ctrl+C'); } });
+  g('api-copy-curl')?.addEventListener('click', async () => { try { await navigator.clipboard.writeText(g('api-curl').textContent); toast('Ejemplo copiado'); } catch (_) {} });
+  g('regen-key-btn')?.addEventListener('click', () => setTimeout(() => code.classList.add('masked'), 50));
 })();
